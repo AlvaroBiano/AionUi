@@ -7,6 +7,7 @@
 import type { TChatConversation } from '@/common/storage';
 import AcpAgentManager from './task/AcpAgentManager';
 import { CodexAgentManager } from '@/agent/codex';
+import NanoBotAgentManager from './task/NanoBotAgentManager';
 import OpenClawAgentManager from './task/OpenClawAgentManager';
 // import type { AcpAgentTask } from './task/AcpAgentTask';
 import { ProcessChat } from './initStorage';
@@ -58,6 +59,8 @@ const buildConversation = (conversation: TChatConversation, options?: BuildConve
           enabledSkills: conversation.extra.enabledSkills,
           // Runtime options / 运行时选项
           yoloMode: options?.yoloMode,
+          // Persisted session mode for resume / 持久化的会话模式用于恢复
+          sessionMode: conversation.extra.sessionMode,
         },
         conversation.model
       );
@@ -85,6 +88,8 @@ const buildConversation = (conversation: TChatConversation, options?: BuildConve
         conversation_id: conversation.id,
         // Runtime options / 运行时选项
         yoloMode: options?.yoloMode,
+        // Persisted session mode for resume / 持久化的会话模式用于恢复
+        sessionMode: conversation.extra.sessionMode,
       });
       if (!options?.skipCache) {
         taskList.push({ id: conversation.id, task });
@@ -96,6 +101,17 @@ const buildConversation = (conversation: TChatConversation, options?: BuildConve
         ...conversation.extra,
         conversation_id: conversation.id,
         // Runtime options / 运行时选项
+        yoloMode: options?.yoloMode,
+      });
+      if (!options?.skipCache) {
+        taskList.push({ id: conversation.id, task });
+      }
+      return task;
+    }
+    case 'nanobot': {
+      const task = new NanoBotAgentManager({
+        ...conversation.extra,
+        conversation_id: conversation.id,
         yoloMode: options?.yoloMode,
       });
       if (!options?.skipCache) {

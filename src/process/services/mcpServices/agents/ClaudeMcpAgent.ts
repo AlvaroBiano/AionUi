@@ -8,13 +8,16 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { McpOperationResult } from '../McpProtocol';
 import { AbstractMcpAgent } from '../McpProtocol';
-import type { IMcpServer } from '../../../../common/storage';
+import type { IMcpServer } from '@/common/storage';
+import { getEnhancedEnv } from '@process/utils/shellEnv';
 
 const execAsync = promisify(exec);
+/** Env options for exec calls — ensures CLI is found from Finder/launchd launches */
+const getExecEnv = () => ({ env: { ...getEnhancedEnv(), NODE_OPTIONS: '' } });
 
 /**
  * Claude Code MCP代理实现
- * 注意：Claude CLI 目前只支持 stdio 传输类型，不支持 SSE/HTTP/streamable_http
+ * Claude CLI 支持 stdio, sse, http 传输类型
  */
 export class ClaudeMcpAgent extends AbstractMcpAgent {
   constructor() {
@@ -22,7 +25,8 @@ export class ClaudeMcpAgent extends AbstractMcpAgent {
   }
 
   getSupportedTransports(): string[] {
-    return ['stdio'];
+    // Claude CLI 支持 stdio, sse, http 传输类型 (streamable_http maps to http)
+    return ['stdio', 'sse', 'http', 'streamable_http'];
   }
 
   /**
@@ -34,7 +38,7 @@ export class ClaudeMcpAgent extends AbstractMcpAgent {
         // 使用Claude Code CLI命令获取MCP配置
         const { stdout: result } = await execAsync('claude mcp list', {
           timeout: this.timeout,
-          env: { ...process.env, NODE_OPTIONS: '' }, // 清除调试选项，避免调试器附加
+          ...getExecEnv(),
         });
 
         // 如果没有配置任何MCP服务器，返回空数组
@@ -139,8 +143,9 @@ export class ClaudeMcpAgent extends AbstractMcpAgent {
             // 使用Claude Code CLI添加MCP服务器到user scope（全局配置）
             // AionUi是全局工具，MCP配置应该对所有项目可用
             // 格式: claude mcp add -s user <name> <command> -- [args...] [env_options]
+            // Quote env values to protect URLs and special characters from shell interpretation
             const envArgs = Object.entries(server.transport.env || {})
-              .map(([key, value]) => `-e ${key}=${value}`)
+              .map(([key, value]) => `-e "${key}=${value}"`)
               .join(' ');
 
             let command = `claude mcp add -s user "${server.name}" "${server.transport.command}"`;
@@ -163,15 +168,36 @@ export class ClaudeMcpAgent extends AbstractMcpAgent {
             try {
               await execAsync(command, {
                 timeout: 5000,
-                env: { ...process.env, NODE_OPTIONS: '' }, // 清除调试选项，避免调试器附加
+                ...getExecEnv(),
               });
               console.log(`[ClaudeMcpAgent] Added MCP server: ${server.name}`);
             } catch (error) {
               console.warn(`Failed to add MCP ${server.name} to Claude Code:`, error);
               // 继续处理其他服务器，不要因为一个失败就停止
             }
-          } else {
-            console.warn(`Skipping ${server.name}: Claude CLI only supports stdio transport type`);
+          } else if (server.transport.type === 'sse' || server.transport.type === 'http' || server.transport.type === 'streamable_http') {
+            // 处理 SSE/HTTP/Streamable HTTP 传输类型
+            // Claude CLI 使用 --transport http 处理 HTTP 和 Streamable HTTP
+            // 格式: claude mcp add -s user --transport <type> <name> <url> [--header ...]
+            const transportFlag = server.transport.type === 'streamable_http' ? 'http' : server.transport.type;
+            let command = `claude mcp add -s user --transport ${transportFlag} "${server.name}" "${server.transport.url}"`;
+
+            // 添加 headers
+            if (server.transport.headers) {
+              for (const [key, value] of Object.entries(server.transport.headers)) {
+                command += ` --header "${key}: ${value}"`;
+              }
+            }
+
+            try {
+              await execAsync(command, {
+                timeout: 5000,
+                ...getExecEnv(),
+              });
+              console.log(`[ClaudeMcpAgent] Added MCP server: ${server.name}`);
+            } catch (error) {
+              console.warn(`Failed to add MCP ${server.name} to Claude Code:`, error);
+            }
           }
         }
         return { success: true };
@@ -200,7 +226,7 @@ export class ClaudeMcpAgent extends AbstractMcpAgent {
             const removeCommand = `claude mcp remove -s ${scope} "${mcpServerName}"`;
             const result = await execAsync(removeCommand, {
               timeout: 5000,
-              env: { ...process.env, NODE_OPTIONS: '' }, // 清除调试选项，避免调试器附加
+              ...getExecEnv(),
             });
 
             // 检查是否成功删除

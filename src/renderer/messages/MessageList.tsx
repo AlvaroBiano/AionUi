@@ -49,7 +49,7 @@ const MessageItem: React.FC<{ message: TMessage }> = React.memo(
     const { message } = props as { message: TMessage };
     return (
       <div
-        className={classNames('flex items-start message-item [&>div]:max-w-full px-8px m-t-10px max-w-full md:max-w-780px mx-auto', message.type, {
+        className={classNames('min-w-0 flex items-start message-item [&>div]:max-w-full px-8px m-t-10px max-w-full md:max-w-780px mx-auto', message.type, {
           'justify-center': message.position === 'center',
           'justify-end': message.position === 'right',
           'justify-start': message.position === 'left',
@@ -82,6 +82,8 @@ const MessageItem: React.FC<{ message: TMessage }> = React.memo(
         return <MessageCodexToolCall message={message}></MessageCodexToolCall>;
       case 'plan':
         return <MessagePlan message={message}></MessagePlan>;
+      case 'available_commands':
+        return null;
       default:
         return <div>{t('messages.unknownMessageType', { type: (message as any).type })}</div>;
     }
@@ -116,6 +118,8 @@ const MessageList: React.FC<{ className?: string }> = () => {
 
     for (let i = 0, len = list.length; i < len; i++) {
       const message = list[i];
+      // Skip available_commands messages
+      if (message.type === 'available_commands') continue;
       if (message.type === 'codex_tool_call' && message.content.subtype === 'turn_diff') {
         pushFileDffChanges(parseDiff((message.content as TurnDiffContent).data.unified_diff));
         continue;

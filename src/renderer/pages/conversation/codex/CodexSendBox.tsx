@@ -20,6 +20,7 @@ import HorizontalFileList from '@/renderer/components/HorizontalFileList';
 import { usePreviewContext } from '@/renderer/pages/conversation/preview';
 import { useLatestRef } from '@/renderer/hooks/useLatestRef';
 import { useAutoTitle } from '@/renderer/hooks/useAutoTitle';
+import AgentModeSelector from '@/renderer/components/AgentModeSelector';
 
 interface CodexDraftData {
   _type: 'codex';
@@ -49,6 +50,10 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
     description: '',
     subject: '',
   });
+
+  // Track whether current turn has content output
+  // Only reset aiProcessing when finish arrives after content (not after tool calls)
+  const hasContentInTurnRef = useRef(false);
 
   // Think 消息节流：限制更新频率，减少渲染次数
   // Throttle thought updates to reduce render frequency
@@ -120,13 +125,21 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
   const setContentRef = useLatestRef(setContent);
   const atPathRef = useLatestRef(atPath);
 
-  // 当会话ID变化时，清理所有状态避免状态污染
+  // Reset state when conversation changes and restore actual running status
   useEffect(() => {
-    // 重置所有运行状态，避免切换会话时状态污染
     setRunning(false);
     setAiProcessing(false);
     setCodexStatus(null);
     setThought({ subject: '', description: '' });
+    hasContentInTurnRef.current = false;
+
+    // Check actual conversation status from backend
+    void ipcBridge.conversation.get.invoke({ id: conversation_id }).then((res) => {
+      if (!res) return;
+      if (res.status === 'running') {
+        setAiProcessing(true);
+      }
+    });
   }, [conversation_id]);
 
   // 注册预览面板添加到发送框的 handler
@@ -161,12 +174,24 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
         case 'thought':
           throttledSetThought(message.data as ThoughtData);
           break;
+        case 'codex_model_info':
+          // Handled by AcpModelSelector, ignore here
+          break;
         case 'finish':
-          throttledSetThought(message.data as ThoughtData);
-          setAiProcessing(false);
+          // Only reset when current turn has content output
+          // Tool-only turns (no content) should not reset aiProcessing
+          if (hasContentInTurnRef.current) {
+            setRunning(false);
+            setAiProcessing(false);
+            setThought({ subject: '', description: '' });
+          }
+          // Reset flag for next turn
+          hasContentInTurnRef.current = false;
           break;
         case 'content':
         case 'codex_permission': {
+          // Mark that current turn has content output
+          hasContentInTurnRef.current = true;
           setThought({ subject: '', description: '' });
           const transformedMessage = transformMessage(message);
           if (transformedMessage) {
@@ -184,7 +209,8 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
           break;
         }
         default: {
-          setRunning(false);
+          // Mark that current turn has content output (for other message types like error, user_content, etc.)
+          hasContentInTurnRef.current = true;
           setThought({ subject: '', description: '' });
           const transformedMessage = transformMessage(message);
           if (transformedMessage) {
@@ -267,9 +293,10 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
       });
       void checkAndUpdateTitle(conversation_id, message);
       emitter.emit('chat.history.refresh');
-    } finally {
-      // Clear waiting state when done
+    } catch (error) {
+      // Only reset aiProcessing on error, normal flow is reset by 'finish' event
       setAiProcessing(false);
+      throw error;
     }
   };
 
@@ -329,8 +356,7 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
       } catch (err) {
         // 发送失败时清理处理标记，允许重试
         sessionStorage.removeItem(processedKey);
-      } finally {
-        // Clear waiting state
+        // Only reset aiProcessing on error, normal flow is reset by 'finish' event
         setAiProcessing(false);
       }
     };
@@ -356,6 +382,7 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
       setRunning(false);
       setAiProcessing(false);
       setThought({ subject: '', description: '' });
+      hasContentInTurnRef.current = false;
     }
   };
 
@@ -385,19 +412,24 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
         onStop={handleStop}
         onFilesAdded={handleFilesAdded}
         supportedExts={allSupportedExts}
+        defaultMultiLine={true}
+        lockMultiLine={true}
         tools={
-          <Button
-            type='secondary'
-            shape='circle'
-            icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
-            onClick={() => {
-              void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
-                if (files && files.length > 0) {
-                  setUploadFile([...uploadFile, ...files]);
-                }
-              });
-            }}
-          />
+          <div className='flex items-center gap-4px'>
+            <Button
+              type='secondary'
+              shape='circle'
+              icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
+              onClick={() => {
+                void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
+                  if (files && files.length > 0) {
+                    setUploadFile([...uploadFile, ...files]);
+                  }
+                });
+              }}
+            />
+            <AgentModeSelector backend='codex' conversationId={conversation_id} compact />
+          </div>
         }
         prefix={
           <>

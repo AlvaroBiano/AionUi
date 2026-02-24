@@ -21,6 +21,7 @@ import HorizontalFileList from '@/renderer/components/HorizontalFileList';
 import { usePreviewContext } from '@/renderer/pages/conversation/preview';
 import { useLatestRef } from '@/renderer/hooks/useLatestRef';
 import { useAutoTitle } from '@/renderer/hooks/useAutoTitle';
+import AgentModeSelector from '@/renderer/components/AgentModeSelector';
 
 const useAcpSendBoxDraft = getSendBoxDraftHook('acp', {
   _type: 'acp',
@@ -38,6 +39,15 @@ const useAcpMessage = (conversation_id: string) => {
   });
   const [acpStatus, setAcpStatus] = useState<'connecting' | 'connected' | 'authenticated' | 'session_active' | 'disconnected' | 'error' | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false); // New loading state for AI response
+
+  // Use refs to sync state for immediate access in event handlers
+  // 使用 ref 同步状态，以便在事件处理程序中立即访问
+  const runningRef = useRef(running);
+  const aiProcessingRef = useRef(aiProcessing);
+
+  // Track whether current turn has content output
+  // Only reset aiProcessing when finish arrives after content (not after tool calls)
+  const hasContentInTurnRef = useRef(false);
 
   // Think 消息节流：限制更新频率，减少渲染次数
   // Throttle thought updates to reduce render frequency
@@ -93,25 +103,65 @@ const useAcpMessage = (conversation_id: string) => {
       if (conversation_id !== message.conversation_id) {
         return;
       }
+
+      // Cancel pending finish timeout if new message arrives
+      // 如果新消息到达，取消待处理的 finish timeout
+      const pendingTimeout = (window as unknown as { __acpFinishTimeout?: ReturnType<typeof setTimeout> }).__acpFinishTimeout;
+      if (pendingTimeout && message.type !== 'finish') {
+        clearTimeout(pendingTimeout);
+        (window as unknown as { __acpFinishTimeout?: ReturnType<typeof setTimeout> }).__acpFinishTimeout = undefined;
+      }
+
       const transformedMessage = transformMessage(message);
       switch (message.type) {
         case 'thought':
+          // Auto-recover running state if thought arrives after finish
+          // 如果 thought 在 finish 后到达，自动恢复 running 状态
+          if (!runningRef.current) {
+            setRunning(true);
+            runningRef.current = true;
+          }
           throttledSetThought(message.data as ThoughtData);
           break;
         case 'start':
           setRunning(true);
+          runningRef.current = true;
+          // Don't reset aiProcessing here - let content arrival handle it
+          // 不在这里重置 aiProcessing - 让 content 到达时处理
           break;
         case 'finish':
-          setRunning(false);
-          setAiProcessing(false);
-          setThought({ subject: '', description: '' });
+          {
+            // Use delayed reset to detect true end of task
+            // 使用延迟重置来检测任务的真正结束
+            const timeoutId = setTimeout(() => {
+              setRunning(false);
+              runningRef.current = false;
+              setAiProcessing(false);
+              aiProcessingRef.current = false;
+              setThought({ subject: '', description: '' });
+            }, 1000);
+            (window as unknown as { __acpFinishTimeout?: ReturnType<typeof setTimeout> }).__acpFinishTimeout = timeoutId;
+            hasContentInTurnRef.current = false;
+          }
           break;
         case 'content':
+          // Mark that current turn has content output
+          hasContentInTurnRef.current = true;
+          // Auto-recover running state if content arrives after finish
+          if (!runningRef.current) {
+            setRunning(true);
+            runningRef.current = true;
+          }
           // Clear thought when final answer arrives
           setThought({ subject: '', description: '' });
           addOrUpdateMessage(transformedMessage);
           break;
         case 'agent_status': {
+          // Auto-recover running state if agent_status arrives after finish
+          if (!runningRef.current) {
+            setRunning(true);
+            runningRef.current = true;
+          }
           // Update ACP/Agent status
           const agentData = message.data as {
             status?: 'connecting' | 'connected' | 'authenticated' | 'session_active' | 'disconnected' | 'error';
@@ -122,6 +172,14 @@ const useAcpMessage = (conversation_id: string) => {
             // Reset running state when authentication is complete
             if (['authenticated', 'session_active'].includes(agentData.status)) {
               setRunning(false);
+              runningRef.current = false;
+            }
+            // Reset all loading states on error or disconnect so UI doesn't stay stuck
+            if (['error', 'disconnected'].includes(agentData.status)) {
+              setRunning(false);
+              runningRef.current = false;
+              setAiProcessing(false);
+              aiProcessingRef.current = false;
             }
           }
           addOrUpdateMessage(transformedMessage);
@@ -131,14 +189,30 @@ const useAcpMessage = (conversation_id: string) => {
           addOrUpdateMessage(transformedMessage);
           break;
         case 'acp_permission':
+          // Auto-recover running state if permission request arrives after finish
+          if (!runningRef.current) {
+            setRunning(true);
+            runningRef.current = true;
+          }
           addOrUpdateMessage(transformedMessage);
           break;
+        case 'acp_model_info':
+          // Model info updates are handled by AcpModelSelector, no action needed here
+          break;
         case 'error':
-          // Stop AI processing state when error occurs
+          // Stop all loading states when error occurs
+          setRunning(false);
+          runningRef.current = false;
           setAiProcessing(false);
+          aiProcessingRef.current = false;
           addOrUpdateMessage(transformedMessage);
           break;
         default:
+          // Auto-recover running state if other messages arrive after finish
+          if (!runningRef.current) {
+            setRunning(true);
+            runningRef.current = true;
+          }
           addOrUpdateMessage(transformedMessage);
           break;
       }
@@ -150,18 +224,52 @@ const useAcpMessage = (conversation_id: string) => {
     return ipcBridge.acpConversation.responseStream.on(handleResponseMessage);
   }, [handleResponseMessage]);
 
-  // Reset state when conversation changes
+  // Reset state when conversation changes and restore actual running status
   useEffect(() => {
-    setRunning(false);
+    // Clear pending finish timeout when conversation changes
+    const pendingTimeout = (window as unknown as { __acpFinishTimeout?: ReturnType<typeof setTimeout> }).__acpFinishTimeout;
+    if (pendingTimeout) {
+      clearTimeout(pendingTimeout);
+      (window as unknown as { __acpFinishTimeout?: ReturnType<typeof setTimeout> }).__acpFinishTimeout = undefined;
+    }
+
     setThought({ subject: '', description: '' });
     setAcpStatus(null);
-    setAiProcessing(false);
+    hasContentInTurnRef.current = false;
+
+    // Check actual conversation status from backend before resetting running/aiProcessing
+    // to avoid flicker when switching to a running conversation
+    // 先获取后端状态再重置 running/aiProcessing，避免切换到运行中的会话时闪烁
+    void ipcBridge.conversation.get.invoke({ id: conversation_id }).then((res) => {
+      if (!res) {
+        setRunning(false);
+        runningRef.current = false;
+        setAiProcessing(false);
+        aiProcessingRef.current = false;
+        return;
+      }
+      const isRunning = res.status === 'running';
+      setRunning(isRunning);
+      runningRef.current = isRunning;
+      setAiProcessing(isRunning);
+      aiProcessingRef.current = isRunning;
+    });
   }, [conversation_id]);
 
   const resetState = useCallback(() => {
+    // Clear pending finish timeout
+    const pendingTimeout = (window as unknown as { __acpFinishTimeout?: ReturnType<typeof setTimeout> }).__acpFinishTimeout;
+    if (pendingTimeout) {
+      clearTimeout(pendingTimeout);
+      (window as unknown as { __acpFinishTimeout?: ReturnType<typeof setTimeout> }).__acpFinishTimeout = undefined;
+    }
+
     setRunning(false);
+    runningRef.current = false;
     setAiProcessing(false);
+    aiProcessingRef.current = false;
     setThought({ subject: '', description: '' });
+    hasContentInTurnRef.current = false;
   }, []);
 
   return { thought, setThought, running, acpStatus, aiProcessing, setAiProcessing, resetState };
@@ -205,7 +313,8 @@ const useSendBoxDraft = (conversation_id: string) => {
 const AcpSendBox: React.FC<{
   conversation_id: string;
   backend: AcpBackend;
-}> = ({ conversation_id, backend }) => {
+  sessionMode?: string;
+}> = ({ conversation_id, backend, sessionMode }) => {
   const { thought, running, aiProcessing, setAiProcessing, resetState } = useAcpMessage(conversation_id);
   const { t } = useTranslation();
   const { checkAndUpdateTitle } = useAutoTitle();
@@ -418,19 +527,24 @@ const AcpSendBox: React.FC<{
         className='z-10'
         onFilesAdded={handleFilesAdded}
         supportedExts={allSupportedExts}
+        defaultMultiLine={true}
+        lockMultiLine={true}
         tools={
-          <Button
-            type='secondary'
-            shape='circle'
-            icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
-            onClick={() => {
-              void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
-                if (files && files.length > 0) {
-                  setUploadFile([...uploadFile, ...files]);
-                }
-              });
-            }}
-          />
+          <div className='flex items-center gap-4px'>
+            <Button
+              type='secondary'
+              shape='circle'
+              icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
+              onClick={() => {
+                void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
+                  if (files && files.length > 0) {
+                    setUploadFile([...uploadFile, ...files]);
+                  }
+                });
+              }}
+            />
+            <AgentModeSelector backend={backend} conversationId={conversation_id} compact initialMode={sessionMode} />
+          </div>
         }
         prefix={
           <>

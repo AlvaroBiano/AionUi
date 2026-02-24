@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import type { AcpBackend } from '../../../types/acpTypes';
 import type { IMcpServer } from '../../../common/storage';
 import { ClaudeMcpAgent } from './agents/ClaudeMcpAgent';
+import { CodebuddyMcpAgent } from './agents/CodebuddyMcpAgent';
 import { QwenMcpAgent } from './agents/QwenMcpAgent';
 import { IflowMcpAgent } from './agents/IflowMcpAgent';
 import { GeminiMcpAgent } from './agents/GeminiMcpAgent';
@@ -59,6 +60,7 @@ export class McpService {
   constructor() {
     this.agents = new Map([
       ['claude', new ClaudeMcpAgent()],
+      ['codebuddy', new CodebuddyMcpAgent()],
       ['qwen', new QwenMcpAgent()],
       ['iflow', new IflowMcpAgent()],
       ['gemini', new GeminiMcpAgent()],
@@ -163,6 +165,15 @@ export class McpService {
 
     const results = await Promise.all(promises);
     return results.filter((result): result is DetectedMcpServer => result !== null);
+  }
+
+  /**
+   * Get supported transport types for a given agent config.
+   * Fork Gemini (backend='gemini', no cliPath) uses AionuiMcpAgent.
+   */
+  getSupportedTransportsForAgent(agent: { backend: string; cliPath?: string }): string[] {
+    const agentInstance = this.getAgentForConfig(agent as { backend: AcpBackend; cliPath?: string });
+    return agentInstance ? agentInstance.getSupportedTransports() : [];
   }
 
   /**

@@ -21,27 +21,28 @@ type GeminiModeListOptions = {
 };
 
 const defaultGeminiModeDescriptions: GeminiModeDescriptions = {
-  autoGemini3: 'Let Gemini CLI decide the best model for the task: gemini-3-pro-preview, gemini-2.5-flash',
+  autoGemini3: 'Let Gemini CLI decide the best model for the task: gemini-3-pro-preview, gemini-3-flash-preview',
   autoGemini25: 'Let Gemini CLI decide the best model for the task: gemini-2.5-pro, gemini-2.5-flash',
   manual: 'Manually select a model',
 };
 
-// 生成 Gemini 模型列表，与终端 CLI 保持一致 / Build Gemini model list matching terminal CLI
-// TODO: 后端 aioncli-core 需要支持 auto-25 值以实现真正的 Gemini 2.5 auto 模式
-// TODO: Backend aioncli-core needs to support auto-25 value for true Gemini 2.5 auto mode
+// Build Gemini model list matching terminal CLI
+// Values align with aioncli-core model aliases:
+// - 'auto' → PREVIEW_GEMINI_MODEL_AUTO ('auto-gemini-3')
+// - 'auto-gemini-2.5' → DEFAULT_GEMINI_MODEL_AUTO (auto-routes gemini-2.5-pro/flash)
 export const getGeminiModeList = (options?: GeminiModeListOptions): GeminiModeOption[] => {
   const descriptions = options?.descriptions || defaultGeminiModeDescriptions;
 
   return [
     {
       label: 'Auto (Gemini 3)',
-      value: 'auto', // 使用 model router 自动选择 gemini-3-pro-preview 或 gemini-2.5-flash
+      value: 'auto', // Maps to PREVIEW_GEMINI_MODEL_AUTO in config.ts
       description: descriptions.autoGemini3,
-      modelHint: 'gemini-3-pro-preview, gemini-2.5-flash',
+      modelHint: 'gemini-3-pro-preview, gemini-3-flash-preview',
     },
     {
       label: 'Auto (Gemini 2.5)',
-      value: 'gemini-2.5-pro', // 显式使用 gemini-2.5-pro，暂不支持 auto-routing
+      value: 'auto-gemini-2.5', // Maps to DEFAULT_GEMINI_MODEL_AUTO in aioncli-core
       description: descriptions.autoGemini25,
       modelHint: 'gemini-2.5-pro, gemini-2.5-flash',
     },
@@ -57,6 +58,7 @@ export const getGeminiModeList = (options?: GeminiModeListOptions): GeminiModeOp
       // DEFAULT_GEMINI_FLASH_LITE_MODEL = 'gemini-2.5-flash-lite'
       subModels: [
         { label: 'gemini-3-pro-preview', value: 'gemini-3-pro-preview' },
+        { label: 'gemini-3-flash-preview', value: 'gemini-3-flash-preview' },
         { label: 'gemini-2.5-pro', value: 'gemini-2.5-pro' },
         { label: 'gemini-2.5-flash', value: 'gemini-2.5-flash' },
         { label: 'gemini-2.5-flash-lite', value: 'gemini-2.5-flash-lite' },
@@ -96,17 +98,21 @@ const sortGeminiModels = (models: { label: string; value: string }[]) => {
   });
 };
 
-const useModeModeList = (platform: string, base_url?: string, api_key?: string, try_fix?: boolean) => {
-  return useSWR([platform + '/models', { platform, base_url, api_key, try_fix }], async ([_url, { platform, base_url, api_key, try_fix }]): Promise<{ models: { label: string; value: string }[]; fix_base_url?: string }> => {
-    // 如果有 API key 或 base_url，尝试通过 API 获取模型列表
-    if (api_key || base_url) {
-      const res = await ipcBridge.mode.fetchModelList.invoke({ base_url, api_key, try_fix, platform });
+const useModeModeList = (platform: string, base_url?: string, api_key?: string, try_fix?: boolean, bedrockConfig?: { authMethod: 'accessKey' | 'profile'; region: string; accessKeyId?: string; secretAccessKey?: string; profile?: string }) => {
+  return useSWR([platform + '/models', { platform, base_url, api_key, try_fix, bedrockConfig }], async ([_url, { platform, base_url, api_key, try_fix, bedrockConfig }]): Promise<{ models: { label: string; value: string }[]; fix_base_url?: string }> => {
+    // 如果有 API key、base_url 或 bedrockConfig，尝试通过 API 获取模型列表
+    if (api_key || base_url || bedrockConfig) {
+      const res = await ipcBridge.mode.fetchModelList.invoke({ base_url, api_key, try_fix, platform, bedrockConfig });
       if (res.success) {
         let modelList =
-          res.data?.mode.map((v) => ({
-            label: v,
-            value: v,
-          })) || [];
+          res.data?.mode.map((v) => {
+            // Handle both string and object formats (Bedrock returns objects with id and name)
+            if (typeof v === 'string') {
+              return { label: v, value: v };
+            } else {
+              return { label: v.name, value: v.id };
+            }
+          }) || [];
 
         // 如果是 Gemini 平台，优化排序
         if (platform?.includes('gemini')) {
@@ -127,7 +133,7 @@ const useModeModeList = (platform: string, base_url?: string, api_key?: string, 
       return Promise.reject(res.msg);
     }
 
-    // 既没有 API key 也没有 base_url 时，返回空列表
+    // 既没有 API key 也没有 base_url 也没有 bedrockConfig 时，返回空列表
     return { models: [] };
   });
 };

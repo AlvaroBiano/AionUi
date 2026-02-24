@@ -6,7 +6,7 @@
 
 import type { IMessageAcpToolCall, IMessagePlan, IMessageText, TMessage } from '@/common/chatLib';
 import { uuid } from '@/common/utils';
-import type { AcpBackend, AcpSessionUpdate, AgentMessageChunkUpdate, AgentThoughtChunkUpdate, AvailableCommandsUpdate, PlanUpdate, ToolCallUpdate, ToolCallUpdateStatus } from '@/types/acpTypes';
+import type { AcpBackend, AcpSessionUpdate, AgentMessageChunkUpdate, AgentThoughtChunkUpdate, PlanUpdate, ToolCallUpdate, ToolCallUpdateStatus } from '@/types/acpTypes';
 
 /**
  * Adapter class to convert ACP messages to AionUI message format
@@ -101,15 +101,16 @@ export class AcpAdapter {
         break;
       }
 
-      case 'available_commands_update': {
-        const commandsMessage = this.convertAvailableCommandsUpdate(sessionUpdate as AvailableCommandsUpdate);
-        if (commandsMessage) {
-          messages.push(commandsMessage);
-        }
-        // Reset message tracking so next agent_message_chunk gets new msg_id
+      // Config option updates (e.g., model switch) are handled by AcpConnection
+      // directly in handleIncomingRequest; no chat message conversion needed.
+      case 'config_option_update':
+        break;
+
+      // Disabled: available_commands messages are too noisy and distracting in the chat UI
+      case 'available_commands_update':
+        // Still reset message tracking so next agent_message_chunk gets new msg_id
         this.resetMessageTracking();
         break;
-      }
 
       default: {
         // Handle unexpected session update types
@@ -269,39 +270,5 @@ export class AcpAdapter {
     return null;
   }
 
-  /**
-   * Convert available commands update to AionUI message
-   */
-  private convertAvailableCommandsUpdate(update: AvailableCommandsUpdate): TMessage | null {
-    const baseMessage = {
-      id: uuid(),
-      msg_id: uuid(), // 生成独立的 msg_id，避免与其他消息合并
-      conversation_id: this.conversationId,
-      createdAt: Date.now(),
-      position: 'left' as const,
-    };
-
-    const commandsData = update.update;
-    if (commandsData.availableCommands && commandsData.availableCommands.length > 0) {
-      const commandsList = commandsData.availableCommands
-        .map((command) => {
-          let line = `• **${command.name}**: ${command.description}`;
-          if (command.input?.hint) {
-            line += ` (${command.input.hint})`;
-          }
-          return line;
-        })
-        .join('\n');
-
-      return {
-        ...baseMessage,
-        type: 'text',
-        content: {
-          content: `🛠️ **Available Commands**\n\n${commandsList}`,
-        },
-      } as IMessageText;
-    }
-
-    return null;
-  }
+  // Removed: convertAvailableCommandsUpdate - available_commands messages are too noisy and distracting in the chat UI
 }
