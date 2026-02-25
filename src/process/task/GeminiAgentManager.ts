@@ -202,16 +202,21 @@ export class GeminiAgentManager extends BaseAgentManager<
   }
 
   /**
-   * Compute a fingerprint of active MCP servers for change detection.
-   * Returns sorted list of enabled+connected server names as a JSON string.
+   * Compute a fingerprint of ALL MCP servers for change detection.
+   * Includes name, enabled, status and transport key for every server so that
+   * any add / remove / toggle / reconnect / config-change is detected —
+   * even when a server is deleted and re-added with the same name.
    */
   private static computeMcpFingerprint(mcpServers: IMcpServer[] | undefined | null): string {
     if (!mcpServers || !Array.isArray(mcpServers)) return '[]';
-    const names = mcpServers
-      .filter((s: IMcpServer) => s.enabled && s.status === 'connected')
-      .map((s: IMcpServer) => s.name)
-      .sort();
-    return JSON.stringify(names);
+    const entries = mcpServers
+      .map((s: IMcpServer) => {
+        // Include transport identity so config changes (e.g. different command/url) are detected
+        const transportKey = s.transport.type === 'stdio' ? `${s.transport.command}|${(s.transport.args || []).join(',')}` : 'url' in s.transport ? s.transport.url : '';
+        return { n: s.name, e: s.enabled, st: s.status, t: transportKey };
+      })
+      .sort((a, b) => a.n.localeCompare(b.n));
+    return JSON.stringify(entries);
   }
 
   private async getMcpServers(): Promise<Record<string, UiMcpServerConfig>> {
