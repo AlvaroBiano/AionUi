@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const releaseConversationMessageCache = vi.fn();
+const getConversation = vi.fn();
 
 vi.mock('../../src/process/initStorage', () => ({
   ProcessChat: {
@@ -16,7 +17,7 @@ vi.mock('../../src/process/initStorage', () => ({
 
 vi.mock('../../src/process/database/export', () => ({
   getDatabase: vi.fn(() => ({
-    getConversation: vi.fn(() => ({ success: false })),
+    getConversation,
   })),
 }));
 
@@ -55,6 +56,39 @@ describe('WorkerManage.pruneIdleTasks', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-12T00:00:00.000Z'));
     releaseConversationMessageCache.mockReset();
+    getConversation.mockReset();
+    getConversation.mockImplementation((id: string) => {
+      if (id === 'finished-1') {
+        return {
+          success: true,
+          data: {
+            id,
+            source: 'api',
+            extra: {},
+          },
+        };
+      }
+
+      if (id === 'running-1') {
+        return {
+          success: true,
+          data: {
+            id,
+            source: 'api',
+            extra: {},
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          id,
+          source: 'aionui',
+          extra: {},
+        },
+      };
+    });
     vi.resetModules();
   });
 
@@ -64,7 +98,7 @@ describe('WorkerManage.pruneIdleTasks', () => {
     vi.useRealTimers();
   });
 
-  it('evicts finished idle tasks but keeps running tasks and legacy codex tasks', async () => {
+  it('evicts finished API tasks when pruned manually but keeps running and UI tasks', async () => {
     const { default: WorkerManage } = await import('../../src/process/WorkerManage');
 
     const finishedTask = {
@@ -79,8 +113,8 @@ describe('WorkerManage.pruneIdleTasks', () => {
       getConfirmations: () => [],
       kill: vi.fn(),
     } as any;
-    const codexTask = {
-      type: 'codex',
+    const uiTask = {
+      type: 'gemini',
       status: 'finished',
       getConfirmations: () => [],
       kill: vi.fn(),
@@ -88,15 +122,16 @@ describe('WorkerManage.pruneIdleTasks', () => {
 
     WorkerManage.addTask('finished-1', finishedTask);
     WorkerManage.addTask('running-1', runningTask);
-    WorkerManage.addTask('codex-1', codexTask);
+    WorkerManage.addTask('ui-1', uiTask);
 
     vi.advanceTimersByTime(2 * 60 * 1000 + 1000);
     WorkerManage.pruneIdleTasks(Date.now());
 
     expect(finishedTask.kill).toHaveBeenCalledTimes(1);
+    expect(uiTask.kill).not.toHaveBeenCalled();
     expect(WorkerManage.getTaskById('finished-1')).toBeUndefined();
     expect(WorkerManage.getTaskById('running-1')).toBe(runningTask);
-    expect(WorkerManage.getTaskById('codex-1')).toBe(codexTask);
+    expect(WorkerManage.getTaskById('ui-1')).toBe(uiTask);
     expect(releaseConversationMessageCache).toHaveBeenCalledWith('finished-1');
   });
 });

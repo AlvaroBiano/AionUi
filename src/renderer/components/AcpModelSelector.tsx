@@ -60,6 +60,8 @@ const AcpModelSelector: React.FC<{
   const { isOpen: isPreviewOpen } = usePreviewContext();
   const layout = useLayoutContext();
   const [modelInfo, setModelInfo] = useState<AcpModelInfo | null>(() => resolveModelInfo(localModelInfo ?? null, initialModelId));
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
   const modelInfoRef = useRef(modelInfo);
   modelInfoRef.current = modelInfo;
   // Track whether user has manually switched model via dropdown
@@ -218,6 +220,10 @@ const AcpModelSelector: React.FC<{
   });
   const compact = isPreviewOpen || layout?.isMobile;
   const isMobileCompact = Boolean(layout?.isMobile);
+  useEffect(() => {
+    setDropdownVisible(false);
+    setTooltipVisible(false);
+  }, [conversationId, backend, initialModelId, modelInfo]);
 
   // 获取模型配置数据（包含健康状态）
   const { data: modelConfig } = useSWR<IProvider[]>('model.config', () => ipcBridge.mode.getModelConfig.invoke());
@@ -234,7 +240,7 @@ const AcpModelSelector: React.FC<{
   // State 1: No model info — show disabled "Use CLI model" button
   if (!modelInfo) {
     return (
-      <Tooltip content={t('conversation.welcome.modelSwitchNotSupported')} position='top'>
+      <Tooltip content={t('conversation.welcome.modelSwitchNotSupported')} position='top' popupVisible={tooltipVisible} onVisibleChange={setTooltipVisible} unmountOnExit>
         <Button className={classNames('sendbox-model-btn header-model-btn', compact && '!max-w-[120px]', isMobileCompact && '!max-w-[160px]')} shape='round' size='small' style={{ cursor: 'default' }}>
           <span className='flex items-center gap-6px min-w-0'>
             <span className={compact ? 'block truncate' : undefined}>{t('conversation.welcome.useCliModel')}</span>
@@ -247,7 +253,7 @@ const AcpModelSelector: React.FC<{
   // State 2: Has model info but cannot switch — read-only display
   if (!modelInfo.canSwitch) {
     return (
-      <Tooltip content={displayLabel} position='top'>
+      <Tooltip content={displayLabel} position='top' popupVisible={tooltipVisible} onVisibleChange={setTooltipVisible} unmountOnExit>
         <Button className={classNames('sendbox-model-btn header-model-btn', compact && '!max-w-[120px]', isMobileCompact && '!max-w-[160px]')} shape='round' size='small' style={{ cursor: 'default' }}>
           <span className='flex items-center gap-6px min-w-0'>
             {currentModelHealth.status !== 'unknown' && <div className={`w-6px h-6px rounded-full shrink-0 ${currentModelHealth.color}`} />}
@@ -262,6 +268,9 @@ const AcpModelSelector: React.FC<{
   return (
     <Dropdown
       trigger='click'
+      popupVisible={dropdownVisible}
+      onVisibleChange={setDropdownVisible}
+      unmountOnExit
       droplist={
         <Menu>
           {modelInfo.availableModels.map((model) => {
@@ -271,7 +280,14 @@ const AcpModelSelector: React.FC<{
             const healthColor = healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';
 
             return (
-              <Menu.Item key={model.id} className={model.id === modelInfo.currentModelId ? 'bg-2!' : ''} onClick={() => handleSelectModel(model.id)}>
+              <Menu.Item
+                key={model.id}
+                className={model.id === modelInfo.currentModelId ? 'bg-2!' : ''}
+                onClick={() => {
+                  setDropdownVisible(false);
+                  handleSelectModel(model.id);
+                }}
+              >
                 <div className='flex items-center gap-8px w-full'>
                   {healthStatus !== 'unknown' && <div className={`w-6px h-6px rounded-full shrink-0 ${healthColor}`} />}
                   <span>{model.label}</span>

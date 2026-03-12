@@ -17,13 +17,20 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 
+type GeminiModelOption = {
+  label: string;
+  description?: string;
+  modelHint?: string;
+  subModels?: Array<{ label: string; value: string }>;
+};
+
 type GuidModelSelectorProps = {
   // Gemini model state
   isGeminiMode: boolean;
   modelList: IProvider[];
   currentModel: TProviderWithModel | undefined;
   setCurrentModel: (model: TProviderWithModel) => Promise<void>;
-  geminiModeLookup: Map<string, any>;
+  geminiModeLookup: Map<string, GeminiModelOption>;
 
   // ACP model state
   currentAcpCachedModelInfo: AcpModelInfo | null;
@@ -35,6 +42,8 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
   const { t } = useTranslation();
   const navigate = useNavigate();
   const defaultModelLabel = t('common.defaultModel');
+  const [dropdownVisible, setDropdownVisible] = React.useState(false);
+  const [tooltipVisible, setTooltipVisible] = React.useState(false);
 
   // 获取模型配置数据（包含健康状态）
   const { data: modelConfig } = useSWR<IProvider[]>('model.config', () => ipcBridge.mode.getModelConfig.invoke());
@@ -75,10 +84,18 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
     });
   }, [acpSelectedLabel, currentAcpCachedModelInfo?.currentModelId, defaultModelLabel, selectedAcpModel]);
 
+  React.useEffect(() => {
+    setDropdownVisible(false);
+    setTooltipVisible(false);
+  }, [isGeminiMode, currentModel, currentAcpCachedModelInfo, selectedAcpModel]);
+
   if (isGeminiMode) {
     return (
       <Dropdown
         trigger='hover'
+        popupVisible={dropdownVisible}
+        onVisibleChange={setDropdownVisible}
+        unmountOnExit
         droplist={
           <Menu selectedKeys={currentModel ? [currentModel.id + currentModel.useModel] : []}>
             {!enabledModelList || enabledModelList.length === 0
@@ -123,6 +140,7 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
                                     key={provider.id + subModel.value}
                                     className={currentModel?.id + currentModel?.useModel === provider.id + subModel.value ? '!bg-2' : ''}
                                     onClick={() => {
+                                      setDropdownVisible(false);
                                       setCurrentModel({ ...provider, useModel: subModel.value }).catch((error) => {
                                         console.error('Failed to set current model:', error);
                                       });
@@ -141,6 +159,7 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
                               key={provider.id + modelName}
                               className={currentModel?.id + currentModel?.useModel === provider.id + modelName ? '!bg-2' : ''}
                               onClick={() => {
+                                setDropdownVisible(false);
                                 setCurrentModel({ ...provider, useModel: modelName }).catch((error) => {
                                   console.error('Failed to set current model:', error);
                                 });
@@ -203,6 +222,9 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
       return (
         <Dropdown
           trigger='click'
+          popupVisible={dropdownVisible}
+          onVisibleChange={setDropdownVisible}
+          unmountOnExit
           droplist={
             <Menu selectedKeys={selectedAcpModel ? [selectedAcpModel] : []}>
               {currentAcpCachedModelInfo.availableModels.map((model) => {
@@ -213,7 +235,14 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
                 const healthColor = healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';
 
                 return (
-                  <Menu.Item key={model.id} className={model.id === selectedAcpModel ? '!bg-2' : ''} onClick={() => setSelectedAcpModel(model.id)}>
+                  <Menu.Item
+                    key={model.id}
+                    className={model.id === selectedAcpModel ? '!bg-2' : ''}
+                    onClick={() => {
+                      setDropdownVisible(false);
+                      setSelectedAcpModel(model.id);
+                    }}
+                  >
                     <div className='flex items-center gap-8px w-full'>
                       {healthStatus !== 'unknown' && <div className={`w-6px h-6px rounded-full shrink-0 ${healthColor}`} />}
                       <span>{model.label}</span>
@@ -235,7 +264,7 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
     }
 
     return (
-      <Tooltip content={t('conversation.welcome.modelSwitchNotSupported')} position='top'>
+      <Tooltip content={t('conversation.welcome.modelSwitchNotSupported')} position='top' popupVisible={tooltipVisible} onVisibleChange={setTooltipVisible} unmountOnExit>
         <Button className={'sendbox-model-btn guid-config-btn'} shape='round' size='small' style={{ cursor: 'default' }}>
           <span className='flex items-center gap-6px min-w-0'>
             <Brain theme='outline' size='14' fill={iconColors.secondary} className='shrink-0' />
@@ -248,7 +277,7 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({ isGeminiMode, mod
 
   // Fallback: no model switching
   return (
-    <Tooltip content={t('conversation.welcome.modelSwitchNotSupported')} position='top'>
+    <Tooltip content={t('conversation.welcome.modelSwitchNotSupported')} position='top' popupVisible={tooltipVisible} onVisibleChange={setTooltipVisible} unmountOnExit>
       <Button className={'sendbox-model-btn guid-config-btn'} shape='round' size='small' style={{ cursor: 'default' }}>
         <span className='flex items-center gap-6px min-w-0'>
           <Brain theme='outline' size='14' fill={iconColors.secondary} className='shrink-0' />

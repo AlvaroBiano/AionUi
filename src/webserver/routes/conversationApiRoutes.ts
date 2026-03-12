@@ -418,7 +418,7 @@ router.post('/create', async (req: Request, res: Response) => {
         customAgentId,
       },
       name: conversationTitle || undefined,
-      source: 'aionui',
+      source: 'api',
     });
 
     if (!result.success || !result.conversation) {

@@ -7,7 +7,7 @@
 import { ipcBridge } from '@/common';
 import { useLayoutContext } from '@/renderer/context/LayoutContext';
 import { iconColors } from '@/renderer/theme/colors';
-import { Button, Dropdown, Menu, Message, Tooltip } from '@arco-design/web-react';
+import { Button, Dropdown, Menu, Message } from '@arco-design/web-react';
 import { Down, Shield } from '@icon-park/react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +39,10 @@ const CodexSandboxSelector: React.FC<CodexSandboxSelectorProps> = ({ compact = f
   );
 
   const currentOption = sandboxOptions.find((option) => option.value === sandboxMode) || sandboxOptions[1];
+
+  useEffect(() => {
+    setDropdownVisible(false);
+  }, [compact, isSaving, sandboxMode, currentOption?.label]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,8 +109,12 @@ const CodexSandboxSelector: React.FC<CodexSandboxSelectorProps> = ({ compact = f
 
   const compactLabel = isMobile ? currentOption.label : `${t('settings.codexSandbox', { defaultValue: 'Codex Sandbox' })} · ${currentOption.label}`;
 
+  const compactDescription = t('settings.codexSandboxDesc', {
+    defaultValue: 'Applies to new Codex sessions and syncs sandbox_mode to your Codex config.',
+  });
+
   const compactButton = (
-    <Button className='sendbox-model-btn' shape='round' size='small' style={{ opacity: isSaving ? 0.6 : 1 }}>
+    <Button className='sendbox-model-btn' shape='round' size='small' style={{ opacity: isSaving ? 0.6 : 1 }} title={compactDescription}>
       <span className='flex items-center gap-6px min-w-0 leading-none'>
         <span className='shrink-0 inline-flex items-center'>
           <Shield theme='outline' size='14' fill={iconColors.secondary} />
@@ -119,16 +127,14 @@ const CodexSandboxSelector: React.FC<CodexSandboxSelectorProps> = ({ compact = f
 
   if (compact) {
     return (
-      <Tooltip content={t('settings.codexSandboxDesc', { defaultValue: 'Applies to new Codex sessions and syncs sandbox_mode to your Codex config.' })}>
-        <Dropdown trigger='click' popupVisible={dropdownVisible} onVisibleChange={(visible) => !isSaving && setDropdownVisible(visible)} droplist={dropdownMenu}>
-          {compactButton}
-        </Dropdown>
-      </Tooltip>
+      <Dropdown trigger='click' popupVisible={dropdownVisible} onVisibleChange={(visible) => !isSaving && setDropdownVisible(visible)} droplist={dropdownMenu} unmountOnExit>
+        {compactButton}
+      </Dropdown>
     );
   }
 
   return (
-    <Dropdown trigger='click' popupVisible={dropdownVisible} onVisibleChange={(visible) => !isSaving && setDropdownVisible(visible)} droplist={dropdownMenu}>
+    <Dropdown trigger='click' popupVisible={dropdownVisible} onVisibleChange={(visible) => !isSaving && setDropdownVisible(visible)} droplist={dropdownMenu} unmountOnExit>
       <Button shape='round' type='outline' style={{ opacity: isSaving ? 0.6 : 1 }}>
         <span className='flex items-center gap-8px'>
           <Shield theme='outline' size='14' fill={iconColors.secondary} />

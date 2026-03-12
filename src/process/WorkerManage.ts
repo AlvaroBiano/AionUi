@@ -14,7 +14,6 @@ import { ProcessChat } from './initStorage';
 import type AgentBaseTask from './task/BaseAgentManager';
 import { GeminiAgentManager } from './task/GeminiAgentManager';
 import { getDatabase } from './database/export';
-import { cronBusyGuard } from './services/cron/CronBusyGuard';
 import { releaseConversationMessageCache } from './message';
 
 const taskList: {
@@ -25,7 +24,6 @@ const taskList: {
 
 const FINISHED_TASK_IDLE_EVICT_MS = 2 * 60 * 1000;
 const MAX_CACHED_TASKS = 30;
-const TASK_CACHE_CLEANUP_INTERVAL_MS = 30000;
 
 /**
  * Runtime options for building conversations
@@ -65,12 +63,21 @@ const destroyTask = (id: string, task: AgentBaseTask<unknown>) => {
   releaseConversationMessageCache(id);
 };
 
-const shouldKeepTask = (entry: { id: string; task: AgentBaseTask<unknown>; lastUsedAt: number }, now: number): boolean => {
-  if (entry.task.type === 'codex') {
-    return true;
+const isPrunableConversation = (id: string): boolean => {
+  const db = getDatabase();
+  const result = db.getConversation(id);
+  if (!result.success || !result.data) {
+    return false;
   }
 
-  if (cronBusyGuard.isProcessing(entry.id)) {
+  const conversation = result.data;
+  const extra = (conversation.extra || {}) as { isHealthCheck?: boolean };
+
+  return conversation.source === 'api' || extra.isHealthCheck === true;
+};
+
+const shouldKeepTask = (entry: { id: string; task: AgentBaseTask<unknown>; lastUsedAt: number }, now: number): boolean => {
+  if (!isPrunableConversation(entry.id)) {
     return true;
   }
 
@@ -308,7 +315,7 @@ const pruneIdleTasks = (now: number = Date.now()) => {
 
   const overflowCandidates = taskList
     .map((entry, index) => ({ entry, index }))
-    .filter(({ entry }) => entry.task.type !== 'codex' && !cronBusyGuard.isProcessing(entry.id) && entry.task.status === 'finished')
+    .filter(({ entry }) => entry.task.status === 'finished' && isPrunableConversation(entry.id))
     .sort((left, right) => left.entry.lastUsedAt - right.entry.lastUsedAt);
 
   const overflowCount = taskList.length - MAX_CACHED_TASKS;
@@ -326,11 +333,6 @@ const pruneIdleTasks = (now: number = Date.now()) => {
 const listTasks = () => {
   return taskList.map((t) => ({ id: t.id, type: t.task.type }));
 };
-
-const cleanupTimer = setInterval(() => {
-  pruneIdleTasks();
-}, TASK_CACHE_CLEANUP_INTERVAL_MS);
-cleanupTimer.unref?.();
 
 const WorkerManage = {
   buildConversation,
