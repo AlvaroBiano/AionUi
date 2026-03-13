@@ -32,8 +32,10 @@ export const ACP_ROUTED_PRESET_TYPES: readonly PresetAgentType[] = ['claude', 'c
 export const CODEX_ACP_BRIDGE_VERSION = '0.9.5';
 export const CODEX_ACP_NPX_PACKAGE = `@zed-industries/codex-acp@${CODEX_ACP_BRIDGE_VERSION}`;
 
-export const CLAUDE_ACP_BRIDGE_VERSION = '0.18.0';
+export const CLAUDE_ACP_BRIDGE_VERSION = '0.20.2';
 export const CLAUDE_ACP_NPX_PACKAGE = `@zed-industries/claude-agent-acp@${CLAUDE_ACP_BRIDGE_VERSION}`;
+
+export const CODEBUDDY_ACP_NPX_PACKAGE = '@tencent-ai/codebuddy-code';
 
 /**
  * 检查预设 Agent 类型是否需要通过 ACP 后端路由
@@ -357,7 +359,7 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
     id: 'codebuddy',
     name: 'CodeBuddy',
     cliCommand: 'codebuddy',
-    defaultCliPath: 'npx @tencent-ai/codebuddy-code',
+    defaultCliPath: `npx ${CODEBUDDY_ACP_NPX_PACKAGE}`,
     authRequired: true,
     enabled: true, // ✅ Tencent CodeBuddy Code CLI，使用 `codebuddy --acp` 启动
     supportsStreaming: false,
@@ -679,15 +681,6 @@ export interface UserMessageChunkUpdate extends BaseSessionUpdate {
   };
 }
 
-// Usage/statistics update emitted by newer ACP bridges (for example codex-acp).
-// The payload is bridge-specific, so we keep it flexible and treat it as metadata.
-export interface UsageUpdate extends BaseSessionUpdate {
-  update: {
-    sessionUpdate: 'usage_update';
-    [key: string]: unknown;
-  };
-}
-
 // ===== ACP ConfigOption types (stable API) =====
 
 /** A single select option within a config option */
@@ -716,6 +709,41 @@ export interface ConfigOptionsUpdatePayload extends BaseSessionUpdate {
     sessionUpdate: 'config_option_update';
     configOptions: AcpSessionConfigOption[];
   };
+}
+
+/** Usage update notification from ACP backend (context window utilization, supported by claude-agent-acp and codex-acp) */
+export interface UsageUpdatePayload extends BaseSessionUpdate {
+  update: {
+    sessionUpdate: 'usage_update';
+    /** Total tokens currently in context */
+    used?: number;
+    /** Context window capacity (max tokens) */
+    size?: number;
+    /** Cumulative session cost */
+    cost?: {
+      amount: number;
+      currency: string;
+    };
+    [key: string]: unknown;
+  };
+}
+
+export type UsageUpdate = UsageUpdatePayload;
+
+/** Per-turn token usage from PromptResponse (unstable ACP spec, supported by codex-acp) */
+export interface AcpPromptResponseUsage {
+  /** Total input tokens (includes context from previous turns) */
+  inputTokens: number;
+  /** Total output tokens for this turn */
+  outputTokens: number;
+  /** Sum of all token types */
+  totalTokens: number;
+  /** Tokens read from cache */
+  cachedReadTokens?: number | null;
+  /** Tokens written to cache */
+  cachedWriteTokens?: number | null;
+  /** Reasoning/thinking tokens */
+  thoughtTokens?: number | null;
 }
 
 // ===== ACP Models types (unstable API) =====
@@ -752,8 +780,7 @@ export interface AcpModelInfo {
 }
 
 // 所有会话更新的联合类型 / Union type for all session updates
-// eslint-disable-next-line max-len
-export type AcpSessionUpdate = AgentMessageChunkUpdate | AgentThoughtChunkUpdate | ToolCallUpdate | ToolCallUpdateStatus | PlanUpdate | AvailableCommandsUpdate | UserMessageChunkUpdate | UsageUpdate | ConfigOptionsUpdatePayload;
+export type AcpSessionUpdate = AgentMessageChunkUpdate | AgentThoughtChunkUpdate | ToolCallUpdate | ToolCallUpdateStatus | PlanUpdate | AvailableCommandsUpdate | UserMessageChunkUpdate | ConfigOptionsUpdatePayload | UsageUpdatePayload;
 
 // 当前的 ACP 权限请求接口 / Current ACP permission request interface
 export interface AcpPermissionOption {
