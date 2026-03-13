@@ -23,7 +23,6 @@ import { ASSISTANT_PRESETS } from '@/common/presets/assistantPresets';
 import { ConfigStorage } from '@/common/storage';
 import { resolveLocaleKey } from '@/common/utils';
 import coworkSvg from '@/renderer/assets/cowork.svg';
-import CodexSandboxSelector from '@/renderer/components/CodexSandboxSelector';
 import EmojiPicker from '@/renderer/components/EmojiPicker';
 import MarkdownView from '@/renderer/components/Markdown';
 import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
@@ -292,8 +291,6 @@ const AssistantManagement: React.FC<AssistantManagementProps> = ({ message }) =>
 
   const activeAssistant = assistants.find((assistant) => assistant.id === activeAssistantId) || null;
   const isReadonlyAssistant = Boolean(activeAssistant && isExtensionAssistant(activeAssistant));
-  const shouldShowCodexSandbox = editAgent === 'codex';
-
   // Check if string is an emoji (simple check for common emoji patterns)
   const isEmoji = useCallback((str: string) => {
     if (!str) return false;
@@ -816,17 +813,6 @@ const AssistantManagement: React.FC<AssistantManagementProps> = ({ message }) =>
                 })}
               </Select>
             </div>
-            {shouldShowCodexSandbox && (
-              <div className='flex-shrink-0 rounded-12px border border-border-2 bg-bg-1 p-16px'>
-                <div className='flex flex-col gap-12px md:flex-row md:items-center md:justify-between'>
-                  <div className='min-w-0'>
-                    <Typography.Text bold>{t('settings.codexSandbox', { defaultValue: 'Codex Sandbox' })}</Typography.Text>
-                    <div className='mt-4px text-13px text-t-secondary'>{t('settings.codexSandboxDesc', { defaultValue: 'Applies to new Codex sessions and syncs sandbox_mode to your Codex config.' })}</div>
-                  </div>
-                  <CodexSandboxSelector showToast />
-                </div>
-              </div>
-            )}
             <div className='flex-shrink-0'>
               <Typography.Text bold className='flex-shrink-0'>
                 {t('settings.assistantRules', { defaultValue: 'Rules' })}

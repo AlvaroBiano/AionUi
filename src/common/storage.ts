@@ -50,11 +50,15 @@ export interface IConfigStorageRefer {
       preferredMode?: string;
       /** Preferred model ID for new conversations / 新会话的默认模型 */
       preferredModelId?: string;
+      /** Preferred ACP config options for new conversations / 新会话的默认 ACP 配置选项 */
+      preferredConfigOptions?: Record<string, string>;
     };
   };
   'acp.customAgents'?: AcpBackendConfig[];
   // Cached model lists per ACP backend for Guid page pre-selection
   'acp.cachedModels'?: Record<string, import('@/types/acpTypes').AcpModelInfo>;
+  // Cached ACP config options per backend for Guid page pre-selection
+  'acp.cachedConfigOptions'?: Record<string, import('@/types/acpTypes').AcpSessionConfigOption[]>;
   'model.config': IProvider[];
   'mcp.config': IMcpServer[];
   'mcp.agentInstallStatus': Record<string, string[]>;
@@ -230,6 +234,8 @@ export type TChatConversation =
           sessionMode?: string;
           /** Persisted model ID for resume support / 持久化的模型 ID，用于恢复 */
           currentModelId?: string;
+          /** Persisted ACP config option values for resume support / 持久化的 ACP 配置选项值，用于恢复 */
+          configOptionValues?: Record<string, string>;
           /** Explicit marker for temporary health-check conversations */
           isHealthCheck?: boolean;
         }

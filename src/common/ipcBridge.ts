@@ -212,11 +212,6 @@ export const googleAuth = {
   status: bridge.buildProvider<IBridgeResponse<{ account: string }>, { proxy?: string }>('google.auth.status'),
 };
 
-export const codexConfig = {
-  getSandboxMode: bridge.buildProvider<IBridgeResponse<{ sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access'; configPath: string; exists: boolean }>, void>('codex.config.get-sandbox-mode'),
-  setSandboxMode: bridge.buildProvider<IBridgeResponse<{ sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access'; configPath: string; exists: boolean }>, { sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access' }>('codex.config.set-sandbox-mode'),
-};
-
 // 订阅状态查询：用于动态决定是否展示 gemini-3.1-pro-preview / subscription check for Gemini models
 export const gemini = {
   subscriptionStatus: bridge.buildProvider<IBridgeResponse<{ isSubscriber: boolean; tier?: string; lastChecked: number; message?: string }>, { proxy?: string }>('gemini.subscription-status'),
@@ -273,7 +268,7 @@ export const acpConversation = {
   getModelInfo: bridge.buildProvider<IBridgeResponse<{ modelInfo: AcpModelInfo | null }>, { conversationId: string }>('acp.get-model-info'),
   // Probe model info for an ACP backend without creating a visible conversation
   // 预探测 ACP 后端的模型信息，不创建可见会话
-  probeModelInfo: bridge.buildProvider<IBridgeResponse<{ modelInfo: AcpModelInfo | null }>, { backend: AcpBackend }>('acp.probe-model-info'),
+  probeModelInfo: bridge.buildProvider<IBridgeResponse<{ modelInfo: AcpModelInfo | null; configOptions: import('../types/acpTypes').AcpSessionConfigOption[] }>, { backend: AcpBackend }>('acp.probe-model-info'),
   // Set model for ACP agents
   // 设置 ACP 代理的模型
   setModel: bridge.buildProvider<IBridgeResponse<{ modelInfo: AcpModelInfo | null }>, { conversationId: string; modelId: string }>('acp.set-model'),
@@ -535,6 +530,8 @@ export interface ICreateConversationParams {
     codexModel?: string;
     /** Pre-selected ACP model from Guid page (cached model list) */
     currentModelId?: string;
+    /** Pre-selected ACP config options from Guid page */
+    configOptionValues?: Record<string, string>;
     /** Runtime validation snapshot used for post-switch strong checks (OpenClaw) */
     runtimeValidation?: {
       expectedWorkspace?: string;

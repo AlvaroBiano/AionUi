@@ -4,16 +4,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isCodexNoSandboxMode } from '@/common/codex/codexModes';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 
 export type CodexSandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
+export type SupportedCodexSandboxMode = 'workspace-write' | 'danger-full-access';
 
 export interface CodexSandboxConfigState {
   path: string;
   exists: boolean;
   sandboxMode?: CodexSandboxMode;
+}
+
+export function normalizeCodexSandboxMode(sandboxMode?: CodexSandboxMode | null): SupportedCodexSandboxMode {
+  return sandboxMode === 'danger-full-access' ? 'danger-full-access' : 'workspace-write';
+}
+
+export function getCodexSandboxModeForSessionMode(mode?: string | null, fallbackMode?: CodexSandboxMode | null): SupportedCodexSandboxMode {
+  if (mode) {
+    return isCodexNoSandboxMode(mode) ? 'danger-full-access' : 'workspace-write';
+  }
+
+  return normalizeCodexSandboxMode(fallbackMode);
 }
 
 export function getCodexConfigPath(): string {

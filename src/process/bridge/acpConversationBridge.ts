@@ -241,7 +241,13 @@ export function initAcpConversationBridge(): void {
         });
       }
 
-      return { success: true, data: { modelInfo } };
+      return {
+        success: true,
+        data: {
+          modelInfo,
+          configOptions: connection.getConfigOptions()?.filter((option) => option.category !== 'model' && option.category !== 'mode') || [],
+        },
+      };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       if (backend === 'codex') {

@@ -13,6 +13,7 @@ import type { ICodexMessageEmitter } from '@/agent/codex/messaging/CodexMessageE
 import { channelEventBus } from '@/channels/agent/ChannelEventBus';
 import { ipcBridge } from '@/common';
 import type { CronMessageMeta, IConfirmation, TMessage } from '@/common/chatLib';
+import { isCodexAutoApproveMode } from '@/common/codex/codexModes';
 import { transformMessage } from '@/common/chatLib';
 import type { CodexAgentManagerData } from '@/common/codex/types';
 import { DEFAULT_CODEX_MODELS, DEFAULT_CODEX_MODEL_ID } from '@/common/codex/codexModels';
@@ -30,7 +31,7 @@ import BaseAgentManager from '@process/task/BaseAgentManager';
 import { prepareFirstMessageWithSkillsIndex } from '@process/task/agentUtils';
 import { handlePreviewOpenEvent } from '@process/utils/previewUtils';
 import i18n from '@process/i18n';
-import { writeCodexSandboxMode, type CodexSandboxMode } from '@process/utils/codexConfig';
+import { getCodexSandboxModeForSessionMode as resolveCodexSandboxMode, writeCodexSandboxMode, type CodexSandboxMode } from '@process/utils/codexConfig';
 import { getConfiguredAppClientName, getConfiguredAppClientVersion, getConfiguredCodexMcpProtocolVersion, setAppConfig } from '../../common/utils/appConfig';
 
 const APP_CLIENT_NAME = getConfiguredAppClientName();
@@ -111,7 +112,7 @@ class CodexAgentManager extends BaseAgentManager<CodexAgentManagerData> implemen
       // yoloMode 优先级：data.yoloMode（来自 CronService）> 配置设置
       const codexConfig = await ProcessConfig.get('codex.config');
       const legacyYoloMode = data.yoloMode ?? codexConfig?.yoloMode;
-      const sandboxMode: CodexSandboxMode = data.sandboxMode || codexConfig?.sandboxMode || 'workspace-write';
+      const sandboxMode: CodexSandboxMode = resolveCodexSandboxMode(data.sessionMode || this.currentMode, data.sandboxMode || codexConfig?.sandboxMode || 'workspace-write');
       await writeCodexSandboxMode(sandboxMode);
 
       // Migrate legacy yoloMode config (from SecurityModalContent) to currentMode.
@@ -350,11 +351,14 @@ class CodexAgentManager extends BaseAgentManager<CodexAgentManagerData> implemen
   async setMode(mode: string): Promise<{ success: boolean; msg?: string; data?: { mode: string } }> {
     const prev = this.currentMode;
     this.currentMode = mode;
+    const sandboxMode = resolveCodexSandboxMode(mode, this.options.sandboxMode);
+    this.options.sandboxMode = sandboxMode;
+    await writeCodexSandboxMode(sandboxMode);
     this.saveSessionMode(mode);
 
     // Sync legacy yoloMode config: when leaving yolo mode, clear the old
     // SecurityModalContent setting to prevent it from re-activating on next session.
-    if (prev === 'yolo' && mode !== 'yolo') {
+    if (isCodexAutoApproveMode(prev) && !isCodexAutoApproveMode(mode)) {
       void this.clearLegacyYoloConfig();
     }
 
@@ -619,7 +623,7 @@ class CodexAgentManager extends BaseAgentManager<CodexAgentManagerData> implemen
     // Codex confirmations use action='edit' for file patches and action='exec' for shell commands.
     // yolo: auto-approve ALL operations
     // autoEdit: auto-approve file edits only, shell commands still require confirmation
-    if (this.currentMode === 'yolo' || (this.currentMode === 'autoEdit' && data.action === 'edit')) {
+    if (isCodexAutoApproveMode(this.currentMode) || (this.currentMode === 'autoEdit' && data.action === 'edit')) {
       // Direct synchronous approval — avoids the timing issue with async confirm().
       // When auto-approving, we must respond to the CLI within the same event-handling
       // call chain (handleIncoming → onEvent → addConfirmation). The async confirm()

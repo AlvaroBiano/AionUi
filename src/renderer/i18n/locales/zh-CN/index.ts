@@ -21,9 +21,16 @@ import cron from './cron.json';
 import guid from './guid.json';
 import agent from './agent.json';
 
+const agentModeOverrides = {
+  yoloNoSandbox: '全自动（无沙盒）',
+};
+
 export default {
   common,
-  agentMode,
+  agentMode: {
+    ...agentMode,
+    ...agentModeOverrides,
+  },
   update,
   login,
   fileSelection,

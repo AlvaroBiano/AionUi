@@ -8,7 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import AcpModelSelector from '../../src/renderer/components/AcpModelSelector';
-import CodexSandboxSelector from '../../src/renderer/components/CodexSandboxSelector';
+import GuidAcpConfigSelector from '../../src/renderer/pages/guid/components/GuidAcpConfigSelector';
 import GuidModelSelector from '../../src/renderer/pages/guid/components/GuidModelSelector';
 
 vi.mock('@/common', () => ({
@@ -27,20 +27,6 @@ vi.mock('@/common', () => ({
       },
       setModel: {
         invoke: vi.fn(),
-      },
-    },
-    codexConfig: {
-      getSandboxMode: {
-        invoke: vi.fn().mockResolvedValue({
-          success: true,
-          data: { sandboxMode: 'workspace-write' },
-        }),
-      },
-      setSandboxMode: {
-        invoke: vi.fn().mockResolvedValue({
-          success: true,
-          data: { sandboxMode: 'danger-full-access' },
-        }),
       },
     },
   },
@@ -211,18 +197,29 @@ describe('model selector popup safety', () => {
     });
   });
 
-  it('closes CodexSandboxSelector tooltip and dropdown after sandbox mode refresh', async () => {
-    const { rerender } = render(<CodexSandboxSelector compact />);
+  it('renders Guid ACP config selector for codex reasoning levels', () => {
+    render(
+      <GuidAcpConfigSelector
+        backend='codex'
+        configOptions={[
+          {
+            id: 'model_reasoning_effort',
+            name: 'Reasoning effort',
+            category: 'reasoning',
+            type: 'select',
+            currentValue: 'medium',
+            options: [
+              { value: 'medium', name: 'Medium' },
+              { value: 'high', name: 'High' },
+              { value: 'xhigh', name: 'Maximum' },
+            ],
+          },
+        ]}
+        selectedValues={{ model_reasoning_effort: 'high' }}
+        onSelectOption={vi.fn()}
+      />
+    );
 
-    expect(screen.getByRole('button')).toHaveAttribute('title', 'settings.codexSandboxDesc');
-
-    fireEvent.click(screen.getByTestId('dropdown-trigger'));
-    expect(screen.getByTestId('dropdown')).toHaveAttribute('data-visible', 'true');
-
-    rerender(<CodexSandboxSelector showToast />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('dropdown')).toHaveAttribute('data-visible', 'false');
-    });
+    expect(screen.getByRole('button')).toHaveTextContent('High');
   });
 });

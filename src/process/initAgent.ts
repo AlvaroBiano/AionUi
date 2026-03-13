@@ -92,6 +92,8 @@ export const createAcpAgent = async (options: ICreateConversationParams): Promis
       sessionMode: extra.sessionMode,
       // Pre-selected model from Guid page (cached model list)
       currentModelId: extra.currentModelId,
+      // Pre-selected ACP config options from Guid page (e.g. reasoning effort)
+      configOptionValues: extra.configOptionValues,
       // Explicit marker for temporary health-check conversations
       isHealthCheck: extra.isHealthCheck,
     },

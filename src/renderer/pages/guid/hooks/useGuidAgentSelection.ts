@@ -5,6 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
+import { getDefaultAcpConfigOptions } from '@/common/codex/codexConfigOptions';
 import { ASSISTANT_PRESETS } from '@/common/presets/assistantPresets';
 import { DEFAULT_CODEX_MODELS } from '@/common/codex/codexModels';
 import type { IProvider } from '@/common/storage';
@@ -13,6 +14,7 @@ import type { AcpBackend, AcpBackendConfig, AcpModelInfo, AvailableAgent, Effect
 import { getAgentModes } from '@/renderer/constants/agentModes';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR, { mutate } from 'swr';
+import type { AcpSessionConfigOption } from '@/types/acpTypes';
 
 /** Save preferred mode to the agent's own config key */
 async function savePreferredMode(agentKey: string, mode: string): Promise<void> {
@@ -41,6 +43,22 @@ async function savePreferredModelId(agentKey: string, modelId: string): Promise<
   }
 }
 
+async function savePreferredConfigOptions(agentKey: string, preferredConfigOptions: Record<string, string>): Promise<void> {
+  try {
+    const config = await ConfigStorage.get('acp.config');
+    const backendConfig = config?.[agentKey as AcpBackend] || {};
+    await ConfigStorage.set('acp.config', {
+      ...config,
+      [agentKey]: {
+        ...backendConfig,
+        preferredConfigOptions,
+      },
+    });
+  } catch {
+    /* silent */
+  }
+}
+
 export type GuidAgentSelectionResult = {
   selectedAgentKey: string;
   setSelectedAgentKey: (key: string) => void;
@@ -52,9 +70,13 @@ export type GuidAgentSelectionResult = {
   selectedMode: string;
   setSelectedMode: React.Dispatch<React.SetStateAction<string>>;
   acpCachedModels: Record<string, AcpModelInfo>;
+  acpCachedConfigOptions: Record<string, AcpSessionConfigOption[]>;
   selectedAcpModel: string | null;
   setSelectedAcpModel: React.Dispatch<React.SetStateAction<string | null>>;
   currentAcpCachedModelInfo: AcpModelInfo | null;
+  selectedAcpConfigOptions: Record<string, string>;
+  setSelectedAcpConfigOption: (configId: string, value: string) => void;
+  currentAcpCachedConfigOptions: AcpSessionConfigOption[];
   currentEffectiveAgentInfo: EffectiveAgentInfo;
   getAgentKey: (agent: { backend: AcpBackend; customAgentId?: string }) => string;
   findAgentByKey: (key: string) => AvailableAgent | undefined;
@@ -87,7 +109,17 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
   const selectedAgentRef = useRef<string | null>(null);
   const probedModelBackendsRef = useRef(new Set<string>());
   const [acpCachedModels, setAcpCachedModels] = useState<Record<string, AcpModelInfo>>({});
+  const [acpCachedConfigOptions, setAcpCachedConfigOptions] = useState<Record<string, AcpSessionConfigOption[]>>({});
   const [selectedAcpModel, _setSelectedAcpModel] = useState<string | null>(null);
+  const [selectedAcpConfigOptions, _setSelectedAcpConfigOptions] = useState<Record<string, string>>({});
+
+  const resolveCachedConfigOptions = useCallback(
+    (backend: string) => {
+      const cachedOptions = acpCachedConfigOptions[backend] || [];
+      return cachedOptions.length > 0 ? cachedOptions : getDefaultAcpConfigOptions(backend as AcpBackend | 'custom');
+    },
+    [acpCachedConfigOptions]
+  );
 
   // Wrap setSelectedAgentKey to also save to storage
   const setSelectedAgentKey = useCallback((key: string) => {
@@ -118,6 +150,20 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
         void savePreferredModelId(agentKey, newModelId);
       }
       return newModelId;
+    });
+  }, []);
+
+  const setSelectedAcpConfigOption = useCallback((configId: string, value: string) => {
+    _setSelectedAcpConfigOptions((prev) => {
+      const next = {
+        ...prev,
+        [configId]: value,
+      };
+      const agentKey = selectedAgentRef.current;
+      if (agentKey && agentKey !== 'gemini' && agentKey !== 'custom') {
+        void savePreferredConfigOptions(agentKey, next);
+      }
+      return next;
     });
   }, []);
 
@@ -274,8 +320,23 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
     };
   }, []);
 
-  // Probe Codex model info on first selection so the Guid page can show
-  // the real account-scoped models before the first conversation starts.
+  useEffect(() => {
+    let isActive = true;
+    ConfigStorage.get('acp.cachedConfigOptions')
+      .then((cached) => {
+        if (!isActive) return;
+        setAcpCachedConfigOptions(cached || {});
+      })
+      .catch(() => {
+        // Silently ignore - cached config options are optional
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  // Probe Codex session capabilities on first selection so the Guid page can show
+  // the real account-scoped models and config options before the first conversation starts.
   useEffect(() => {
     if (selectedAgentKey !== 'codex') return;
     if (probedModelBackendsRef.current.has('codex')) return;
@@ -288,28 +349,45 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
       .then(async (result) => {
         if (cancelled) return;
         const modelInfo = result.success ? result.data?.modelInfo : null;
-        if (!modelInfo?.availableModels?.length) {
+        const configOptions = result.success ? result.data?.configOptions || [] : [];
+        if (!modelInfo?.availableModels?.length && configOptions.length === 0) {
           probedModelBackendsRef.current.delete('codex');
           return;
         }
 
-        console.log('[Guid][codex] Probed model info:', modelInfo);
+        console.log('[Guid][codex] Probed session capabilities:', { modelInfo, configOptions });
 
         const cached = (await ConfigStorage.get('acp.cachedModels').catch(() => ({}))) || {};
+        const cachedConfigOptions = (await ConfigStorage.get('acp.cachedConfigOptions').catch(() => ({}))) || {};
         if (cancelled) return;
 
-        const nextCachedModels = {
-          ...cached,
-          codex: modelInfo,
+        const nextCachedModels = modelInfo
+          ? {
+              ...cached,
+              codex: modelInfo,
+            }
+          : cached;
+        const nextCachedConfigOptions = {
+          ...cachedConfigOptions,
+          codex: configOptions,
         };
 
-        setAcpCachedModels((prev) => ({
+        if (modelInfo) {
+          setAcpCachedModels((prev) => ({
+            ...prev,
+            codex: modelInfo,
+          }));
+        }
+        setAcpCachedConfigOptions((prev) => ({
           ...prev,
-          codex: modelInfo,
+          codex: configOptions,
         }));
 
         await ConfigStorage.set('acp.cachedModels', nextCachedModels).catch((error) => {
           console.error('Failed to save probed ACP model info:', error);
+        });
+        await ConfigStorage.set('acp.cachedConfigOptions', nextCachedConfigOptions).catch((error) => {
+          console.error('Failed to save probed ACP config options:', error);
         });
       })
       .catch((error) => {
@@ -349,6 +427,36 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
       cancelled = true;
     };
   }, [selectedAgentKey, acpCachedModels]);
+
+  useEffect(() => {
+    const backend = selectedAgentKey.startsWith('custom:') ? 'custom' : selectedAgentKey;
+
+    let cancelled = false;
+    void ConfigStorage.get('acp.config')
+      .then((config) => {
+        if (cancelled) return;
+        const preferredConfigOptions = ((config?.[backend as AcpBackend] as { preferredConfigOptions?: Record<string, string> } | undefined)?.preferredConfigOptions || {}) as Record<string, string>;
+        const cachedOptions = resolveCachedConfigOptions(backend);
+        const nextSelectedConfigOptions = cachedOptions.reduce<Record<string, string>>((acc, option) => {
+          const preferredValue = preferredConfigOptions[option.id];
+          if (!preferredValue) return acc;
+          const isValueAvailable = option.options?.some((choice) => choice.value === preferredValue) ?? true;
+          if (isValueAvailable) {
+            acc[option.id] = preferredValue;
+          }
+          return acc;
+        }, {});
+        _setSelectedAcpConfigOptions(nextSelectedConfigOptions);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        _setSelectedAcpConfigOptions({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAgentKey, resolveCachedConfigOptions]);
 
   // Read preferred mode or fallback to legacy yoloMode config
   useEffect(() => {
@@ -560,6 +668,11 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
     return null;
   }, [selectedAgentKey, acpCachedModels]);
 
+  const currentAcpCachedConfigOptions = useMemo(() => {
+    const backend = selectedAgentKey.startsWith('custom:') ? 'custom' : selectedAgentKey;
+    return resolveCachedConfigOptions(backend);
+  }, [selectedAgentKey, resolveCachedConfigOptions]);
+
   // Auto-switch only for Gemini agent
   useEffect(() => {
     if (!availableAgents || availableAgents.length === 0) return;
@@ -592,9 +705,13 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
     selectedMode,
     setSelectedMode,
     acpCachedModels,
+    acpCachedConfigOptions,
     selectedAcpModel,
     setSelectedAcpModel,
     currentAcpCachedModelInfo,
+    selectedAcpConfigOptions,
+    setSelectedAcpConfigOption,
+    currentAcpCachedConfigOptions,
     currentEffectiveAgentInfo,
     getAgentKey,
     findAgentByKey,

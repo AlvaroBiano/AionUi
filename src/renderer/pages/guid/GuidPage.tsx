@@ -12,6 +12,7 @@ import AgentPillBar from './components/AgentPillBar';
 import AssistantSelectionArea from './components/AssistantSelectionArea';
 import { AgentPillBarSkeleton, AssistantsSkeleton } from './components/GuidSkeleton';
 import GuidActionRow from './components/GuidActionRow';
+import GuidAcpConfigSelector from './components/GuidAcpConfigSelector';
 import GuidInputCard from './components/GuidInputCard';
 import GuidModelSelector from './components/GuidModelSelector';
 import MentionDropdown from './components/MentionDropdown';
@@ -86,6 +87,7 @@ const GuidPage: React.FC = () => {
     isPresetAgent: agentSelection.isPresetAgent,
     selectedMode: agentSelection.selectedMode,
     selectedAcpModel: agentSelection.selectedAcpModel,
+    selectedAcpConfigOptions: agentSelection.selectedAcpConfigOptions,
     currentModel: modelSelection.currentModel,
 
     // Agent helpers
@@ -221,6 +223,7 @@ const GuidPage: React.FC = () => {
 
   // Build the model selector node
   const modelSelectorNode = <GuidModelSelector isGeminiMode={isGeminiMode} modelList={modelSelection.modelList} currentModel={modelSelection.currentModel} setCurrentModel={modelSelection.setCurrentModel} geminiModeLookup={modelSelection.geminiModeLookup} currentAcpCachedModelInfo={agentSelection.currentAcpCachedModelInfo} selectedAcpModel={agentSelection.selectedAcpModel} setSelectedAcpModel={agentSelection.setSelectedAcpModel} />;
+  const acpConfigSelectorNode = <GuidAcpConfigSelector backend={agentSelection.selectedAgent === 'custom' ? undefined : agentSelection.selectedAgent} configOptions={agentSelection.currentAcpCachedConfigOptions} selectedValues={agentSelection.selectedAcpConfigOptions} onSelectOption={agentSelection.setSelectedAcpConfigOption} />;
 
   // Build the action row
   const actionRowNode = (
@@ -229,6 +232,7 @@ const GuidPage: React.FC = () => {
       onFilesUploaded={guidInput.handleFilesUploaded}
       onSelectWorkspace={(dir) => guidInput.setDir(dir)}
       modelSelectorNode={modelSelectorNode}
+      acpConfigSelectorNode={acpConfigSelectorNode}
       selectedAgent={agentSelection.selectedAgent}
       effectiveModeAgent={agentSelection.currentEffectiveAgentInfo.agentType}
       selectedMode={agentSelection.selectedMode}

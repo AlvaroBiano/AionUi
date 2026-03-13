@@ -6,7 +6,6 @@
 
 import { ipcBridge } from '@/common';
 import AgentModeSelector from '@/renderer/components/AgentModeSelector';
-import CodexSandboxSelector from '@/renderer/components/CodexSandboxSelector';
 import { getAgentModes, supportsModeSwitch, type AgentModeOption } from '@/renderer/constants/agentModes';
 import { useLayoutContext } from '@/renderer/context/LayoutContext';
 import { getCleanFileNames } from '@/renderer/services/FileService';
@@ -27,6 +26,7 @@ type GuidActionRowProps = {
 
   // Model selector node (rendered by parent)
   modelSelectorNode: React.ReactNode;
+  acpConfigSelectorNode?: React.ReactNode;
 
   // Agent mode
   selectedAgent: AcpBackend | 'custom';
@@ -47,7 +47,24 @@ type GuidActionRowProps = {
   onSend: () => void;
 };
 
-const GuidActionRow: React.FC<GuidActionRowProps> = ({ files, onFilesUploaded, onSelectWorkspace, modelSelectorNode, selectedAgent, effectiveModeAgent, selectedMode, onModeSelect, isPresetAgent, selectedAgentInfo, customAgents, localeKey, onClosePresetTag, loading, isButtonDisabled, onSend }) => {
+const GuidActionRow: React.FC<GuidActionRowProps> = (props) => {
+  const files = props.files;
+  const onFilesUploaded = props.onFilesUploaded;
+  const onSelectWorkspace = props.onSelectWorkspace;
+  const modelSelectorNode = props.modelSelectorNode;
+  const acpConfigSelectorNode = props.acpConfigSelectorNode;
+  const selectedAgent = props.selectedAgent;
+  const effectiveModeAgent = props.effectiveModeAgent;
+  const selectedMode = props.selectedMode;
+  const onModeSelect = props.onModeSelect;
+  const isPresetAgent = props.isPresetAgent;
+  const selectedAgentInfo = props.selectedAgentInfo;
+  const customAgents = props.customAgents;
+  const localeKey = props.localeKey;
+  const onClosePresetTag = props.onClosePresetTag;
+  const loading = props.loading;
+  const isButtonDisabled = props.isButtonDisabled;
+  const onSend = props.onSend;
   const { t } = useTranslation();
   const layout = useLayoutContext();
   const isMobile = Boolean(layout?.isMobile);
@@ -122,9 +139,9 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({ files, onFilesUploaded, o
 
         {modelSelectorNode}
 
-        {supportsModeSwitch(modeBackend) && <AgentModeSelector backend={modeBackend} compact initialMode={selectedMode} onModeSelect={onModeSelect} compactLabelOverride={permissionLabel} compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />} modeLabelFormatter={getModeDisplayLabel} />}
+        {acpConfigSelectorNode}
 
-        {modeBackend === 'codex' && <CodexSandboxSelector compact />}
+        {supportsModeSwitch(modeBackend) && <AgentModeSelector backend={modeBackend} compact initialMode={selectedMode} onModeSelect={onModeSelect} compactLabelOverride={permissionLabel} compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />} modeLabelFormatter={getModeDisplayLabel} />}
 
         {isPresetAgent && selectedAgentInfo && <PresetAgentTag agentInfo={selectedAgentInfo} customAgents={customAgents} localeKey={localeKey} onClose={onClosePresetTag} />}
       </div>
