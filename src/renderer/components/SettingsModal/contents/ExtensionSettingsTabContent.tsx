@@ -106,6 +106,12 @@ const ExtensionSettingsTabContent: React.FC<ExtensionSettingsTabContentProps> = 
                       persist?: boolean;
                     }
                   ),
+                'application.getApiDiagnosticsLiveSnapshot': () =>
+                  ipcBridge.application.getApiDiagnosticsLiveSnapshot.invoke(
+                    (payload || undefined) as {
+                      sessionId?: string;
+                    }
+                  ),
                 'application.getApiDiagnosticsHistory': () =>
                   ipcBridge.application.getApiDiagnosticsHistory.invoke(
                     (payload || undefined) as {

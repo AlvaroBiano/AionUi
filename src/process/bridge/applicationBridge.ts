@@ -84,14 +84,8 @@ export function initApplicationBridge(): void {
         sessionId,
         force: true,
         persist,
+        allowWhenDisabled: true,
       });
-
-      if (!capture.enabled) {
-        return Promise.resolve({
-          success: false,
-          msg: 'API diagnostics is disabled',
-        });
-      }
 
       if (!capture.recorded || !capture.snapshot) {
         return Promise.resolve({
@@ -105,6 +99,26 @@ export function initApplicationBridge(): void {
         data: {
           filePath: capture.filePath,
           snapshot: capture.snapshot,
+        },
+      });
+    } catch (e) {
+      return Promise.resolve({
+        success: false,
+        msg: e instanceof Error ? e.message : String(e),
+      });
+    }
+  });
+
+  ipcBridge.application.getApiDiagnosticsLiveSnapshot.provider((input: { sessionId?: string } | undefined) => {
+    try {
+      return Promise.resolve({
+        success: true,
+        data: {
+          snapshot: apiDiagnosticsService.getLiveSnapshot({
+            route: '/ipc/application/api-diagnostics/live',
+            reason: 'renderer_live_snapshot',
+            sessionId: input?.sessionId,
+          }),
         },
       });
     } catch (e) {

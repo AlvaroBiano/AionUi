@@ -27,6 +27,7 @@ type MinimalConversation = {
 
 const workerManageGetTaskById = vi.fn(() => undefined);
 const workerManageListTasks = vi.fn(() => []);
+const workerManageKillAndDrain = vi.fn(async () => undefined);
 const dbGetUserConversations = vi.fn(() => ({ data: [] }));
 const dbGetUserConversationsByStatuses = vi.fn(() => ({ success: true, data: [] }));
 const dbGetConversation = vi.fn(() => ({ success: false, data: undefined }));
@@ -48,6 +49,7 @@ vi.mock('@process/WorkerManage', () => ({
   default: {
     getTaskById: workerManageGetTaskById,
     listTasks: workerManageListTasks,
+    killAndDrain: workerManageKillAndDrain,
   },
 }));
 
@@ -83,6 +85,7 @@ vi.mock('@process/services/ApiDiagnosticsService', () => ({
 
 vi.mock('@process/services/ConversationTurnCompletionService', () => ({
   getConversationStatusSnapshot: vi.fn(),
+  getReadOnlyConversationStatusSnapshot: vi.fn(),
   formatStatusLastMessage: vi.fn((message) =>
     message
       ? {
@@ -114,6 +117,8 @@ describe('conversationApiRoutes helpers', () => {
     workerManageGetTaskById.mockReturnValue(undefined);
     workerManageListTasks.mockReset();
     workerManageListTasks.mockReturnValue([]);
+    workerManageKillAndDrain.mockReset();
+    workerManageKillAndDrain.mockResolvedValue(undefined);
     dbGetUserConversations.mockReset();
     dbGetUserConversations.mockReturnValue({ data: [] });
     dbGetUserConversationsByStatuses.mockReset();

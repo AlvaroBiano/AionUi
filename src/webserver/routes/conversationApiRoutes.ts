@@ -12,7 +12,8 @@ import { ConversationService } from '@process/services/conversationService';
 import WorkerManage from '@process/WorkerManage';
 import { getDatabase } from '@process/database';
 import { cronBusyGuard } from '@process/services/cron/CronBusyGuard';
-import { formatStatusLastMessage, getConversationStatusSnapshot } from '@process/services/ConversationTurnCompletionService';
+import type { getConversationStatusSnapshot } from '@process/services/ConversationTurnCompletionService';
+import { formatStatusLastMessage, getReadOnlyConversationStatusSnapshot } from '@process/services/ConversationTurnCompletionService';
 import { apiDiagnosticsService } from '@process/services/ApiDiagnosticsService';
 import { ipcBridge } from '@/common';
 import type { TChatConversation, TProviderWithModel } from '@/common/storage';
@@ -381,7 +382,7 @@ const matchesConversationStatusListFilters = (item: ConversationStatusListItem, 
   return true;
 };
 
-export const buildConversationStatusList = (conversations: TChatConversation[], filters: ConversationStatusListFilters = { scope: 'generating' }, getSnapshot: ConversationSnapshotGetter = getConversationStatusSnapshot): ConversationStatusListItem[] => {
+export const buildConversationStatusList = (conversations: TChatConversation[], filters: ConversationStatusListFilters = { scope: 'generating' }, getSnapshot: ConversationSnapshotGetter = getReadOnlyConversationStatusSnapshot): ConversationStatusListItem[] => {
   const items = conversations.reduce<ConversationStatusListItem[]>((result, conversation) => {
     const snapshot = getSnapshot(conversation.id);
     if (!snapshot) {
@@ -600,7 +601,7 @@ const waitForStopConfirmed = async (sessionId: string, timeoutMs: number): Promi
       throw new Error('Conversation not found while waiting for stop confirmation');
     }
 
-    const snapshot = getConversationStatusSnapshot(sessionId);
+    const snapshot = getReadOnlyConversationStatusSnapshot(sessionId);
     if (!snapshot) {
       throw new Error(`Conversation snapshot not found: ${sessionId}`);
     }
@@ -940,7 +941,7 @@ router.get('/status', async (req: Request, res: Response) => {
       });
     }
 
-    const snapshot = getConversationStatusSnapshot(sessionId);
+    const snapshot = getReadOnlyConversationStatusSnapshot(sessionId);
     if (!snapshot) {
       return res.status(404).json({
         success: false,
@@ -979,13 +980,6 @@ router.get('/status', async (req: Request, res: Response) => {
  */
 router.get('/debug/runtime', async (req: Request, res: Response) => {
   try {
-    if (!apiDiagnosticsService.isEnabled()) {
-      return res.status(404).json({
-        success: false,
-        error: 'Conversation API diagnostics is disabled. Set AIONUI_API_DIAGNOSTICS=true to enable it.',
-      });
-    }
-
     const sessionId = parseSessionIdQuery(req);
     const persist = parseOptionalBoolean(req.query?.persist) ?? true;
     const capture = apiDiagnosticsService.captureRouteSample({
@@ -994,6 +988,7 @@ router.get('/debug/runtime', async (req: Request, res: Response) => {
       sessionId,
       force: true,
       persist,
+      allowWhenDisabled: true,
     });
 
     res.json({
@@ -1104,7 +1099,7 @@ router.post('/stop', async (req: Request, res: Response) => {
         sessionId,
         force: true,
       });
-      WorkerManage.kill(sessionId);
+      await WorkerManage.killAndDrain(sessionId);
       cronBusyGuard.setProcessing(sessionId, false);
     }
 
@@ -1112,7 +1107,7 @@ router.post('/stop', async (req: Request, res: Response) => {
       await waitForStopConfirmed(sessionId, STOP_VERIFY_TIMEOUT_MS);
     } catch (verifyError) {
       // Final fallback: force kill once and verify quickly again.
-      WorkerManage.kill(sessionId);
+      await WorkerManage.killAndDrain(sessionId);
       cronBusyGuard.setProcessing(sessionId, false);
       try {
         await waitForStopConfirmed(sessionId, 5000);
@@ -1132,7 +1127,7 @@ router.post('/stop', async (req: Request, res: Response) => {
 
     // Update conversation status
     db.updateConversation(sessionId, { status: 'finished' });
-    WorkerManage.kill(sessionId);
+    await WorkerManage.killAndDrain(sessionId);
     cronBusyGuard.setProcessing(sessionId, false);
 
     recordConversationApiDiagnostics({
@@ -1192,7 +1187,7 @@ router.post('/message', async (req: Request, res: Response) => {
       });
     }
 
-    const snapshot = getConversationStatusSnapshot(sessionId);
+    const snapshot = getReadOnlyConversationStatusSnapshot(sessionId);
     if (!snapshot) {
       return res.status(404).json({
         success: false,

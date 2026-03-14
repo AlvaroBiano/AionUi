@@ -116,6 +116,7 @@ export const application = {
   getApiDiagnosticsState: bridge.buildProvider<IBridgeResponse<IApiDiagnosticsConfig>, void>('app.get-api-diagnostics-state'),
   updateApiDiagnosticsConfig: bridge.buildProvider<IBridgeResponse<IApiDiagnosticsConfig>, Partial<IApiDiagnosticsConfig>>('app.update-api-diagnostics-config'),
   captureApiDiagnosticsSnapshot: bridge.buildProvider<IBridgeResponse<IApiDiagnosticsCaptureResult>, { sessionId?: string; persist?: boolean }>('app.capture-api-diagnostics-snapshot'),
+  getApiDiagnosticsLiveSnapshot: bridge.buildProvider<IBridgeResponse<IApiDiagnosticsCaptureResult>, { sessionId?: string } | undefined>('app.get-api-diagnostics-live-snapshot'),
   getApiDiagnosticsHistory: bridge.buildProvider<IBridgeResponse<IApiDiagnosticsHistoryResult>, { limit?: number } | undefined>('app.get-api-diagnostics-history'),
   // CDP (Chrome DevTools Protocol) management
   getCdpStatus: bridge.buildProvider<IBridgeResponse<ICdpStatus>, void>('app.get-cdp-status'), // 获取 CDP 状态
