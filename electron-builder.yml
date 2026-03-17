@@ -102,6 +102,8 @@ extraResources:
     to: .
   - from: extensions
     to: extensions
+  - from: resources/app.png
+    to: app.png
 
 win:
   target:

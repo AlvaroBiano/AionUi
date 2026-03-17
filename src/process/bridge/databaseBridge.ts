@@ -109,4 +109,21 @@ export function initDatabaseBridge(): void {
       });
     }
   });
+
+  ipcBridge.database.searchConversationMessages.provider(({ keyword, page = 0, pageSize = 20 }) => {
+    try {
+      const db = getDatabase();
+      const result = db.searchConversationMessages(keyword, undefined, page, pageSize);
+      return Promise.resolve(result);
+    } catch (error) {
+      console.error('[DatabaseBridge] Error searching conversation messages:', error);
+      return Promise.resolve({
+        items: [],
+        total: 0,
+        page,
+        pageSize,
+        hasMore: false,
+      });
+    }
+  });
 }

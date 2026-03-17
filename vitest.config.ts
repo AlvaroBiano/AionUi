@@ -71,11 +71,14 @@ export default defineConfig({
         // Common
         'src/common/chatLib.ts',
         'src/common/update/models/VersionInfo.ts',
+        'src/common/appEnv.ts',
         // Channels
         'src/channels/core/ChannelServiceRegistry.ts',
         // Renderer utils
         'src/renderer/messages/useAutoScroll.ts',
         'src/renderer/utils/emitter.ts',
+        'src/renderer/utils/base64.ts',
+        'src/renderer/utils/download.ts',
         // Extension system (only files with existing tests)
         'src/extensions/ExtensionLoader.ts',
         'src/extensions/{dependencyResolver,pathSafety,statePersistence,entryPointResolver,envResolver,fileResolver}.ts',
