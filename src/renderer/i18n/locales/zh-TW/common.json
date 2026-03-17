@@ -65,5 +65,10 @@
   "tray.pauseAll": "暫停所有任務",
   "tray.checkUpdate": "檢查更新",
   "tray.recentChats": "最近對話",
-  "tray.untitled": "未命名"
+  "tray.untitled": "未命名",
+  "added": "已新增",
+  "name": "名稱",
+  "refreshSuccess": "重新整理成功",
+  "import": "匯入",
+  "processing": "處理中..."
 }

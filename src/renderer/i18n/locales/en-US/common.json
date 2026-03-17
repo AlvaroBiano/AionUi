@@ -65,5 +65,10 @@
   "tray.pauseAll": "Pause All Tasks",
   "tray.checkUpdate": "Check Update",
   "tray.recentChats": "Recent Chats",
-  "tray.untitled": "Untitled"
+  "tray.untitled": "Untitled",
+  "added": "Added",
+  "name": "Name",
+  "refreshSuccess": "Refreshed successfully",
+  "import": "Import",
+  "processing": "Processing..."
 }

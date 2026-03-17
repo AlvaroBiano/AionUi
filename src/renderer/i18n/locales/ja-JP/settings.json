@@ -663,5 +663,6 @@
     "agent": "エージェント",
     "agentDesc": "DingTalk の会話に使用"
   },
-  "extensionAssistantReadonly": "拡張アシスタントは読み取り専用です。複製して編集することができます。"
+  "extensionAssistantReadonly": "拡張アシスタントは読み取り専用です。複製して編集することができます。",
+  "noExternalSources": "外部ソースはありません"
 }

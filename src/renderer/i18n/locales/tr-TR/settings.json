@@ -661,5 +661,6 @@
     "agent": "Ajan",
     "agentDesc": "DingTalk sohbetleri icin kullanilir"
   },
-  "extensionAssistantReadonly": "Uzantı asistanları salt okunurdur. Kopyalayıp düzenleyebilirsiniz."
+  "extensionAssistantReadonly": "Uzantı asistanları salt okunurdur. Kopyalayıp düzenleyebilirsiniz.",
+  "noExternalSources": "Harici kaynak yok"
 }

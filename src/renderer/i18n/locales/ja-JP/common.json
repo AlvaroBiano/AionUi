@@ -65,5 +65,10 @@
   "tray.pauseAll": "すべてのタスクを一時停止",
   "tray.checkUpdate": "更新を確認",
   "tray.recentChats": "最近のチャット",
-  "tray.untitled": "無題"
+  "tray.untitled": "無題",
+  "added": "追加済み",
+  "name": "名前",
+  "refreshSuccess": "更新に成功しました",
+  "import": "インポート",
+  "processing": "処理中..."
 }

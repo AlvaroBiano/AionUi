@@ -663,5 +663,6 @@
     "agent": "對話Agent",
     "agentDesc": "用於與Channel進行對話"
   },
-  "extensionAssistantReadonly": "擴展助手為唯讀，你可以複製它並編輯副本。"
+  "extensionAssistantReadonly": "擴展助手為唯讀，你可以複製它並編輯副本。",
+  "noExternalSources": "暫無外部來源"
 }

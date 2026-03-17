@@ -65,5 +65,10 @@
   "tray.pauseAll": "Tüm Görevleri Duraklat",
   "tray.checkUpdate": "Güncelleştirme Kontrolü",
   "tray.recentChats": "Son Sohbetler",
-  "tray.untitled": "Adsız"
+  "tray.untitled": "Adsız",
+  "added": "Eklendi",
+  "name": "Ad",
+  "refreshSuccess": "Yenileme başarılı",
+  "import": "İçe aktar",
+  "processing": "İşleniyor..."
 }
