@@ -48,8 +48,8 @@ export const conversation = {
     'update-conversation'
   ), // 更新对话信息
   reset: bridge.buildProvider<void, IResetConversationParams>('reset-conversation'), // 重置对话
-  stop: bridge.buildProvider<IBridgeResponse<{}>, { conversation_id: string }>('chat.stop.stream'), // 停止会话
-  sendMessage: bridge.buildProvider<IBridgeResponse<{}>, ISendMessageParams>('chat.send.message'), // 发送消息（统一接口）
+  stop: bridge.buildProvider<IBridgeResponse<Record<string, never>>, { conversation_id: string }>('chat.stop.stream'), // 停止会话
+  sendMessage: bridge.buildProvider<IBridgeResponse<Record<string, never>>, ISendMessageParams>('chat.send.message'), // 发送消息（统一接口）
   getSlashCommands: bridge.buildProvider<
     IBridgeResponse<{ commands: SlashCommandItem[] }>,
     { conversation_id: string }
@@ -344,7 +344,7 @@ export const fileStream = {
 
 export const googleAuth = {
   login: bridge.buildProvider<IBridgeResponse<{ account: string }>, { proxy?: string }>('google.auth.login'),
-  logout: bridge.buildProvider<void, {}>('google.auth.logout'),
+  logout: bridge.buildProvider<void, Record<string, never>>('google.auth.logout'),
   status: bridge.buildProvider<IBridgeResponse<{ account: string }>, { proxy?: string }>('google.auth.status'),
 };
 
@@ -910,7 +910,7 @@ export interface IConversationListChangedEvent {
   source?: string;
 }
 
-interface IBridgeResponse<D = {}> {
+interface IBridgeResponse<D = Record<string, never>> {
   success: boolean;
   data?: D;
   msg?: string;

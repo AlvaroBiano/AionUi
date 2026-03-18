@@ -15,32 +15,6 @@ const BACKGROUND_BLOCK_END = '/* AionUi Theme Background End */';
 
 // ── helpers ──
 
-/** Extract all CSS custom property names (--xxx) declared inside :root { } blocks */
-function extractRootVars(css: string): Set<string> {
-  const vars = new Set<string>();
-  const rootBlocks = css.matchAll(/:root\s*\{([^}]+)\}/g);
-  for (const m of rootBlocks) {
-    const block = m[1];
-    for (const v of block.matchAll(/--([\w-]+)\s*:/g)) {
-      vars.add(v[1]);
-    }
-  }
-  return vars;
-}
-
-/** Extract all CSS custom property names declared inside [data-theme="dark"] blocks */
-function extractDarkVars(css: string): Set<string> {
-  const vars = new Set<string>();
-  const darkBlocks = css.matchAll(/\[data-theme=['"]?dark['"]?\]\s*\{([^}]+)\}/g);
-  for (const m of darkBlocks) {
-    const block = m[1];
-    for (const v of block.matchAll(/--([\w-]+)\s*:/g)) {
-      vars.add(v[1]);
-    }
-  }
-  return vars;
-}
-
 // ── load all CSS files ──
 
 const cssFiles = fs.readdirSync(PRESETS_DIR).filter((f) => f.endsWith('.css'));
@@ -49,13 +23,7 @@ for (const file of cssFiles) {
   cssMap.set(file, fs.readFileSync(path.join(PRESETS_DIR, file), 'utf-8'));
 }
 
-// Use default.css as the reference set of system-level variables
 const defaultCss = cssMap.get('default.css')!;
-const defaultRootVars = extractRootVars(defaultCss);
-
-// System vars = default root vars minus any theme-specific namespace prefixes
-const KNOWN_NAMESPACES = ['hk-', 'mm-', 'retroma-'];
-const systemVars = new Set([...defaultRootVars].filter((v) => !KNOWN_NAMESPACES.some((ns) => v.startsWith(ns))));
 
 // ── tests ──
 

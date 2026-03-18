@@ -9,8 +9,6 @@ import { ipcBridge } from '@/common';
 import { useAutoScroll } from '@/renderer/hooks/useAutoScroll';
 import { useTextSelection } from '@/renderer/hooks/useTextSelection';
 import { useTypingAnimation } from '@/renderer/hooks/useTypingAnimation';
-import { iconColors } from '@/renderer/theme/colors';
-import { Close } from '@icon-park/react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -194,7 +192,7 @@ const rewriteExternalMediaUrls = (markdown: string): string => {
 // eslint-disable-next-line max-len
 const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   content,
-  onClose,
+  onClose: _onClose,
   hideToolbar = false,
   viewMode: externalViewMode,
   onViewModeChange,

@@ -643,7 +643,7 @@ export const handleAgentSelect: ActionHandler = async (context, params) => {
   sessionManager.clearSession(context.channelUser.id, context.chatId);
 
   // Create new session with the selected agent type (scoped by chatId)
-  const session = sessionManager.createSession(context.channelUser, newAgentType, undefined, context.chatId);
+  sessionManager.createSession(context.channelUser, newAgentType, undefined, context.chatId);
 
   const markup =
     context.platform === 'lark'

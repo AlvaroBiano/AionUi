@@ -6,13 +6,15 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+type MockHandler = (...args: unknown[]) => unknown;
+
 // Mock @office-ai/platform at module level (before any imports)
 vi.mock('@office-ai/platform', () => ({
   bridge: {
     buildProvider: vi.fn(() => {
-      const handlerMap = new Map<string, Function>();
+      const handlerMap = new Map<string, MockHandler>();
       return {
-        provider: vi.fn((handler: Function) => {
+        provider: vi.fn((handler: MockHandler) => {
           handlerMap.set('handler', handler);
           return vi.fn();
         }),

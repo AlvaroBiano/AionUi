@@ -5,9 +5,7 @@
  */
 
 import type { PreviewHistoryTarget } from '@/common/types/preview';
-import { iconColors } from '@/renderer/theme/colors';
 import { Dropdown } from '@arco-design/web-react';
-import { Close } from '@icon-park/react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -183,7 +181,7 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
   isEditMode,
   viewMode,
   isSplitScreenEnabled,
-  fileName,
+  fileName: _fileName,
   showOpenInSystemButton,
   historyTarget,
   snapshotSaving,
@@ -196,7 +194,7 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({
   renderHistoryDropdown,
   onOpenInSystem,
   onDownload,
-  onClose,
+  onClose: _onClose,
   inspectMode,
   onInspectModeToggle,
   leftExtra,

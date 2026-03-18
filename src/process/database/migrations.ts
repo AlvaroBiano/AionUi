@@ -994,7 +994,7 @@ const migration_v17: IMigration = {
 
     console.log('[Migration v17] Removed strict constraints for extension channels');
   },
-  down: (db) => {
+  down: (_db) => {
     // Cannot safely rollback if there are custom types/sources in the database.
     // For now, we just log a warning and do nothing, or we could delete them.
     console.warn('[Migration v17] Rollback skipped to prevent data loss of extension channels.');

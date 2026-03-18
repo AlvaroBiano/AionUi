@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IActionContext, IActionResult, IRegisteredAction, ActionHandler } from './types';
+import type { IRegisteredAction, ActionHandler } from './types';
 import { PlatformActionNames, createSuccessResponse, createErrorResponse } from './types';
 import { getPairingService } from '../pairing/PairingService';
 import {

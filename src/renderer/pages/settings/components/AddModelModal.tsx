@@ -1,7 +1,7 @@
 import type { IProvider } from '@/common/storage';
 import ModalHOC from '@/renderer/utils/ModalHOC';
 import AionModal from '@/renderer/components/base/AionModal';
-import { Button, Select, Tag } from '@arco-design/web-react';
+import { Select } from '@arco-design/web-react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useModeModeList from '../../../hooks/useModeModeList';
@@ -23,10 +23,6 @@ const AddModelModal = ModalHOC<{ data?: IProvider; onSubmit: (model: IProvider) 
         return { ...item, disabled: data.model.includes(item.value) };
       });
     }, [modelList, data?.model]);
-    const previewModels = useMemo(() => existingModels.slice(0, 6), [existingModels]);
-    const remainingCount =
-      existingModels.length > previewModels.length ? existingModels.length - previewModels.length : 0;
-
     const handleConfirm = useCallback(() => {
       if (!model) return;
       const updatedData: IProvider = { ...data, model: [...existingModels, model] };

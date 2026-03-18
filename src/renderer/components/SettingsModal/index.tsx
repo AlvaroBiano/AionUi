@@ -59,7 +59,7 @@ export type BuiltinSettingTab = 'gemini' | 'model' | 'agent' | 'tools' | 'webui'
 /**
  * 设置标签页类型（内置 + 扩展）/ Settings tab type (built-in + extension)
  */
-export type SettingTab = BuiltinSettingTab | (string & {});
+export type SettingTab = BuiltinSettingTab | (string & Record<never, never>);
 
 /**
  * 设置弹窗组件属性 / Settings modal component props

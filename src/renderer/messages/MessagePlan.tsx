@@ -15,7 +15,7 @@ const MessagePlan: React.FC<{ message: IMessagePlan }> = ({ message }) => {
         <div className='p-l-20px flex flex-col gap-8px pt-8px'>
           {message.content.entries.map((item, index) => {
             return (
-              <div className='flex flex-row items-center color-#86909C gap-8px'>
+              <div key={`${item.content}-${index}`} className='flex flex-row items-center color-#86909C gap-8px'>
                 {item.status === 'completed' ? (
                   <IconCheckCircle fontSize={22} strokeWidth={4} className='flex color-#00B42A' />
                 ) : (

@@ -10,13 +10,14 @@
  * Built-in platform types for channel plugins.
  */
 export type BuiltinPluginType = 'telegram' | 'slack' | 'discord' | 'lark' | 'dingtalk';
+type ExtensibleString = string & Record<never, never>;
 
 /**
  * Supported platform types for plugins.
  * Extension-contributed plugins can use any string type (e.g., 'ext-feishu').
  * Built-in types are preserved for type-safe handling in known code paths.
  */
-export type PluginType = BuiltinPluginType | (string & {});
+export type PluginType = BuiltinPluginType | ExtensibleString;
 
 /**
  * Plugin connection status
@@ -518,7 +519,7 @@ export function pairingRequestToRow(request: IChannelPairingRequest): IChannelPa
  * Channel platform type for model configuration.
  * Includes built-in platforms and extension-contributed platforms (string).
  */
-export type ChannelPlatform = 'telegram' | 'lark' | 'dingtalk' | (string & {});
+export type ChannelPlatform = 'telegram' | 'lark' | 'dingtalk' | ExtensibleString;
 
 /**
  * Type guard to check if a string is a known built-in ChannelPlatform.

@@ -14,7 +14,7 @@ import type { IAgentManager } from './IAgentManager';
 /**
  * @description agent任务基础类
  * */
-class BaseAgentManager<Data, ConfirmationOption extends any = any>
+class BaseAgentManager<Data, ConfirmationOption = unknown>
   extends ForkTask<{
     type: AgentType;
     data: Data;

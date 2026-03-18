@@ -17,7 +17,6 @@ import {
   parseChatId,
   toDingTalkSendParams,
   toUnifiedIncomingMessage,
-  convertHtmlToDingTalkMarkdown,
 } from './DingTalkAdapter';
 import type { DingTalkStreamMessage } from './DingTalkAdapter';
 

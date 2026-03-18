@@ -6,7 +6,6 @@
 
 import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
 import { getDatabase } from '@/process/database';
-import type BaseAgentManager from '@/process/task/BaseAgentManager';
 import type { IAgentManager } from '@process/task/IAgentManager';
 import { composeMessage, transformMessage, type TMessage } from '../../common/chatLib';
 import { uuid } from '../../common/utils';

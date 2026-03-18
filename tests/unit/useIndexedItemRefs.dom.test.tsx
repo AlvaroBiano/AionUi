@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useIndexedItemRefs } from '../../src/renderer/components/useIndexedItemRefs';

@@ -321,7 +321,7 @@ export type TMessage =
   | IMessageAvailableCommands;
 
 // 统一所有需要用户交互的用户类型
-export interface IConfirmation<Option extends any = any> {
+export interface IConfirmation<Option = unknown> {
   title?: string;
   id: string;
   action?: string;

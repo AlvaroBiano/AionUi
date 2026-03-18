@@ -70,7 +70,7 @@ const LarkConfigForm: React.FC<LarkConfigFormProps> = ({ pluginStatus, modelSele
 
   const [showOptional, setShowOptional] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
-  const [credentialsTested, setCredentialsTested] = useState(false);
+  const [, setCredentialsTested] = useState(false);
   const [touched, setTouched] = useState({ appId: false, appSecret: false });
   const [pairingLoading, setPairingLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);

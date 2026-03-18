@@ -7,7 +7,7 @@
 import type { TChatConversation } from '@/common/storage';
 import DirectorySelectionModal from '@/renderer/components/DirectorySelectionModal';
 import FlexFullContainer from '@/renderer/components/FlexFullContainer';
-import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
+import { useCronJobsMap } from '@/renderer/pages/cron';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Empty, Input, Modal } from '@arco-design/web-react';

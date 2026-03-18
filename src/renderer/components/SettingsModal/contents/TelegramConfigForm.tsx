@@ -63,8 +63,8 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({
 
   const [telegramToken, setTelegramToken] = useState('');
   const [testLoading, setTestLoading] = useState(false);
-  const [tokenTested, setTokenTested] = useState(false);
-  const [testedBotUsername, setTestedBotUsername] = useState<string | null>(null);
+  const [, setTokenTested] = useState(false);
+  const [, setTestedBotUsername] = useState<string | null>(null);
   const [pairingLoading, setPairingLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
   const [pendingPairings, setPendingPairings] = useState<IChannelPairingRequest[]>([]);

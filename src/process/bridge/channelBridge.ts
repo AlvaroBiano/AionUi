@@ -11,8 +11,8 @@ import { getPairingService } from '@/channels/pairing/PairingService';
 import { ExtensionRegistry } from '@/extensions';
 import { toAssetUrl } from '@/extensions/assetProtocol';
 import * as path from 'path';
-import type { IChannelPluginStatus, IChannelUser, IChannelPairingRequest, IChannelSession } from '@/channels/types';
-import { hasPluginCredentials, rowToChannelUser, rowToChannelSession, rowToPairingRequest } from '@/channels/types';
+import type { IChannelPluginStatus } from '@/channels/types';
+import { hasPluginCredentials } from '@/channels/types';
 
 /**
  * Initialize Channel IPC Bridge

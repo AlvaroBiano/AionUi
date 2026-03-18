@@ -5,7 +5,7 @@
  * settings sub-pages without errors.
  */
 import { test, expect } from '../fixtures';
-import { goToGuid, goToSettings, ROUTES, expectUrlContains, takeScreenshot, type SettingsTab } from '../helpers';
+import { goToGuid, goToSettings, expectUrlContains, takeScreenshot, type SettingsTab } from '../helpers';
 
 // ── Guid Page ────────────────────────────────────────────────────────────────
 

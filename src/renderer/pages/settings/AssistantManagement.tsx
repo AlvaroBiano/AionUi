@@ -103,7 +103,7 @@ const AssistantManagement: React.FC<AssistantManagementProps> = ({ message }) =>
   const [editAvatar, setEditAvatar] = useState('');
   // editAgent holds either a built-in PresetAgentType or an extension adapter ID (e.g. "ext-buddy")
   const [editAgent, setEditAgent] = useState<string>('gemini');
-  const [editSkills, setEditSkills] = useState('');
+  const [, setEditSkills] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [promptViewMode, setPromptViewMode] = useState<'edit' | 'preview'>('preview');
@@ -113,8 +113,6 @@ const AssistantManagement: React.FC<AssistantManagementProps> = ({ message }) =>
   const [customSkills, setCustomSkills] = useState<string[]>([]); // 通过 Add Skills 添加到此助手的 skills 名称 / Skill names added via Add Skills
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]); // 启用的 skills（勾选状态）/ Enabled skills
   const [skillsModalVisible, setSkillsModalVisible] = useState(false);
-  const [skillPath, setSkillPath] = useState(''); // Skill folder path input
-  const [commonPaths, setCommonPaths] = useState<Array<{ name: string; path: string }>>([]); // Common skill paths detected
   const [availableBackends, setAvailableBackends] = useState<Set<string>>(new Set(['gemini']));
   const [externalSources, setExternalSources] = useState<ExternalSource[]>([]);
   const [activeSourceTab, setActiveSourceTab] = useState<string>('');

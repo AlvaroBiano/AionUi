@@ -278,7 +278,7 @@ function CodeBlock(props: any) {
   }, [props, currentTheme, fold, t]);
 }
 
-const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string>, customCss?: string) => {
+const createInitStyle = (cssVars?: Record<string, string>, customCss?: string) => {
   const style = document.createElement('style');
   // 将外部 CSS 变量注入到 Shadow DOM 中，支持深色模式 Inject external CSS variables into Shadow DOM for dark mode support
   const cssVarsDeclaration = cssVars
@@ -496,7 +496,6 @@ const ShadowView = ({ children }: { children: React.ReactNode }) => {
   const updateStyles = React.useCallback(
     (shadowRoot: ShadowRoot) => {
       const computedStyle = getComputedStyle(document.documentElement);
-      const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
       const cssVars = {
         '--bg-1': computedStyle.getPropertyValue('--bg-1'),
         '--bg-2': computedStyle.getPropertyValue('--bg-2'),
@@ -512,7 +511,7 @@ const ShadowView = ({ children }: { children: React.ReactNode }) => {
       if (styleRef.current) {
         styleRef.current.remove();
       }
-      const newStyle = createInitStyle(currentTheme, cssVars, customCss);
+      const newStyle = createInitStyle(cssVars, customCss);
       styleRef.current = newStyle;
       shadowRoot.appendChild(newStyle);
 

@@ -1184,7 +1184,6 @@ export function initFsBridge(): void {
   ipcBridge.fs.detectAndCountExternalSkills.provider(async () => {
     try {
       const homedir = os.homedir();
-      const userSkillsDir = getUserSkillsDir();
       const builtinCandidates = [
         { name: 'Global Agents', path: path.join(homedir, '.agents', 'skills'), source: 'global-agents' },
         { name: 'Gemini CLI', path: path.join(homedir, '.gemini', 'skills'), source: 'gemini' },

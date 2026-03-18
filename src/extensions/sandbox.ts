@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Worker, type MessagePort } from 'worker_threads';
+import { Worker } from 'worker_threads';
 import * as path from 'path';
 import type { ExtPermissions } from './permissions';
 

@@ -7,9 +7,7 @@
 import { useAutoScroll } from '@/renderer/hooks/useAutoScroll';
 import { useTextSelection } from '@/renderer/hooks/useTextSelection';
 import { useTypingAnimation } from '@/renderer/hooks/useTypingAnimation';
-import { iconColors } from '@/renderer/theme/colors';
 import { LARGE_TEXT_VIEWER_RENDER_LIMIT, LARGE_TEXT_VIEWER_THRESHOLD } from '../../constants';
-import { Close } from '@icon-park/react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import SyntaxHighlighter from 'react-syntax-highlighter';
@@ -35,7 +33,7 @@ interface CodePreviewProps {
 const CodePreview: React.FC<CodePreviewProps> = ({
   content,
   language = 'text',
-  onClose,
+  onClose: _onClose,
   hideToolbar = false,
   viewMode: externalViewMode,
   onViewModeChange,

@@ -7,7 +7,6 @@
 import * as path from 'path';
 import { existsSync } from 'fs';
 import type { LoadedExtension } from '../types';
-import { BUILTIN_SETTINGS_TAB_IDS } from '../types';
 import { isPathWithinDirectory } from '../pathSafety';
 import { toAssetUrl } from '../assetProtocol';
 import { resolveRuntimeEntryPath } from '../entryPointResolver';

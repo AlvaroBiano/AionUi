@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { TChatConversation } from '@/common/storage';
 import { getAgentLogo } from '@/renderer/utils/agentLogo';
 import FlexFullContainer from '@/renderer/components/FlexFullContainer';
 import { usePresetAssistantInfo } from '@/renderer/hooks/usePresetAssistantInfo';
