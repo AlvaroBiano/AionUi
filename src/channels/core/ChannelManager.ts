@@ -87,7 +87,12 @@ export class ChannelManager {
       this.pluginManager = new PluginManager(this.sessionManager, this.serviceRegistry);
 
       // Create action executor and wire up message handling
-      this.actionExecutor = new ActionExecutor(this.pluginManager, this.sessionManager, this.pairingService, this.serviceRegistry);
+      this.actionExecutor = new ActionExecutor(
+        this.pluginManager,
+        this.sessionManager,
+        this.pairingService,
+        this.serviceRegistry
+      );
       this.pluginManager.setMessageHandler(this.actionExecutor.getMessageHandler());
 
       // Set confirm handler for tool confirmations
@@ -113,9 +118,12 @@ export class ChannelManager {
         // 调用 confirm
         // Call confirm
         try {
-          const confirmService = this.serviceRegistry?.resolve<IChannelMessageServiceContract['confirm']>('channel.message.confirm', {
-            requesterOwner: 'channel-core',
-          });
+          const confirmService = this.serviceRegistry?.resolve<IChannelMessageServiceContract['confirm']>(
+            'channel.message.confirm',
+            {
+              requesterOwner: 'channel-core',
+            }
+          );
           const fallbackConfirm = getChannelMessageService().confirm.bind(getChannelMessageService());
           await (confirmService ?? fallbackConfirm)(session.conversationId, callId, value);
         } catch (error) {
@@ -246,7 +254,9 @@ export class ChannelManager {
       const canStartInCurrentRuntime = isBuiltinStartable || hasExtensionPlugin;
 
       if (!canStartInCurrentRuntime) {
-        console.warn(`[ChannelManager] Auto-disabling stale plugin ${plugin.id} (type=${plugin.type}) because it is not available in current runtime`);
+        console.warn(
+          `[ChannelManager] Auto-disabling stale plugin ${plugin.id} (type=${plugin.type}) because it is not available in current runtime`
+        );
         const nextConfig: IChannelPluginConfig = {
           ...plugin,
           enabled: false,
@@ -433,7 +443,11 @@ export class ChannelManager {
    * For extension plugins that don't have a static testConnection method,
    * returns a generic "not supported" response.
    */
-  async testPlugin(pluginId: string, token: string, extraConfig?: { appId?: string; appSecret?: string }): Promise<{ success: boolean; botUsername?: string; error?: string }> {
+  async testPlugin(
+    pluginId: string,
+    token: string,
+    extraConfig?: { appId?: string; appSecret?: string }
+  ): Promise<{ success: boolean; botUsername?: string; error?: string }> {
     const pluginType = this.getPluginTypeFromId(pluginId);
 
     if (pluginType === 'telegram') {
@@ -524,7 +538,9 @@ export class ChannelManager {
       if (extPlugins.size === 0) return;
 
       for (const [type, entry] of extPlugins) {
-        const Constructor = entry.constructor as new () => InstanceType<typeof import('../plugins/BasePlugin').BasePlugin>;
+        const Constructor = entry.constructor as new () => InstanceType<
+          typeof import('../plugins/BasePlugin').BasePlugin
+        >;
         registerPlugin(type as PluginType, Constructor as any);
         console.log(`[ChannelManager] Registered extension channel plugin: ${type}`);
       }
@@ -541,7 +557,11 @@ export class ChannelManager {
    * which conversation to use. For gemini type changes, also updates the
    * model field on existing conversations.
    */
-  async syncChannelSettings(platform: ChannelPlatform, agent: { backend: string; customAgentId?: string; name?: string }, model?: { id: string; useModel: string }): Promise<{ success: boolean; error?: string }> {
+  async syncChannelSettings(
+    platform: ChannelPlatform,
+    agent: { backend: string; customAgentId?: string; name?: string },
+    model?: { id: string; useModel: string }
+  ): Promise<{ success: boolean; error?: string }> {
     if (!this.initialized || !this.sessionManager) {
       return { success: false, error: 'Channel manager not initialized' };
     }

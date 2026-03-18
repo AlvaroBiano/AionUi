@@ -16,6 +16,16 @@ type CallbackTemplateVariables = Record<string, unknown> & {
   workspace?: unknown;
 };
 
+type CallbackJsFilterObjectResult = {
+  content?: unknown;
+  textLimit?: unknown;
+};
+
+type CallbackJsFilterResult = {
+  content: string;
+  textLimit: number;
+};
+
 /**
  * Service for sending HTTP callbacks
  * HTTP 回调发送服务
@@ -32,7 +42,7 @@ export class CallbackService {
    * - {{model}} - Model information
    * - {{lastMessage}} - Last message object
    */
-  static replaceVariables(template: string, variables: Record<string, any>): string {
+  static replaceVariables(template: string, variables: Record<string, unknown>): string {
     let result = template;
 
     for (const [key, value] of Object.entries(variables)) {
@@ -45,15 +55,20 @@ export class CallbackService {
   }
 
   static createTemplateVariables(config: IApiConfig, variables: CallbackTemplateVariables): Record<string, unknown> {
+    const jsFilterResult = this.buildJsFilterResult(config, variables);
+
     return {
       ...variables,
-      jsFitterStr: this.buildJsFitterStr(config, variables),
+      ...this.createJsFitterVariables(jsFilterResult, jsFilterResult.content, 1, 1),
     };
   }
 
-  private static buildJsFitterStr(config: IApiConfig, variables: CallbackTemplateVariables): string {
+  private static buildJsFilterResult(config: IApiConfig, variables: CallbackTemplateVariables): CallbackJsFilterResult {
     if (!config.jsFilterEnabled) {
-      return '';
+      return {
+        content: '',
+        textLimit: -1,
+      };
     }
 
     const scriptSource = config.jsFilterScript?.trim() || DEFAULT_JS_FILTER_SCRIPT;
@@ -77,52 +92,163 @@ if (typeof jsFilter !== 'function') {
 jsFilter(input);
 `);
       const result = script.runInContext(context, { timeout: 1000 });
-      return typeof result === 'string' ? result : String(result ?? '');
+      return this.normalizeJsFilterResult(result);
     } catch (error) {
       console.error('[CallbackService] Failed to execute callback JS filter:', error);
-      return '';
+      return {
+        content: '',
+        textLimit: -1,
+      };
     }
+  }
+
+  private static normalizeJsFilterResult(result: unknown): CallbackJsFilterResult {
+    if (typeof result === 'string') {
+      return {
+        content: result,
+        textLimit: -1,
+      };
+    }
+
+    if (result && typeof result === 'object') {
+      const objectResult = result as CallbackJsFilterObjectResult;
+      return {
+        content: String(objectResult.content ?? ''),
+        textLimit: this.normalizeTextLimit(objectResult.textLimit),
+      };
+    }
+
+    return {
+      content: String(result ?? ''),
+      textLimit: -1,
+    };
+  }
+
+  private static normalizeTextLimit(textLimit: unknown): number {
+    if (typeof textLimit === 'number' && Number.isFinite(textLimit)) {
+      return textLimit > 0 ? Math.floor(textLimit) : -1;
+    }
+
+    if (typeof textLimit === 'string' && textLimit.trim()) {
+      const parsed = Number(textLimit);
+      if (Number.isFinite(parsed)) {
+        return parsed > 0 ? Math.floor(parsed) : -1;
+      }
+    }
+
+    return -1;
+  }
+
+  private static createJsFitterVariables(
+    jsFilterResult: CallbackJsFilterResult,
+    chunkContent: string,
+    chunkIndex: number,
+    chunkCount: number
+  ): Record<string, unknown> {
+    return {
+      jsFitterStr: chunkContent,
+      jsFitterFullStr: jsFilterResult.content,
+      jsFitterTextLimit: jsFilterResult.textLimit,
+      jsFitterChunkIndex: chunkIndex,
+      jsFitterChunkCount: chunkCount,
+    };
+  }
+
+  private static splitCallbackContent(content: string, textLimit: number): string[] {
+    if (textLimit <= 0 || content.length <= textLimit) {
+      return [content];
+    }
+
+    const chunks: string[] = [];
+    let remaining = content;
+
+    while (remaining.length > 0) {
+      if (remaining.length <= textLimit) {
+        chunks.push(remaining);
+        break;
+      }
+
+      let splitIndex = textLimit;
+      const searchStart = Math.floor(textLimit * 0.8);
+      const lastNewline = remaining.lastIndexOf('\n', textLimit);
+
+      if (lastNewline > searchStart) {
+        splitIndex = lastNewline + 1;
+      } else {
+        const lastSpace = remaining.lastIndexOf(' ', textLimit);
+        if (lastSpace > searchStart) {
+          splitIndex = lastSpace + 1;
+        }
+      }
+
+      const chunk = remaining.slice(0, splitIndex).trim();
+      if (!chunk) {
+        chunks.push(remaining.slice(0, textLimit));
+        remaining = remaining.slice(textLimit);
+        continue;
+      }
+
+      chunks.push(chunk);
+      remaining = remaining.slice(splitIndex).trim();
+    }
+
+    return chunks.length > 0 ? chunks : [content];
   }
 
   /**
    * Send HTTP callback request
    * 发送 HTTP 回调请求
    */
-  static async sendCallback(config: IApiConfig, variables: Record<string, any>): Promise<{ success: boolean; error?: string }> {
+  static async sendCallback(
+    config: IApiConfig,
+    variables: Record<string, unknown>
+  ): Promise<{ success: boolean; error?: string }> {
     if (!config.callbackEnabled || !config.callbackUrl) {
       return { success: false, error: 'Callback URL not configured' };
     }
 
     try {
-      const templateVariables = this.createTemplateVariables(config, variables);
+      const jsFilterResult = this.buildJsFilterResult(config, variables);
+      const chunks = this.splitCallbackContent(jsFilterResult.content, jsFilterResult.textLimit);
 
-      // 1. Prepare request body
-      let body: string | undefined;
-      if (config.callbackBody) {
-        body = this.replaceVariables(config.callbackBody, templateVariables);
-      }
-
-      // 2. Prepare headers
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...config.callbackHeaders,
       };
 
-      // 3. Send HTTP request
-      const response = await fetch(config.callbackUrl, {
-        method: config.callbackMethod,
-        headers,
-        body: config.callbackMethod !== 'GET' ? body : undefined,
-        signal: AbortSignal.timeout(30000), // 30s timeout
-      });
+      for (const [index, chunk] of chunks.entries()) {
+        const templateVariables = {
+          ...variables,
+          ...this.createJsFitterVariables(jsFilterResult, chunk, index + 1, chunks.length),
+        };
 
-      if (!response.ok) {
-        const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
-        console.error(`[CallbackService] Callback failed -`, errorMsg);
-        return { success: false, error: errorMsg };
+        let body: string | undefined;
+        if (config.callbackBody) {
+          body = this.replaceVariables(config.callbackBody, templateVariables);
+        }
+
+        const response = await fetch(config.callbackUrl, {
+          method: config.callbackMethod,
+          headers,
+          body: config.callbackMethod !== 'GET' ? body : undefined,
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (!response.ok) {
+          const errorMsg =
+            chunks.length > 1
+              ? `HTTP ${response.status}: ${response.statusText} (chunk ${index + 1}/${chunks.length})`
+              : `HTTP ${response.status}: ${response.statusText}`;
+          console.error(`[CallbackService] Callback failed -`, errorMsg);
+          return { success: false, error: errorMsg };
+        }
       }
 
-      console.log(`[CallbackService] Callback sent successfully to ${config.callbackUrl}`);
+      console.log(
+        `[CallbackService] Callback sent successfully to ${config.callbackUrl}${
+          chunks.length > 1 ? ` (${chunks.length} chunks)` : ''
+        }`
+      );
       return { success: true };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);

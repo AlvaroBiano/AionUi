@@ -59,15 +59,17 @@ describe('message cache', () => {
     });
 
     getConversationMessages.mockReset();
-    getConversationMessages.mockImplementation((_conversationId: string, page: number, pageSize: number, sort: 'ASC' | 'DESC' = 'DESC') => {
-      const ordered = [...storedMessages].sort((left, right) => left.createdAt - right.createdAt);
-      const sorted = sort === 'DESC' ? ordered.reverse() : ordered;
-      const start = page * pageSize;
-      return {
-        data: sorted.slice(start, start + pageSize),
-        total: storedMessages.length,
-      };
-    });
+    getConversationMessages.mockImplementation(
+      (_conversationId: string, page: number, pageSize: number, sort: 'ASC' | 'DESC' = 'DESC') => {
+        const ordered = [...storedMessages].sort((left, right) => left.createdAt - right.createdAt);
+        const sorted = sort === 'DESC' ? ordered.reverse() : ordered;
+        const start = page * pageSize;
+        return {
+          data: sorted.slice(start, start + pageSize),
+          total: storedMessages.length,
+        };
+      }
+    );
 
     insertMessage.mockReset();
     insertMessage.mockImplementation((message) => {
@@ -96,7 +98,8 @@ describe('message cache', () => {
   });
 
   it('flushes accumulated stream updates during continuous output', async () => {
-    const { addOrUpdateMessage, getConversationMessageCacheStats, releaseConversationMessageCache } = await import('../../src/process/message');
+    const { addOrUpdateMessage, getConversationMessageCacheStats, releaseConversationMessageCache } =
+      await import('../../src/process/message');
 
     for (let index = 0; index < 12; index += 1) {
       addOrUpdateMessage('conv-1', {
@@ -130,7 +133,8 @@ describe('message cache', () => {
   });
 
   it('persists pending updates before releasing the cache', async () => {
-    const { addOrUpdateMessage, getConversationMessageCacheStats, releaseConversationMessageCache } = await import('../../src/process/message');
+    const { addOrUpdateMessage, getConversationMessageCacheStats, releaseConversationMessageCache } =
+      await import('../../src/process/message');
 
     addOrUpdateMessage('conv-1', {
       id: 'msg-1',

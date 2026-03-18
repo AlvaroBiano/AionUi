@@ -22,7 +22,10 @@ export function normalizeCodexSandboxMode(sandboxMode?: CodexSandboxMode | null)
   return sandboxMode === 'danger-full-access' ? 'danger-full-access' : 'workspace-write';
 }
 
-export function getCodexSandboxModeForSessionMode(mode?: string | null, fallbackMode?: CodexSandboxMode | null): SupportedCodexSandboxMode {
+export function getCodexSandboxModeForSessionMode(
+  mode?: string | null,
+  fallbackMode?: CodexSandboxMode | null
+): SupportedCodexSandboxMode {
   if (mode) {
     return isCodexNoSandboxMode(mode) ? 'danger-full-access' : 'workspace-write';
   }
@@ -81,7 +84,9 @@ export async function writeCodexSandboxMode(sandboxMode: CodexSandboxMode): Prom
     if (sectionIndex >= 0) {
       const prefix = content.slice(0, sectionIndex).trimEnd();
       const suffix = content.slice(sectionIndex);
-      nextContent = prefix ? `${prefix}${newline}${sandboxLine}${newline}${newline}${suffix}` : `${sandboxLine}${newline}${newline}${suffix}`;
+      nextContent = prefix
+        ? `${prefix}${newline}${sandboxLine}${newline}${newline}${suffix}`
+        : `${sandboxLine}${newline}${newline}${suffix}`;
     } else if (content.trim().length > 0) {
       nextContent = `${content.trimEnd()}${newline}${sandboxLine}${newline}`;
     } else {

@@ -87,7 +87,10 @@ const isPrunableConversation = (id: string): boolean => {
   return conversation.source === 'api' || extra.isHealthCheck === true;
 };
 
-const shouldKeepTask = (entry: { id: string; task: AgentBaseTask<unknown>; lastUsedAt: number }, now: number): boolean => {
+const shouldKeepTask = (
+  entry: { id: string; task: AgentBaseTask<unknown>; lastUsedAt: number },
+  now: number
+): boolean => {
   if (!isPrunableConversation(entry.id)) {
     return true;
   }
@@ -201,7 +204,10 @@ const buildConversation = (conversation: TChatConversation, options?: BuildConve
   }
 };
 
-const getTaskByIdRollbackBuild = async (id: string, options?: BuildConversationOptions): Promise<AgentBaseTask<unknown>> => {
+const getTaskByIdRollbackBuild = async (
+  id: string,
+  options?: BuildConversationOptions
+): Promise<AgentBaseTask<unknown>> => {
   console.log(`[WorkerManage] getTaskByIdRollbackBuild: id=${id}, options=${JSON.stringify(options)}`);
 
   // If not skipping cache, check for existing task
@@ -242,7 +248,12 @@ type SendMessageResult =
       msg: string;
     };
 
-const sendMessage = async (conversationId: string, message: string, msgId: string, files?: string[]): Promise<SendMessageResult> => {
+const sendMessage = async (
+  conversationId: string,
+  message: string,
+  msgId: string,
+  files?: string[]
+): Promise<SendMessageResult> => {
   let task: AgentBaseTask<unknown>;
   try {
     task = await getTaskByIdRollbackBuild(conversationId);
@@ -374,7 +385,8 @@ const getDebugInfo = () => {
       idleForMs: Math.max(now - entry.lastUsedAt, 0),
       confirmationCount: typeof entry.task.getConfirmations === 'function' ? entry.task.getConfirmations().length : 0,
       isPrunable: isPrunableConversation(entry.id),
-      diagnostics: typeof taskWithDiagnostics.getDiagnostics === 'function' ? taskWithDiagnostics.getDiagnostics() : undefined,
+      diagnostics:
+        typeof taskWithDiagnostics.getDiagnostics === 'function' ? taskWithDiagnostics.getDiagnostics() : undefined,
     };
   });
 

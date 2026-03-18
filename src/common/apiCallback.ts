@@ -13,7 +13,10 @@ export const DEFAULT_JS_FILTER_SCRIPT = `function jsFilter(input) {
     JSON.stringify(input.conversationHistory ?? []),
   ].join('\\n');
 
-  return combined.slice(-1024);
+  return {
+    content: combined.slice(-1024),
+    textLimit: -1,
+  };
 }`;
 
 export const DEFAULT_CALLBACK_BODY = `{

@@ -61,7 +61,10 @@ export class WebuiService {
    * 统一的异步错误处理包装器
    * Unified async error handling wrapper
    */
-  static async handleAsync<T>(handler: () => Promise<{ success: boolean; data?: T; msg?: string }>, context = 'Operation'): Promise<{ success: boolean; data?: T; msg?: string }> {
+  static async handleAsync<T>(
+    handler: () => Promise<{ success: boolean; data?: T; msg?: string }>,
+    context = 'Operation'
+  ): Promise<{ success: boolean; data?: T; msg?: string }> {
     try {
       return await handler();
     } catch (error) {
@@ -80,7 +83,7 @@ export class WebuiService {
   static async getAdminUser() {
     const adminUser = UserRepository.findByUsername(AUTH_CONFIG.DEFAULT_USER.USERNAME);
     if (!adminUser) {
-      throw new Error('Admin user not found');
+      throw new Error('WebUI user not found');
     }
     return adminUser;
   }
@@ -140,6 +143,30 @@ export class WebuiService {
 
     // 清除初始密码（用户已修改密码）/ Clear initial password (user has changed password)
     this.clearInitialAdminPassword();
+  }
+
+  static async changeUsername(newUsername: string): Promise<string> {
+    const adminUser = await this.getAdminUser();
+    const normalizedUsername = newUsername.trim();
+
+    const usernameValidation = AuthService.validateUsername(normalizedUsername);
+    if (!usernameValidation.isValid) {
+      throw new Error(usernameValidation.errors.join('; '));
+    }
+
+    const existingUser = UserRepository.findByUsername(normalizedUsername);
+    if (existingUser && existingUser.id !== adminUser.id) {
+      throw new Error('Username already exists');
+    }
+
+    if (normalizedUsername === adminUser.username) {
+      return adminUser.username;
+    }
+
+    UserRepository.updateUsername(adminUser.id, normalizedUsername);
+    AuthService.invalidateAllTokens();
+
+    return normalizedUsername;
   }
 
   /**

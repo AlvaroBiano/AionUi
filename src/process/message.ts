@@ -254,7 +254,10 @@ export const flushConversationMessages = (conversation_id: string): Promise<void
   return manage.flush();
 };
 
-export const releaseConversationMessageCache = (conversation_id: string, options?: ReleaseConversationMessageCacheOptions): Promise<void> => {
+export const releaseConversationMessageCache = (
+  conversation_id: string,
+  options?: ReleaseConversationMessageCacheOptions
+): Promise<void> => {
   const manage = Cache.get(conversation_id);
   if (!manage) {
     return Promise.resolve();

@@ -594,7 +594,8 @@ describe('conversationApiRoutes helpers', () => {
   });
 
   it('builds batch conversation usage summary payload', async () => {
-    const { buildConversationUsageSummaryListResponse } = await import('../../src/webserver/routes/conversationApiRoutes');
+    const { buildConversationUsageSummaryListResponse } =
+      await import('../../src/webserver/routes/conversationApiRoutes');
 
     const result = buildConversationUsageSummaryListResponse(
       [

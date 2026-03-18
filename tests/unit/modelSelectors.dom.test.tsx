@@ -57,7 +57,8 @@ vi.mock('@/renderer/theme/colors', () => ({
 }));
 
 vi.mock('@/renderer/utils/agentUiDisplay', () => ({
-  getModelDisplayLabel: ({ selectedLabel, fallbackLabel }: { selectedLabel?: string; fallbackLabel: string }) => selectedLabel || fallbackLabel,
+  getModelDisplayLabel: ({ selectedLabel, fallbackLabel }: { selectedLabel?: string; fallbackLabel: string }) =>
+    selectedLabel || fallbackLabel,
 }));
 
 vi.mock('../../src/renderer/pages/guid/utils/modelUtils', () => ({
@@ -93,7 +94,17 @@ vi.mock('@arco-design/web-react', async () => {
       {children}
     </button>
   );
-  const Dropdown = ({ children, popupVisible, onVisibleChange, droplist }: { children: React.ReactNode; popupVisible?: boolean; onVisibleChange?: (visible: boolean) => void; droplist?: React.ReactNode }) => (
+  const Dropdown = ({
+    children,
+    popupVisible,
+    onVisibleChange,
+    droplist,
+  }: {
+    children: React.ReactNode;
+    popupVisible?: boolean;
+    onVisibleChange?: (visible: boolean) => void;
+    droplist?: React.ReactNode;
+  }) => (
     <div data-testid='dropdown' data-visible={String(Boolean(popupVisible))}>
       <div data-testid='dropdown-trigger' onClick={() => onVisibleChange?.(!popupVisible)}>
         {children}
@@ -101,8 +112,23 @@ vi.mock('@arco-design/web-react', async () => {
       {popupVisible ? <div data-testid='dropdown-menu'>{droplist}</div> : null}
     </div>
   );
-  const Tooltip = ({ children, popupVisible, onVisibleChange, content }: { children: React.ReactNode; popupVisible?: boolean; onVisibleChange?: (visible: boolean) => void; content?: React.ReactNode }) => (
-    <div data-testid='tooltip' data-visible={String(Boolean(popupVisible))} onMouseEnter={() => onVisibleChange?.(true)} onMouseLeave={() => onVisibleChange?.(false)}>
+  const Tooltip = ({
+    children,
+    popupVisible,
+    onVisibleChange,
+    content,
+  }: {
+    children: React.ReactNode;
+    popupVisible?: boolean;
+    onVisibleChange?: (visible: boolean) => void;
+    content?: React.ReactNode;
+  }) => (
+    <div
+      data-testid='tooltip'
+      data-visible={String(Boolean(popupVisible))}
+      onMouseEnter={() => onVisibleChange?.(true)}
+      onMouseLeave={() => onVisibleChange?.(false)}
+    >
       {children}
       {popupVisible ? <div>{content}</div> : null}
     </div>
@@ -147,7 +173,18 @@ const baseModelInfo = {
 
 describe('model selector popup safety', () => {
   it('closes GuidModelSelector dropdown when ACP model info refreshes', async () => {
-    const { rerender } = render(<GuidModelSelector isGeminiMode={false} modelList={[]} currentModel={undefined} setCurrentModel={vi.fn()} geminiModeLookup={new Map()} currentAcpCachedModelInfo={baseModelInfo} selectedAcpModel='gpt-5.4' setSelectedAcpModel={vi.fn()} />);
+    const { rerender } = render(
+      <GuidModelSelector
+        isGeminiMode={false}
+        modelList={[]}
+        currentModel={undefined}
+        setCurrentModel={vi.fn()}
+        geminiModeLookup={new Map()}
+        currentAcpCachedModelInfo={baseModelInfo}
+        selectedAcpModel='gpt-5.4'
+        setSelectedAcpModel={vi.fn()}
+      />
+    );
 
     fireEvent.click(screen.getByTestId('dropdown-trigger'));
     expect(screen.getByTestId('dropdown')).toHaveAttribute('data-visible', 'true');
@@ -175,7 +212,9 @@ describe('model selector popup safety', () => {
   });
 
   it('closes AcpModelSelector dropdown when local model info changes', async () => {
-    const { rerender } = render(<AcpModelSelector backend='codex' localModelInfo={baseModelInfo} onSelectModel={vi.fn()} />);
+    const { rerender } = render(
+      <AcpModelSelector backend='codex' localModelInfo={baseModelInfo} onSelectModel={vi.fn()} />
+    );
 
     fireEvent.click(screen.getByTestId('dropdown-trigger'));
     expect(screen.getByTestId('dropdown')).toHaveAttribute('data-visible', 'true');

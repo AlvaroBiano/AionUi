@@ -123,7 +123,10 @@ const ExtensionSettingsPage: React.FC = () => {
           tab._extensionName === 'api-diagnostics-devtools'
             ? {
                 'application.getApiDiagnosticsState': () => ipcBridge.application.getApiDiagnosticsState.invoke(),
-                'application.updateApiDiagnosticsConfig': () => ipcBridge.application.updateApiDiagnosticsConfig.invoke((payload || {}) as { enabled?: boolean; outputDir?: string; sampleIntervalMs?: number }),
+                'application.updateApiDiagnosticsConfig': () =>
+                  ipcBridge.application.updateApiDiagnosticsConfig.invoke(
+                    (payload || {}) as { enabled?: boolean; outputDir?: string; sampleIntervalMs?: number }
+                  ),
                 'application.captureApiDiagnosticsSnapshot': () =>
                   ipcBridge.application.captureApiDiagnosticsSnapshot.invoke(
                     (payload || {}) as {

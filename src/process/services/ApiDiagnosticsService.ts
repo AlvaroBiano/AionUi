@@ -10,7 +10,11 @@ import v8 from 'v8';
 import { app } from 'electron';
 import WorkerManage from '@process/WorkerManage';
 import { cronBusyGuard } from '@process/services/cron/CronBusyGuard';
-import { ConversationTurnCompletionService, formatStatusLastMessage, getReadOnlyConversationStatusSnapshot } from '@process/services/ConversationTurnCompletionService';
+import {
+  ConversationTurnCompletionService,
+  formatStatusLastMessage,
+  getReadOnlyConversationStatusSnapshot,
+} from '@process/services/ConversationTurnCompletionService';
 import { getConversationMessageCacheStats } from '@process/message';
 import { getDatabase } from '@process/database';
 
@@ -171,7 +175,9 @@ const getMessageContentPreview = (content: unknown): DiagnosticMessageContentSum
   };
 };
 
-const formatDiagnosticLastMessage = (lastMessage: Parameters<typeof formatStatusLastMessage>[0]): DiagnosticLastMessage | undefined => {
+const formatDiagnosticLastMessage = (
+  lastMessage: Parameters<typeof formatStatusLastMessage>[0]
+): DiagnosticLastMessage | undefined => {
   const formatted = formatStatusLastMessage(lastMessage);
   if (!formatted) {
     return undefined;
@@ -217,12 +223,21 @@ export class ApiDiagnosticsService {
   private configPersistQueue: Promise<void> = Promise.resolve();
 
   constructor(initialConfig: ApiDiagnosticsServiceConfig = {}) {
-    this.configFilePath = initialConfig.configFilePath ? path.resolve(initialConfig.configFilePath) : resolveDefaultConfigPath();
+    this.configFilePath = initialConfig.configFilePath
+      ? path.resolve(initialConfig.configFilePath)
+      : resolveDefaultConfigPath();
 
     const persistedConfig = this.readPersistedConfig();
-    this.enabled = initialConfig.enabled ?? persistedConfig.enabled ?? parseEnabledFlag(process.env.AIONUI_API_DIAGNOSTICS);
-    this.outputDir = normalizeOutputDir(initialConfig.outputDir ?? persistedConfig.outputDir ?? process.env.AIONUI_API_DIAGNOSTICS_DIR);
-    this.sampleIntervalMs = normalizeSampleIntervalMs(initialConfig.sampleIntervalMs ?? persistedConfig.sampleIntervalMs ?? process.env.AIONUI_API_DIAGNOSTICS_INTERVAL_MS);
+    this.enabled =
+      initialConfig.enabled ?? persistedConfig.enabled ?? parseEnabledFlag(process.env.AIONUI_API_DIAGNOSTICS);
+    this.outputDir = normalizeOutputDir(
+      initialConfig.outputDir ?? persistedConfig.outputDir ?? process.env.AIONUI_API_DIAGNOSTICS_DIR
+    );
+    this.sampleIntervalMs = normalizeSampleIntervalMs(
+      initialConfig.sampleIntervalMs ??
+        persistedConfig.sampleIntervalMs ??
+        process.env.AIONUI_API_DIAGNOSTICS_INTERVAL_MS
+    );
   }
 
   isEnabled(): boolean {
@@ -313,7 +328,9 @@ export class ApiDiagnosticsService {
     return this.createSnapshot(input);
   }
 
-  captureRouteSample(input: DiagnosticsSnapshotInput & { force?: boolean; persist?: boolean; allowWhenDisabled?: boolean }): {
+  captureRouteSample(
+    input: DiagnosticsSnapshotInput & { force?: boolean; persist?: boolean; allowWhenDisabled?: boolean }
+  ): {
     enabled: boolean;
     recorded: boolean;
     filePath?: string;
@@ -366,7 +383,10 @@ export class ApiDiagnosticsService {
   }
 
   private persistSnapshot(snapshot: ReturnType<ApiDiagnosticsService['createSnapshot']>): string {
-    const filePath = path.join(this.outputDir, `conversation-api-diagnostics-${new Date().toISOString().slice(0, 10)}.ndjson`);
+    const filePath = path.join(
+      this.outputDir,
+      `conversation-api-diagnostics-${new Date().toISOString().slice(0, 10)}.ndjson`
+    );
     const serializedSnapshot = `${JSON.stringify(snapshot)}\n`;
 
     this.persistQueue = this.persistQueue
@@ -424,7 +444,12 @@ export class ApiDiagnosticsService {
       });
   }
 
-  private collectActiveSessions(input: { sessionId?: string; busyStates: Array<{ conversationId: string }>; messageCacheConversationIds: string[]; inFlightSessionIds: string[] }): ActiveRuntimeSession[] {
+  private collectActiveSessions(input: {
+    sessionId?: string;
+    busyStates: Array<{ conversationId: string }>;
+    messageCacheConversationIds: string[];
+    inFlightSessionIds: string[];
+  }): ActiveRuntimeSession[] {
     const db = getDatabase();
     const candidates = new Map<string, number>();
     const now = Date.now();
@@ -443,7 +468,9 @@ export class ApiDiagnosticsService {
             const allConversations = db.getUserConversations(undefined, 0, 10000).data || [];
             return {
               success: true,
-              data: allConversations.filter((conversation) => ['pending', 'running'].includes(conversation.status || '')),
+              data: allConversations.filter((conversation) =>
+                ['pending', 'running'].includes(conversation.status || '')
+              ),
             };
           })();
 
@@ -460,14 +487,23 @@ export class ApiDiagnosticsService {
     const sessions = Array.from(candidates.keys())
       .map((sessionId) => getReadOnlyConversationStatusSnapshot(sessionId))
       .filter((snapshot): snapshot is NonNullable<typeof snapshot> => !!snapshot)
-      .filter((snapshot) => snapshot.sessionId === input.sessionId || snapshot.status === 'pending' || snapshot.status === 'running' || snapshot.runtime.hasTask || snapshot.runtime.isProcessing || snapshot.runtime.pendingConfirmations > 0)
+      .filter(
+        (snapshot) =>
+          snapshot.sessionId === input.sessionId ||
+          snapshot.status === 'pending' ||
+          snapshot.status === 'running' ||
+          snapshot.runtime.hasTask ||
+          snapshot.runtime.isProcessing ||
+          snapshot.runtime.pendingConfirmations > 0
+      )
       .map((snapshot) => ({
         sessionId: snapshot.sessionId,
         conversationId: snapshot.conversation.id,
         name: snapshot.conversation.name,
         type: snapshot.conversation.type,
         source: snapshot.conversation.source || 'aionui',
-        workspace: typeof snapshot.conversation.extra?.workspace === 'string' ? snapshot.conversation.extra.workspace : null,
+        workspace:
+          typeof snapshot.conversation.extra?.workspace === 'string' ? snapshot.conversation.extra.workspace : null,
         status: snapshot.status,
         state: snapshot.state,
         detail: snapshot.detail,

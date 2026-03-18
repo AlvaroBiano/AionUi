@@ -862,7 +862,9 @@ const migration_v16: IMigration = {
   version: 16,
   name: 'Add callback_enabled to api_config',
   up: (db) => {
-    const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'api_config'").get() as { name: string } | undefined;
+    const tableExists = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'api_config'")
+      .get() as { name: string } | undefined;
 
     if (!tableExists) {
       db.exec(`
@@ -1006,7 +1008,9 @@ const migration_v18: IMigration = {
   version: 18,
   name: 'Add callback JS filter config',
   up: (db) => {
-    const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'api_config'").get() as { name: string } | undefined;
+    const tableExists = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'api_config'")
+      .get() as { name: string } | undefined;
 
     if (!tableExists) {
       db.exec(`
@@ -1145,14 +1149,18 @@ export const ALL_MIGRATIONS: IMigration[] = [
  * Get migrations needed to upgrade from one version to another
  */
 export function getMigrationsToRun(fromVersion: number, toVersion: number): IMigration[] {
-  return ALL_MIGRATIONS.filter((m) => m.version > fromVersion && m.version <= toVersion).sort((a, b) => a.version - b.version);
+  return ALL_MIGRATIONS.filter((m) => m.version > fromVersion && m.version <= toVersion).sort(
+    (a, b) => a.version - b.version
+  );
 }
 
 /**
  * Get migrations needed to downgrade from one version to another
  */
 export function getMigrationsToRollback(fromVersion: number, toVersion: number): IMigration[] {
-  return ALL_MIGRATIONS.filter((m) => m.version > toVersion && m.version <= fromVersion).sort((a, b) => b.version - a.version);
+  return ALL_MIGRATIONS.filter((m) => m.version > toVersion && m.version <= fromVersion).sort(
+    (a, b) => b.version - a.version
+  );
 }
 
 /**
@@ -1276,7 +1284,9 @@ export function rollbackMigrations(db: Database.Database, fromVersion: number, t
  * Get migration history
  * Now simplified - just returns the current version
  */
-export function getMigrationHistory(db: Database.Database): Array<{ version: number; name: string; timestamp: number }> {
+export function getMigrationHistory(
+  db: Database.Database
+): Array<{ version: number; name: string; timestamp: number }> {
   const currentVersion = db.pragma('user_version', { simple: true }) as number;
 
   // Return a simple array with just the current version

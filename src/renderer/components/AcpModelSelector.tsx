@@ -36,7 +36,9 @@ const resolveModelInfo = (modelInfo: AcpModelInfo | null, initialModelId?: strin
   }
 
   const effectiveModelId = initialModelId || modelInfo.currentModelId || null;
-  const matchedModel = effectiveModelId ? modelInfo.availableModels?.find((item) => item.id === effectiveModelId) : undefined;
+  const matchedModel = effectiveModelId
+    ? modelInfo.availableModels?.find((item) => item.id === effectiveModelId)
+    : undefined;
 
   return {
     ...modelInfo,
@@ -59,7 +61,9 @@ const AcpModelSelector: React.FC<{
   const { t } = useTranslation();
   const { isOpen: isPreviewOpen } = usePreviewContext();
   const layout = useLayoutContext();
-  const [modelInfo, setModelInfo] = useState<AcpModelInfo | null>(() => resolveModelInfo(localModelInfo ?? null, initialModelId));
+  const [modelInfo, setModelInfo] = useState<AcpModelInfo | null>(() =>
+    resolveModelInfo(localModelInfo ?? null, initialModelId)
+  );
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const modelInfoRef = useRef(modelInfo);
@@ -124,7 +128,9 @@ const AcpModelSelector: React.FC<{
           setModelInfo({
             ...cachedInfo,
             currentModelId: effectiveModelId,
-            currentModelLabel: (effectiveModelId && cachedInfo.availableModels.find((m) => m.id === effectiveModelId)?.label) || effectiveModelId,
+            currentModelLabel:
+              (effectiveModelId && cachedInfo.availableModels.find((m) => m.id === effectiveModelId)?.label) ||
+              effectiveModelId,
           });
         }
       } catch {
@@ -233,15 +239,31 @@ const AcpModelSelector: React.FC<{
     if (!modelInfo?.currentModelId || !modelConfig) return { status: 'unknown', color: 'bg-gray-400' };
     const providerConfig = modelConfig.find((p) => p.platform?.includes(backend || ''));
     const healthStatus = providerConfig?.modelHealth?.[modelInfo.currentModelId]?.status || 'unknown';
-    const healthColor = healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';
+    const healthColor =
+      healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';
     return { status: healthStatus, color: healthColor };
   }, [modelInfo?.currentModelId, modelConfig, backend]);
 
   // State 1: No model info — show disabled "Use CLI model" button
   if (!modelInfo) {
     return (
-      <Tooltip content={t('conversation.welcome.modelSwitchNotSupported')} position='top' popupVisible={tooltipVisible} onVisibleChange={setTooltipVisible} unmountOnExit>
-        <Button className={classNames('sendbox-model-btn header-model-btn', compact && '!max-w-[120px]', isMobileCompact && '!max-w-[160px]')} shape='round' size='small' style={{ cursor: 'default' }}>
+      <Tooltip
+        content={t('conversation.welcome.modelSwitchNotSupported')}
+        position='top'
+        popupVisible={tooltipVisible}
+        onVisibleChange={setTooltipVisible}
+        unmountOnExit
+      >
+        <Button
+          className={classNames(
+            'sendbox-model-btn header-model-btn',
+            compact && '!max-w-[120px]',
+            isMobileCompact && '!max-w-[160px]'
+          )}
+          shape='round'
+          size='small'
+          style={{ cursor: 'default' }}
+        >
           <span className='flex items-center gap-6px min-w-0'>
             <span className={compact ? 'block truncate' : undefined}>{t('conversation.welcome.useCliModel')}</span>
           </span>
@@ -253,10 +275,27 @@ const AcpModelSelector: React.FC<{
   // State 2: Has model info but cannot switch — read-only display
   if (!modelInfo.canSwitch) {
     return (
-      <Tooltip content={displayLabel} position='top' popupVisible={tooltipVisible} onVisibleChange={setTooltipVisible} unmountOnExit>
-        <Button className={classNames('sendbox-model-btn header-model-btn', compact && '!max-w-[120px]', isMobileCompact && '!max-w-[160px]')} shape='round' size='small' style={{ cursor: 'default' }}>
+      <Tooltip
+        content={displayLabel}
+        position='top'
+        popupVisible={tooltipVisible}
+        onVisibleChange={setTooltipVisible}
+        unmountOnExit
+      >
+        <Button
+          className={classNames(
+            'sendbox-model-btn header-model-btn',
+            compact && '!max-w-[120px]',
+            isMobileCompact && '!max-w-[160px]'
+          )}
+          shape='round'
+          size='small'
+          style={{ cursor: 'default' }}
+        >
           <span className='flex items-center gap-6px min-w-0'>
-            {currentModelHealth.status !== 'unknown' && <div className={`w-6px h-6px rounded-full shrink-0 ${currentModelHealth.color}`} />}
+            {currentModelHealth.status !== 'unknown' && (
+              <div className={`w-6px h-6px rounded-full shrink-0 ${currentModelHealth.color}`} />
+            )}
             <span className={compact ? 'block truncate' : undefined}>{displayLabel}</span>
           </span>
         </Button>
@@ -277,7 +316,8 @@ const AcpModelSelector: React.FC<{
             // 获取模型健康状态
             const providerConfig = modelConfig?.find((p) => p.platform?.includes(backend || ''));
             const healthStatus = providerConfig?.modelHealth?.[model.id]?.status || 'unknown';
-            const healthColor = healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';
+            const healthColor =
+              healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';
 
             return (
               <Menu.Item
@@ -298,9 +338,19 @@ const AcpModelSelector: React.FC<{
         </Menu>
       }
     >
-      <Button className={classNames('sendbox-model-btn header-model-btn', compact && '!max-w-[120px]', isMobileCompact && '!max-w-[160px]')} shape='round' size='small'>
+      <Button
+        className={classNames(
+          'sendbox-model-btn header-model-btn',
+          compact && '!max-w-[120px]',
+          isMobileCompact && '!max-w-[160px]'
+        )}
+        shape='round'
+        size='small'
+      >
         <span className='flex items-center gap-6px min-w-0'>
-          {currentModelHealth.status !== 'unknown' && <div className={`w-6px h-6px rounded-full shrink-0 ${currentModelHealth.color}`} />}
+          {currentModelHealth.status !== 'unknown' && (
+            <div className={`w-6px h-6px rounded-full shrink-0 ${currentModelHealth.color}`} />
+          )}
           <span className={compact ? 'block truncate' : undefined}>{displayLabel}</span>
         </span>
       </Button>

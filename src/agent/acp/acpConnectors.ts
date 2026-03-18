@@ -16,7 +16,12 @@ import { promisify } from 'util';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { CLAUDE_ACP_NPX_PACKAGE, CODEBUDDY_ACP_NPX_PACKAGE, CODEX_ACP_BRIDGE_VERSION, CODEX_ACP_NPX_PACKAGE } from '@/types/acpTypes';
+import {
+  CLAUDE_ACP_NPX_PACKAGE,
+  CODEBUDDY_ACP_NPX_PACKAGE,
+  CODEX_ACP_BRIDGE_VERSION,
+  CODEX_ACP_NPX_PACKAGE,
+} from '@/types/acpTypes';
 import { findSuitableNodeBin, getEnhancedEnv, resolveNpxPath } from '@process/utils/shellEnv';
 import { mainLog, mainWarn } from '@process/utils/mainLogger';
 
@@ -24,6 +29,61 @@ const execFile = promisify(execFileCb);
 
 /** Enable ACP performance diagnostics via ACP_PERF=1 */
 export const ACP_PERF_LOG = process.env.ACP_PERF === '1';
+
+const CODEX_ACP_WINDOWS_FALLBACK_VERSION = '0.9.5';
+
+function quoteWindowsCmdArg(arg: string): string {
+  if (arg.length === 0) {
+    return '""';
+  }
+
+  return /[\s"&|<>^()]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg;
+}
+
+async function execDiagnosticCommand(
+  command: string,
+  args: string[],
+  env: Record<string, string | undefined>
+): Promise<string> {
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(command)) {
+    const shellCommand = env.COMSPEC || env.ComSpec || process.env.COMSPEC || process.env.ComSpec || 'cmd.exe';
+    const commandLine = [command, ...args].map((arg) => quoteWindowsCmdArg(arg)).join(' ');
+    const { stdout } = await execFile(shellCommand, ['/d', '/s', '/c', commandLine], {
+      env,
+      timeout: 5000,
+      windowsHide: true,
+    });
+    return stdout.trim();
+  }
+
+  const { stdout } = await execFile(command, args, {
+    env,
+    timeout: 5000,
+    windowsHide: true,
+  });
+  return stdout.trim();
+}
+
+function resolveCodexAcpPackage(): string {
+  if (process.platform !== 'win32') {
+    return CODEX_ACP_NPX_PACKAGE;
+  }
+
+  if (process.arch === 'x64') {
+    return `@zed-industries/codex-acp-win32-x64@${CODEX_ACP_WINDOWS_FALLBACK_VERSION}`;
+  }
+
+  if (process.arch === 'arm64') {
+    return `@zed-industries/codex-acp-win32-arm64@${CODEX_ACP_WINDOWS_FALLBACK_VERSION}`;
+  }
+
+  return CODEX_ACP_NPX_PACKAGE;
+}
+
+function extractPackageVersion(npmPackage: string): string {
+  const versionSeparatorIndex = npmPackage.lastIndexOf('@');
+  return versionSeparatorIndex > 0 ? npmPackage.slice(versionSeparatorIndex + 1) : CODEX_ACP_BRIDGE_VERSION;
+}
 
 // ── Environment helpers ─────────────────────────────────────────────
 
@@ -57,13 +117,23 @@ export function prepareCleanEnv(): Record<string, string | undefined> {
  * Requires Node >= minMajor.minMinor for ACP backends.
  * Mutates cleanEnv.PATH when auto-correction is needed.
  */
-export function ensureMinNodeVersion(cleanEnv: Record<string, string | undefined>, minMajor: number, minMinor: number, backendLabel: string): void {
+export function ensureMinNodeVersion(
+  cleanEnv: Record<string, string | undefined>,
+  minMajor: number,
+  minMinor: number,
+  backendLabel: string
+): void {
   const isWindows = process.platform === 'win32';
   let versionTooOld = false;
   let detectedVersion = '';
 
   try {
-    detectedVersion = execFileSync(isWindows ? 'node.exe' : 'node', ['--version'], { env: cleanEnv, encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    detectedVersion = execFileSync(isWindows ? 'node.exe' : 'node', ['--version'], {
+      env: cleanEnv,
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
 
     const match = detectedVersion.match(/^v(\d+)\.(\d+)\./);
     if (match) {
@@ -86,13 +156,24 @@ export function ensureMinNodeVersion(cleanEnv: Record<string, string | undefined
 
       // Verify the corrected PATH actually resolves to a good node (npx uses the same PATH)
       try {
-        const correctedVersion = execFileSync(isWindows ? 'node.exe' : 'node', ['--version'], { env: cleanEnv, encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-        console.log(`[ACP] Node.js ${detectedVersion} is below v${minMajor}.${minMinor}.0 — auto-corrected to ${correctedVersion} from: ${suitableBinDir}`);
+        const correctedVersion = execFileSync(isWindows ? 'node.exe' : 'node', ['--version'], {
+          env: cleanEnv,
+          encoding: 'utf-8',
+          timeout: 5000,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }).trim();
+        console.log(
+          `[ACP] Node.js ${detectedVersion} is below v${minMajor}.${minMinor}.0 — auto-corrected to ${correctedVersion} from: ${suitableBinDir}`
+        );
       } catch {
         console.warn(`[ACP] PATH corrected with ${suitableBinDir} but node verification failed — proceeding anyway`);
       }
     } else {
-      throw new Error(`Node.js ${detectedVersion} is too old for ${backendLabel}. ` + `Minimum required: v${minMajor}.${minMinor}.0. ` + `Please upgrade Node.js: https://nodejs.org/`);
+      throw new Error(
+        `Node.js ${detectedVersion} is too old for ${backendLabel}. ` +
+          `Minimum required: v${minMajor}.${minMinor}.0. ` +
+          `Please upgrade Node.js: https://nodejs.org/`
+      );
     }
   }
 }
@@ -105,11 +186,18 @@ export function ensureMinNodeVersion(cleanEnv: Record<string, string | undefined
  *
  * @param cliPath - CLI command path (e.g., 'goose', 'npx @pkg/cli')
  * @param workingDir - Working directory for the spawned process
- * @param acpArgs - Arguments to enable ACP mode (e.g., ['acp'] for goose, ['--acp'] for auggie, ['exec','--output-format','acp'] for droid)
+ * @param acpArgs - Arguments to enable ACP mode
+ *   Examples: ['acp'] for goose, ['--acp'] for auggie, ['exec', '--output-format', 'acp'] for droid
  * @param customEnv - Custom environment variables
  * @param prebuiltEnv - Pre-built env to use directly (skips internal getEnhancedEnv)
  */
-export function createGenericSpawnConfig(cliPath: string, workingDir: string, acpArgs?: string[], customEnv?: Record<string, string>, prebuiltEnv?: Record<string, string>) {
+export function createGenericSpawnConfig(
+  cliPath: string,
+  workingDir: string,
+  acpArgs?: string[],
+  customEnv?: Record<string, string>,
+  prebuiltEnv?: Record<string, string>
+) {
   const isWindows = process.platform === 'win32';
   // Use prebuilt env if provided (already cleaned by caller), otherwise build from shell env
   const env = prebuiltEnv ?? getEnhancedEnv(customEnv);
@@ -133,7 +221,8 @@ export function createGenericSpawnConfig(cliPath: string, workingDir: string, ac
     //
     // chcp 65001: switch console to UTF-8 so stderr/stdout doesn't get garbled
     // (Chinese Windows defaults to CP936/GBK).
-    spawnCommand = `chcp 65001 >nul && ${cliPath}`;
+    // Quotes around cliPath handle paths with spaces (e.g. "C:\Program Files\agent.exe").
+    spawnCommand = `chcp 65001 >nul && "${cliPath}"`;
     spawnArgs = effectiveAcpArgs;
   } else {
     // Unix: simple command or path. If cliPath contains spaces (e.g., "goose acp"),
@@ -174,14 +263,25 @@ export type NpxPrepareResult = {
  * Spawn an npx-based ACP backend package.
  * Used by Claude, Codex, and CodeBuddy connectors.
  */
-export function spawnNpxBackend(backend: string, npxPackage: string, npxCommand: string, cleanEnv: Record<string, string | undefined>, workingDir: string, isWindows: boolean, preferOffline: boolean, { extraArgs = [], detached = false }: { extraArgs?: string[]; detached?: boolean } = {}): SpawnResult {
+export function spawnNpxBackend(
+  backend: string,
+  npxPackage: string,
+  npxCommand: string,
+  cleanEnv: Record<string, string | undefined>,
+  workingDir: string,
+  isWindows: boolean,
+  preferOffline: boolean,
+  { extraArgs = [], detached = false }: { extraArgs?: string[]; detached?: boolean } = {}
+): SpawnResult {
   const spawnArgs = ['--yes', ...(preferOffline ? ['--prefer-offline'] : []), npxPackage, ...extraArgs];
 
   const spawnStart = Date.now();
   // detached: true creates a new session (setsid) so the child has no controlling terminal.
   // Required for backends (e.g. CodeBuddy) that write to /dev/tty — without it, SIGTTOU
   // would suspend the entire Electron process group and freeze the UI.
-  const child = spawn(npxCommand, spawnArgs, {
+  // On Windows, prefix with chcp 65001 to switch console to UTF-8, preventing GBK garbling.
+  const effectiveCommand = isWindows ? `chcp 65001 >nul && "${npxCommand}"` : npxCommand;
+  const child = spawn(effectiveCommand, spawnArgs, {
     cwd: workingDir,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: cleanEnv,
@@ -210,6 +310,7 @@ function prepareClaude(): NpxPrepareResult {
 async function prepareCodex(): Promise<NpxPrepareResult> {
   const cleanEnv = prepareCleanEnv();
   ensureMinNodeVersion(cleanEnv, 20, 10, 'Codex ACP bridge');
+  const codexAcpPackage = resolveCodexAcpPackage();
 
   const codexCommand = process.platform === 'win32' ? 'codex.cmd' : 'codex';
   const diagnostics: {
@@ -221,8 +322,8 @@ async function prepareCodex(): Promise<NpxPrepareResult> {
     hasOpenAiApiKey: boolean;
     hasChatGptSession: boolean;
   } = {
-    bridgeVersion: CODEX_ACP_BRIDGE_VERSION,
-    bridgePackage: CODEX_ACP_NPX_PACKAGE,
+    bridgeVersion: extractPackageVersion(codexAcpPackage),
+    bridgePackage: codexAcpPackage,
     codexCliVersion: 'unknown',
     loginStatus: 'unknown',
     hasCodexApiKey: Boolean(cleanEnv.CODEX_API_KEY),
@@ -231,30 +332,22 @@ async function prepareCodex(): Promise<NpxPrepareResult> {
   };
 
   try {
-    const { stdout } = await execFile(codexCommand, ['--version'], {
-      env: cleanEnv,
-      timeout: 5000,
-      windowsHide: true,
-    });
-    diagnostics.codexCliVersion = stdout.trim() || diagnostics.codexCliVersion;
+    diagnostics.codexCliVersion =
+      (await execDiagnosticCommand(codexCommand, ['--version'], cleanEnv)) || diagnostics.codexCliVersion;
   } catch (error) {
     mainWarn('[ACP codex]', 'Failed to read codex CLI version', error);
   }
 
   try {
-    const { stdout } = await execFile(codexCommand, ['login', 'status'], {
-      env: cleanEnv,
-      timeout: 5000,
-      windowsHide: true,
-    });
-    diagnostics.loginStatus = stdout.trim() || diagnostics.loginStatus;
+    diagnostics.loginStatus =
+      (await execDiagnosticCommand(codexCommand, ['login', 'status'], cleanEnv)) || diagnostics.loginStatus;
     diagnostics.hasChatGptSession = /chatgpt/i.test(diagnostics.loginStatus);
   } catch (error) {
     mainWarn('[ACP codex]', 'Failed to read codex login status', error);
   }
 
   mainLog('[ACP codex]', 'Runtime diagnostics', diagnostics);
-  return { cleanEnv, npxCommand: resolveNpxPath(cleanEnv) };
+  return { cleanEnv, npxCommand: resolveNpxPath(cleanEnv), extraArgs: [] };
 }
 
 /** Prepare clean env + resolve npx + load MCP config for CodeBuddy. */
@@ -269,9 +362,9 @@ async function prepareCodebuddy(): Promise<NpxPrepareResult> {
   try {
     await fs.access(mcpConfigPath);
     extraArgs.push('--mcp-config', mcpConfigPath);
-    console.error(`[ACP] Loading CodeBuddy MCP config from ${mcpConfigPath}`);
+    mainLog('[ACP]', `Loading CodeBuddy MCP config from ${mcpConfigPath}`);
   } catch {
-    console.error('[ACP] No CodeBuddy MCP config found, starting without MCP servers');
+    mainWarn('[ACP]', 'No CodeBuddy MCP config found, starting without MCP servers');
   }
 
   return { cleanEnv, npxCommand: resolveNpxPath(cleanEnv), extraArgs };
@@ -283,7 +376,13 @@ async function prepareCodebuddy(): Promise<NpxPrepareResult> {
  * when Electron's inherited env resolves to an old Node version.
  * Safe for native binaries too — they ignore NODE_OPTIONS and Node version checks.
  */
-export async function spawnGenericBackend(backend: string, cliPath: string, workingDir: string, acpArgs?: string[], customEnv?: Record<string, string>): Promise<SpawnResult> {
+export async function spawnGenericBackend(
+  backend: string,
+  cliPath: string,
+  workingDir: string,
+  acpArgs?: string[],
+  customEnv?: Record<string, string>
+): Promise<SpawnResult> {
   try {
     await fs.mkdir(workingDir, { recursive: true });
   } catch {
@@ -346,7 +445,10 @@ async function connectNpxBackend(config: {
     await setup(spawnNpxBackend(backend, npxPackage, npxCommand, cleanEnv, workingDir, isWindows, true, opts));
   } catch (firstError) {
     // Phase 2: Retry without --prefer-offline to refresh stale cache
-    console.warn(`[ACP] ${backend} --prefer-offline failed, retrying with fresh registry lookup:`, firstError instanceof Error ? firstError.message : String(firstError));
+    console.warn(
+      `[ACP] ${backend} --prefer-offline failed, retrying with fresh registry lookup:`,
+      firstError instanceof Error ? firstError.message : String(firstError)
+    );
 
     await cleanup();
 
@@ -358,15 +460,35 @@ async function connectNpxBackend(config: {
 
 /** Connect to Claude ACP bridge via npx. */
 export function connectClaude(workingDir: string, hooks: NpxConnectHooks): Promise<void> {
-  return connectNpxBackend({ backend: 'claude', npxPackage: CLAUDE_ACP_NPX_PACKAGE, prepareFn: prepareClaude, workingDir, ...hooks });
+  return connectNpxBackend({
+    backend: 'claude',
+    npxPackage: CLAUDE_ACP_NPX_PACKAGE,
+    prepareFn: prepareClaude,
+    workingDir,
+    ...hooks,
+  });
 }
 
 /** Connect to Codex ACP bridge via npx. */
 export function connectCodex(workingDir: string, hooks: NpxConnectHooks): Promise<void> {
-  return connectNpxBackend({ backend: 'codex', npxPackage: CODEX_ACP_NPX_PACKAGE, prepareFn: prepareCodex, workingDir, ...hooks });
+  return connectNpxBackend({
+    backend: 'codex',
+    npxPackage: resolveCodexAcpPackage(),
+    prepareFn: prepareCodex,
+    workingDir,
+    ...hooks,
+  });
 }
 
 /** Connect to CodeBuddy ACP via npx. */
 export function connectCodebuddy(workingDir: string, hooks: NpxConnectHooks): Promise<void> {
-  return connectNpxBackend({ backend: 'codebuddy', npxPackage: CODEBUDDY_ACP_NPX_PACKAGE, prepareFn: prepareCodebuddy, workingDir, ...hooks, extraArgs: ['--acp'], detached: process.platform !== 'win32' });
+  return connectNpxBackend({
+    backend: 'codebuddy',
+    npxPackage: CODEBUDDY_ACP_NPX_PACKAGE,
+    prepareFn: prepareCodebuddy,
+    workingDir,
+    ...hooks,
+    extraArgs: ['--acp'],
+    detached: process.platform !== 'win32',
+  });
 }

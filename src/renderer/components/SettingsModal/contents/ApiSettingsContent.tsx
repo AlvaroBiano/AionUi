@@ -214,7 +214,9 @@ const ApiSettingsContent: React.FC = () => {
   const [acpCachedModels, setAcpCachedModels] = useState<Record<string, AcpModelInfo>>({});
   const [acpPreferredModelIds, setAcpPreferredModelIds] = useState<Record<string, string | undefined>>({});
   const [acpCachedConfigOptions, setAcpCachedConfigOptions] = useState<Record<string, AcpSessionConfigOption[]>>({});
-  const [acpPreferredConfigOptions, setAcpPreferredConfigOptions] = useState<Record<string, Record<string, string>>>({});
+  const [acpPreferredConfigOptions, setAcpPreferredConfigOptions] = useState<Record<string, Record<string, string>>>(
+    {}
+  );
 
   const [selectedCli, setSelectedCli] = useState<string>('');
   const [selectedProviderModel, setSelectedProviderModel] = useState<string>('');
@@ -257,7 +259,13 @@ const ApiSettingsContent: React.FC = () => {
 
   const loadGeneratorOptions = useCallback(async () => {
     try {
-      const [providers, agentsResult, cachedModels, cachedConfigOptions, acpConfig] = await Promise.all([ipcBridge.mode.getModelConfig.invoke(), ipcBridge.acpConversation.getAvailableAgents.invoke(), ConfigStorage.get('acp.cachedModels'), ConfigStorage.get('acp.cachedConfigOptions'), ConfigStorage.get('acp.config')]);
+      const [providers, agentsResult, cachedModels, cachedConfigOptions, acpConfig] = await Promise.all([
+        ipcBridge.mode.getModelConfig.invoke(),
+        ipcBridge.acpConversation.getAvailableAgents.invoke(),
+        ConfigStorage.get('acp.cachedModels'),
+        ConfigStorage.get('acp.cachedConfigOptions'),
+        ConfigStorage.get('acp.config'),
+      ]);
 
       const nextProviderOptions = createProviderModelOptions(providers);
       setProviderModelOptions(nextProviderOptions);
@@ -271,8 +279,13 @@ const ApiSettingsContent: React.FC = () => {
       const preferredMap: Record<string, string | undefined> = {};
       const preferredConfigMap: Record<string, Record<string, string>> = {};
       for (const [backend, backendConfig] of Object.entries(acpConfig || {})) {
-        preferredMap[backend] = parseOptionalString((backendConfig as { preferredModelId?: unknown })?.preferredModelId);
-        preferredConfigMap[backend] = { ...(((backendConfig as { preferredConfigOptions?: Record<string, string> })?.preferredConfigOptions || {}) as Record<string, string>) };
+        preferredMap[backend] = parseOptionalString(
+          (backendConfig as { preferredModelId?: unknown })?.preferredModelId
+        );
+        preferredConfigMap[backend] = {
+          ...(((backendConfig as { preferredConfigOptions?: Record<string, string> })?.preferredConfigOptions ||
+            {}) as Record<string, string>),
+        };
       }
       setAcpPreferredModelIds(preferredMap);
       setAcpPreferredConfigOptions(preferredConfigMap);
@@ -287,7 +300,9 @@ const ApiSettingsContent: React.FC = () => {
         }>
       );
       setCliOptions(nextCliOptions);
-      setSelectedCli((prev) => (nextCliOptions.some((item) => item.value === prev) ? prev : nextCliOptions[0]?.value || ''));
+      setSelectedCli((prev) =>
+        nextCliOptions.some((item) => item.value === prev) ? prev : nextCliOptions[0]?.value || ''
+      );
     } catch (error) {
       console.error('[ApiSettings] Failed to load generator options:', error);
     }
@@ -351,7 +366,9 @@ const ApiSettingsContent: React.FC = () => {
     }
 
     const effectiveModelId = selectedCliModel || modelInfo.currentModelId || modelInfo.availableModels[0]?.id || null;
-    const matchedModel = effectiveModelId ? modelInfo.availableModels.find((item) => item.id === effectiveModelId) : undefined;
+    const matchedModel = effectiveModelId
+      ? modelInfo.availableModels.find((item) => item.id === effectiveModelId)
+      : undefined;
 
     return {
       ...modelInfo,
@@ -475,7 +492,9 @@ const ApiSettingsContent: React.FC = () => {
       if (selectedCliOption?.customAgentId) payload.customAgentId = selectedCliOption.customAgentId;
       if (selectedMode) payload.mode = selectedMode;
 
-      const effectiveCliModel = selectedCliModel || (selectedCliOption?.backend ? acpCachedModels[selectedCliOption.backend]?.currentModelId : undefined);
+      const effectiveCliModel =
+        selectedCliModel ||
+        (selectedCliOption?.backend ? acpCachedModels[selectedCliOption.backend]?.currentModelId : undefined);
       if (effectiveCliModel) {
         payload.currentModelId = effectiveCliModel;
       }
@@ -490,7 +509,17 @@ const ApiSettingsContent: React.FC = () => {
     }
 
     return payload;
-  }, [requiresProviderModel, selectedProviderModelOption, selectedCliOption, message, workspace, selectedMode, selectedCliModel, selectedCliConfigOptions, acpCachedModels]);
+  }, [
+    requiresProviderModel,
+    selectedProviderModelOption,
+    selectedCliOption,
+    message,
+    workspace,
+    selectedMode,
+    selectedCliModel,
+    selectedCliConfigOptions,
+    acpCachedModels,
+  ]);
 
   const generatedPayloadText = useMemo(() => JSON.stringify(generatedPayload, null, 2), [generatedPayload]);
   const docsUrl = useMemo(() => {
@@ -544,6 +573,7 @@ const ApiSettingsContent: React.FC = () => {
 
       const result = await ipcBridge.database.saveApiConfig.invoke({
         ...config,
+        authToken: config.authToken?.trim() || undefined,
         callbackEnabled,
         callbackHeaders: Object.keys(callbackHeaders).length ? callbackHeaders : undefined,
         callbackBody: config.callbackBody?.trim() ? config.callbackBody : DEFAULT_CALLBACK_BODY,
@@ -613,13 +643,19 @@ const ApiSettingsContent: React.FC = () => {
     <div className='p-20px'>
       <div className='mb-20px'>
         <h3 className='text-16px font-600 text-t-primary mb-8px'>本地 HTTP API</h3>
-        <p className='text-12px text-t-tertiary'>Swagger 文档已整合到本地客户端此页面，`/api/docs` 与 `/api/openapi.json` 现在需要登录态访问，不再免登暴露。</p>
+        <p className='text-12px text-t-tertiary'>
+          Swagger 文档已整合到本地客户端此页面，`/api/docs` 与 `/api/openapi.json` 现在需要登录态访问，不再免登暴露。
+        </p>
       </div>
       <div className='mb-20px'>
         <h4 className='text-13px font-600 text-t-primary mb-8px'>Swagger 接口文档</h4>
         <div className='text-12px text-t-tertiary mb-12px'>
           需要先启用 WebUI，才可以直接访问 Swagger 页面。当前状态：
-          <span className={`ml-6px ${canDirectAccessDocs ? 'text-[rgb(var(--green-6))]' : 'text-[rgb(var(--orange-6))]'}`}>{canDirectAccessDocs ? 'WebUI 已启用' : 'WebUI 未启用'}</span>
+          <span
+            className={`ml-6px ${canDirectAccessDocs ? 'text-[rgb(var(--green-6))]' : 'text-[rgb(var(--orange-6))]'}`}
+          >
+            {canDirectAccessDocs ? 'WebUI 已启用' : 'WebUI 未启用'}
+          </span>
         </div>
         <div className='flex gap-8px mb-10px'>
           <Input value={docsUrl} readOnly className='flex-1' />
@@ -633,7 +669,12 @@ const ApiSettingsContent: React.FC = () => {
       </div>
 
       <PreferenceRow label='启用 HTTP API' description='开启后可通过 /api/v1/conversation/* 访问本地能力'>
-        <Switch checked={!!config.enabled} loading={toggleLoading} disabled={toggleLoading} onChange={handleEnabledChange} />
+        <Switch
+          checked={!!config.enabled}
+          loading={toggleLoading}
+          disabled={toggleLoading}
+          onChange={handleEnabledChange}
+        />
       </PreferenceRow>
 
       <div className='border-t border-border-secondary my-16px' />
@@ -641,11 +682,20 @@ const ApiSettingsContent: React.FC = () => {
       <div className='mb-20px'>
         <label className='text-14px text-t-primary mb-8px block'>API Token</label>
         <div className='flex gap-8px'>
-          <Input value={config.authToken || ''} readOnly className='flex-1' placeholder='64 位随机 Token' />
+          <Input
+            value={config.authToken || ''}
+            onChange={(value) => setConfig((prev) => ({ ...prev, authToken: value }))}
+            className='flex-1'
+            placeholder='支持手动输入或生成 64 位随机 Token'
+          />
           <Button icon={<Refresh />} onClick={handleGenerateToken}>
             生成
           </Button>
-          <Button icon={<Copy />} onClick={() => handleCopy(config.authToken || '', 'Token 已复制')} disabled={!config.authToken}>
+          <Button
+            icon={<Copy />}
+            onClick={() => handleCopy(config.authToken || '', 'Token 已复制')}
+            disabled={!config.authToken}
+          >
             复制
           </Button>
         </div>
@@ -654,7 +704,9 @@ const ApiSettingsContent: React.FC = () => {
 
       <div className='border-t border-border-secondary my-16px' />
 
-      <div className='mb-20px rounded border border-border-secondary bg-bg-secondary p-12px text-12px text-t-tertiary'>会话运行时诊断能力已迁移到独立扩展页“API 诊断”，方便单独迭代和调试。</div>
+      <div className='mb-20px rounded border border-border-secondary bg-bg-secondary p-12px text-12px text-t-tertiary'>
+        会话运行时诊断能力已迁移到独立扩展页“API 诊断”，方便单独迭代和调试。
+      </div>
 
       <div className='border-t border-border-secondary my-16px' />
 
@@ -663,21 +715,30 @@ const ApiSettingsContent: React.FC = () => {
         <p className='text-12px text-t-tertiary mb-16px'>会话完成后可自动回调到你的服务端。</p>
 
         <PreferenceRow label='开启回调' description='默认关闭，开启后会在会话完成时按下方配置发送回调请求'>
-          <Switch checked={callbackEnabled} onChange={(checked) => setConfig((prev) => ({ ...prev, callbackEnabled: checked }))} />
+          <Switch
+            checked={callbackEnabled}
+            onChange={(checked) => setConfig((prev) => ({ ...prev, callbackEnabled: checked }))}
+          />
         </PreferenceRow>
 
         {callbackEnabled ? (
           <>
             <div className='mb-12px'>
               <label className='text-13px text-t-primary mb-6px block'>回调 URL</label>
-              <Input value={config.callbackUrl || ''} onChange={(value) => setConfig((prev) => ({ ...prev, callbackUrl: value }))} placeholder='https://your-server.com/webhook' />
+              <Input
+                value={config.callbackUrl || ''}
+                onChange={(value) => setConfig((prev) => ({ ...prev, callbackUrl: value }))}
+                placeholder='https://your-server.com/webhook'
+              />
             </div>
 
             <div className='mb-12px'>
               <label className='text-13px text-t-primary mb-6px block'>请求方法</label>
               <Select
                 value={config.callbackMethod || 'POST'}
-                onChange={(value) => setConfig((prev) => ({ ...prev, callbackMethod: value as IApiConfig['callbackMethod'] }))}
+                onChange={(value) =>
+                  setConfig((prev) => ({ ...prev, callbackMethod: value as IApiConfig['callbackMethod'] }))
+                }
                 options={[
                   { label: 'POST', value: 'POST' },
                   { label: 'GET', value: 'GET' },
@@ -695,12 +756,26 @@ const ApiSettingsContent: React.FC = () => {
                 </Button>
               </div>
 
-              {headers.length === 0 && <div className='text-12px text-t-tertiary text-center py-12px bg-bg-secondary rounded'>暂无自定义请求头</div>}
+              {headers.length === 0 && (
+                <div className='text-12px text-t-tertiary text-center py-12px bg-bg-secondary rounded'>
+                  暂无自定义请求头
+                </div>
+              )}
 
               {headers.map((item, index) => (
                 <div key={`${item.key}-${index}`} className='flex gap-8px mb-8px'>
-                  <Input value={item.key} onChange={(value) => handleUpdateHeader(index, 'key', value)} placeholder='Header 名称' className='flex-1' />
-                  <Input value={item.value} onChange={(value) => handleUpdateHeader(index, 'value', value)} placeholder='Header 值' className='flex-1' />
+                  <Input
+                    value={item.key}
+                    onChange={(value) => handleUpdateHeader(index, 'key', value)}
+                    placeholder='Header 名称'
+                    className='flex-1'
+                  />
+                  <Input
+                    value={item.value}
+                    onChange={(value) => handleUpdateHeader(index, 'value', value)}
+                    placeholder='Header 值'
+                    className='flex-1'
+                  />
                   <Button size='small' status='danger' icon={<Delete />} onClick={() => handleDeleteHeader(index)} />
                 </div>
               ))}
@@ -708,33 +783,55 @@ const ApiSettingsContent: React.FC = () => {
 
             <div className='mb-12px'>
               <label className='text-13px text-t-primary mb-6px block'>回调请求体 (JSON)</label>
-              <Input.TextArea value={config.callbackBody || DEFAULT_CALLBACK_BODY} onChange={(value) => setConfig((prev) => ({ ...prev, callbackBody: value }))} style={{ minHeight: 180, fontFamily: 'monospace' }} />
+              <Input.TextArea
+                value={config.callbackBody || DEFAULT_CALLBACK_BODY}
+                onChange={(value) => setConfig((prev) => ({ ...prev, callbackBody: value }))}
+                style={{ minHeight: 180, fontFamily: 'monospace' }}
+              />
               <div className='text-12px text-t-tertiary mt-4px'>
-                支持变量: {'{{sessionId}}'}, {'{{workspace}}'}, {'{{model}}'}, {'{{conversationHistory}}'}, {'{{lastMessage}}'}, {'{{status}}'}, {'{{state}}'}, {'{{detail}}'}, {'{{canSendMessage}}'}, {'{{runtime}}'}, {'{{jsFitterStr}}'}
+                支持变量: {'{{sessionId}}'}, {'{{workspace}}'}, {'{{model}}'}, {'{{conversationHistory}}'},{' '}
+                {'{{lastMessage}}'}, {'{{status}}'}, {'{{state}}'}, {'{{detail}}'}, {'{{canSendMessage}}'},{' '}
+                {'{{runtime}}'}, {'{{jsFitterStr}}'}
               </div>
             </div>
 
             <div className='mb-12px'>
-              <PreferenceRow label='开启 JS 过滤' description='关闭时 {{jsFitterStr}} 默认为空字符串；开启后会执行下方 jsFilter(input) 并返回字符串'>
-                <Switch checked={jsFilterEnabled} onChange={(checked) => setConfig((prev) => ({ ...prev, jsFilterEnabled: checked }))} />
+              <PreferenceRow
+                label='开启 JS 过滤'
+                description='关闭时 {{jsFitterStr}} 默认为空字符串；开启后会执行下方 jsFilter(input) 并返回字符串'
+              >
+                <Switch
+                  checked={jsFilterEnabled}
+                  onChange={(checked) => setConfig((prev) => ({ ...prev, jsFilterEnabled: checked }))}
+                />
               </PreferenceRow>
             </div>
 
             <div className='mb-12px'>
               <div className='flex items-center justify-between mb-6px'>
                 <label className='text-13px text-t-primary'>JS 过滤脚本</label>
-                <Button size='mini' onClick={() => setConfig((prev) => ({ ...prev, jsFilterScript: DEFAULT_JS_FILTER_SCRIPT }))}>
+                <Button
+                  size='mini'
+                  onClick={() => setConfig((prev) => ({ ...prev, jsFilterScript: DEFAULT_JS_FILTER_SCRIPT }))}
+                >
                   恢复示例
                 </Button>
               </div>
-              <Input.TextArea value={config.jsFilterScript || DEFAULT_JS_FILTER_SCRIPT} onChange={(value) => setConfig((prev) => ({ ...prev, jsFilterScript: value }))} style={{ minHeight: 220, fontFamily: 'monospace' }} />
+              <Input.TextArea
+                value={config.jsFilterScript || DEFAULT_JS_FILTER_SCRIPT}
+                onChange={(value) => setConfig((prev) => ({ ...prev, jsFilterScript: value }))}
+                style={{ minHeight: 220, fontFamily: 'monospace' }}
+              />
               <div className='text-12px text-t-tertiary mt-4px'>
-                需要定义 <code>jsFilter(input)</code> 函数。默认入参包含 sessionId、workspace、model、lastMessage、conversationHistory，返回值会被写入 {'{{jsFitterStr}}'}。
+                需要定义 <code>jsFilter(input)</code> 函数。默认入参包含
+                sessionId、workspace、model、lastMessage、conversationHistory，返回值会被写入 {'{{jsFitterStr}}'}。
               </div>
             </div>
           </>
         ) : (
-          <div className='text-12px text-t-tertiary bg-bg-secondary rounded p-12px'>当前未开启回调，开启后才会显示并生效回调 URL、请求头和请求体配置。</div>
+          <div className='text-12px text-t-tertiary bg-bg-secondary rounded p-12px'>
+            当前未开启回调，开启后才会显示并生效回调 URL、请求头和请求体配置。
+          </div>
         )}
       </div>
 
@@ -742,37 +839,79 @@ const ApiSettingsContent: React.FC = () => {
 
       <div className='mb-20px'>
         <h4 className='text-14px font-600 text-t-primary mb-12px'>/api/v1/conversation/create 参数生成器</h4>
-        <p className='text-12px text-t-tertiary mb-16px'>CLI、模式和 CLI 模型都复用了现有会话侧的检测/缓存逻辑；ACP/CLI 请求不会再额外注入无意义的 provider model。</p>
+        <p className='text-12px text-t-tertiary mb-16px'>
+          CLI、模式和 CLI 模型都复用了现有会话侧的检测/缓存逻辑；ACP/CLI 请求不会再额外注入无意义的 provider model。
+        </p>
 
         <div className='grid grid-cols-1 md:grid-cols-2 gap-12px mb-12px'>
           <div>
             <label className='text-13px text-t-primary mb-6px block'>CLI</label>
-            <Select value={selectedCli} onChange={setSelectedCli} options={cliOptions.map((item) => ({ label: item.label, value: item.value }))} placeholder='选择 CLI' />
+            <Select
+              value={selectedCli}
+              onChange={setSelectedCli}
+              options={cliOptions.map((item) => ({ label: item.label, value: item.value }))}
+              placeholder='选择 CLI'
+            />
           </div>
 
           {usingAcpModelSource ? (
             <div>
               <label className='text-13px text-t-primary mb-6px block'>CLI 模型</label>
               <div className='min-h-32px flex items-center gap-8px'>
-                <AcpModelSelector backend={selectedCliOption?.backend} initialModelId={selectedCliInitialModelId} localModelInfo={selectedCliLocalModelInfo} onSelectModel={setSelectedCliModel} />
+                <AcpModelSelector
+                  backend={selectedCliOption?.backend}
+                  initialModelId={selectedCliInitialModelId}
+                  localModelInfo={selectedCliLocalModelInfo}
+                  onSelectModel={setSelectedCliModel}
+                />
               </div>
-              {!cliModelOptions.length && <div className='text-12px text-t-tertiary mt-4px'>暂无缓存模型，请先在该 CLI 会话里拉取一次模型列表。</div>}
+              {!cliModelOptions.length && (
+                <div className='text-12px text-t-tertiary mt-4px'>
+                  暂无缓存模型，请先在该 CLI 会话里拉取一次模型列表。
+                </div>
+              )}
             </div>
           ) : requiresProviderModel ? (
             <div>
               <label className='text-13px text-t-primary mb-6px block'>模型</label>
-              <Select value={selectedProviderModel || providerModelOptions[0]?.value} onChange={setSelectedProviderModel} options={providerModelOptions.map((item) => ({ label: item.label, value: item.value }))} placeholder={providerModelOptions.length ? '选择模型' : '未检测到平台模型，使用占位模型'} allowClear={false} />
+              <Select
+                value={selectedProviderModel || providerModelOptions[0]?.value}
+                onChange={setSelectedProviderModel}
+                options={providerModelOptions.map((item) => ({ label: item.label, value: item.value }))}
+                placeholder={providerModelOptions.length ? '选择模型' : '未检测到平台模型，使用占位模型'}
+                allowClear={false}
+              />
             </div>
           ) : (
             <div>
               <label className='text-13px text-t-primary mb-6px block'>模型</label>
-              <div className='min-h-32px flex items-center text-12px text-t-tertiary'>当前 CLI 类型不需要单独传 `model`。</div>
+              <div className='min-h-32px flex items-center text-12px text-t-tertiary'>
+                当前 CLI 类型不需要单独传 `model`。
+              </div>
             </div>
           )}
 
           <div>
             <label className='text-13px text-t-primary mb-6px block'>模式 (mode)</label>
-            <div className='min-h-32px flex items-center gap-8px'>{canUseModeSelector ? <AgentModeSelector backend={modeBackend} compact initialMode={selectedMode} onModeSelect={setSelectedMode} modeLabelFormatter={(mode) => mode.label} compactLabelPrefix='Mode' /> : <Select value={selectedMode} onChange={setSelectedMode} options={modeOptions.map((item) => ({ label: item.label, value: item.value }))} allowClear={false} />}</div>
+            <div className='min-h-32px flex items-center gap-8px'>
+              {canUseModeSelector ? (
+                <AgentModeSelector
+                  backend={modeBackend}
+                  compact
+                  initialMode={selectedMode}
+                  onModeSelect={setSelectedMode}
+                  modeLabelFormatter={(mode) => mode.label}
+                  compactLabelPrefix='Mode'
+                />
+              ) : (
+                <Select
+                  value={selectedMode}
+                  onChange={setSelectedMode}
+                  options={modeOptions.map((item) => ({ label: item.label, value: item.value }))}
+                  allowClear={false}
+                />
+              )}
+            </div>
           </div>
 
           <div>
@@ -789,8 +928,12 @@ const ApiSettingsContent: React.FC = () => {
                   }));
                 }}
               />
-              {currentCliBackend && currentCliConfigOptions.length === 0 ? <span className='text-12px text-t-tertiary'>当前 CLI 没有额外会话选项。</span> : null}
-              {!currentCliBackend ? <span className='text-12px text-t-tertiary'>选择支持的 ACP/Codex CLI 后，这里会显示对应对话选项。</span> : null}
+              {currentCliBackend && currentCliConfigOptions.length === 0 ? (
+                <span className='text-12px text-t-tertiary'>当前 CLI 没有额外会话选项。</span>
+              ) : null}
+              {!currentCliBackend ? (
+                <span className='text-12px text-t-tertiary'>选择支持的 ACP/Codex CLI 后，这里会显示对应对话选项。</span>
+              ) : null}
             </div>
           </div>
 

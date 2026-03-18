@@ -13,11 +13,19 @@ import WorkerManage from '@process/WorkerManage';
 import { getDatabase } from '@process/database';
 import { cronBusyGuard } from '@process/services/cron/CronBusyGuard';
 import type { getConversationStatusSnapshot } from '@process/services/ConversationTurnCompletionService';
-import { formatStatusLastMessage, getReadOnlyConversationStatusSnapshot } from '@process/services/ConversationTurnCompletionService';
+import {
+  formatStatusLastMessage,
+  getReadOnlyConversationStatusSnapshot,
+} from '@process/services/ConversationTurnCompletionService';
 import { apiDiagnosticsService } from '@process/services/ApiDiagnosticsService';
 import { ipcBridge } from '@/common';
 import type { TChatConversation, TProviderWithModel } from '@/common/storage';
-import type { ConversationTokenUsageMonitorResult, ConversationTokenUsageRange, ConversationTokenUsageRecord, ConversationTokenUsageSummary } from '@/common/tokenUsage';
+import type {
+  ConversationTokenUsageMonitorResult,
+  ConversationTokenUsageRange,
+  ConversationTokenUsageRecord,
+  ConversationTokenUsageSummary,
+} from '@/common/tokenUsage';
 import { uuid } from '@/common/utils';
 import { buildConversationTitleFromMessage } from '@/common/utils/conversationTitle';
 
@@ -25,8 +33,31 @@ const router = Router();
 const VALID_CONVERSATION_TYPES = ['gemini', 'acp', 'codex', 'openclaw-gateway', 'nanobot'] as const;
 type ConversationType = (typeof VALID_CONVERSATION_TYPES)[number];
 type ConversationStatusValue = 'pending' | 'running' | 'finished';
-type ConversationRuntimeState = 'ai_generating' | 'ai_waiting_input' | 'ai_waiting_confirmation' | 'initializing' | 'stopped' | 'error' | 'unknown';
-const VALID_ACP_BACKENDS = ['claude', 'gemini', 'qwen', 'iflow', 'codex', 'codebuddy', 'droid', 'goose', 'auggie', 'kimi', 'opencode', 'copilot', 'qoder', 'vibe', 'custom'] as const;
+type ConversationRuntimeState =
+  | 'ai_generating'
+  | 'ai_waiting_input'
+  | 'ai_waiting_confirmation'
+  | 'initializing'
+  | 'stopped'
+  | 'error'
+  | 'unknown';
+const VALID_ACP_BACKENDS = [
+  'claude',
+  'gemini',
+  'qwen',
+  'iflow',
+  'codex',
+  'codebuddy',
+  'droid',
+  'goose',
+  'auggie',
+  'kimi',
+  'opencode',
+  'copilot',
+  'qoder',
+  'vibe',
+  'custom',
+] as const;
 const ACP_BACKEND_SET = new Set<string>(VALID_ACP_BACKENDS);
 type SimulationAction = 'create' | 'message' | 'status' | 'stop' | 'messages';
 const SIMULATION_ACTIONS: SimulationAction[] = ['create', 'message', 'status', 'stop', 'messages'];
@@ -229,7 +260,11 @@ const isErrorMessage = (message: IMessageLike | null): boolean => {
   return false;
 };
 
-const _deriveConversationRuntimeStatus = (sessionId: string, conversation: IConversationStatusInput, lastMessage: IMessageLike | null) => {
+const _deriveConversationRuntimeStatus = (
+  sessionId: string,
+  conversation: IConversationStatusInput,
+  lastMessage: IMessageLike | null
+) => {
   const task = WorkerManage.getTaskById(sessionId) as
     | {
         status?: ConversationStatusValue;
@@ -335,18 +370,32 @@ export const isConversationStatusActive = (snapshot: {
     return true;
   }
 
-  return snapshot.state === 'ai_generating' || snapshot.state === 'ai_waiting_confirmation' || snapshot.state === 'initializing';
+  return (
+    snapshot.state === 'ai_generating' ||
+    snapshot.state === 'ai_waiting_confirmation' ||
+    snapshot.state === 'initializing'
+  );
 };
 
-export const isConversationStatusGenerating = (snapshot: { status: ConversationStatusValue; state: ConversationRuntimeState }): boolean => {
+export const isConversationStatusGenerating = (snapshot: {
+  status: ConversationStatusValue;
+  state: ConversationRuntimeState;
+}): boolean => {
   if (snapshot.status === 'running' || snapshot.status === 'pending') {
     return true;
   }
 
-  return snapshot.state === 'ai_generating' || snapshot.state === 'ai_waiting_confirmation' || snapshot.state === 'initializing';
+  return (
+    snapshot.state === 'ai_generating' ||
+    snapshot.state === 'ai_waiting_confirmation' ||
+    snapshot.state === 'initializing'
+  );
 };
 
-const matchesConversationStatusListFilters = (item: ConversationStatusListItem, filters: ConversationStatusListFilters): boolean => {
+const matchesConversationStatusListFilters = (
+  item: ConversationStatusListItem,
+  filters: ConversationStatusListFilters
+): boolean => {
   if (filters.scope === 'active' && !isConversationStatusActive(item)) {
     return false;
   }
@@ -382,7 +431,11 @@ const matchesConversationStatusListFilters = (item: ConversationStatusListItem, 
   return true;
 };
 
-export const buildConversationStatusList = (conversations: TChatConversation[], filters: ConversationStatusListFilters = { scope: 'generating' }, getSnapshot: ConversationSnapshotGetter = getReadOnlyConversationStatusSnapshot): ConversationStatusListItem[] => {
+export const buildConversationStatusList = (
+  conversations: TChatConversation[],
+  filters: ConversationStatusListFilters = { scope: 'generating' },
+  getSnapshot: ConversationSnapshotGetter = getReadOnlyConversationStatusSnapshot
+): ConversationStatusListItem[] => {
   const items = conversations.reduce<ConversationStatusListItem[]>((result, conversation) => {
     const snapshot = getSnapshot(conversation.id);
     if (!snapshot) {
@@ -434,7 +487,11 @@ type ConversationStatusBatchLookupResult = {
 
 type ConversationListGetter = (userId?: string, page?: number, pageSize?: number) => ConversationStatusListLookupResult;
 
-type ConversationStatusBatchGetter = (statuses: ConversationStatusValue[], userId?: string, limit?: number) => ConversationStatusBatchLookupResult;
+type ConversationStatusBatchGetter = (
+  statuses: ConversationStatusValue[],
+  userId?: string,
+  limit?: number
+) => ConversationStatusBatchLookupResult;
 
 type ConversationStatusCandidateTask = {
   id: string;
@@ -471,7 +528,10 @@ const getDefaultConversationStatusListDatabase = (): ConversationStatusListDatab
 
 const getDefaultConversationStatusCandidateIds = (): string[] => collectConversationStatusCandidateIds();
 
-export function collectConversationStatusCandidateIds(tasks = getDefaultConversationStatusCandidateTasks(), busyStates = getDefaultConversationBusyStates()): string[] {
+export function collectConversationStatusCandidateIds(
+  tasks = getDefaultConversationStatusCandidateTasks(),
+  busyStates = getDefaultConversationBusyStates()
+): string[] {
   const sessionIds = new Set<string>();
 
   tasks.forEach(({ id }) => {
@@ -487,9 +547,13 @@ export function collectConversationStatusCandidateIds(tasks = getDefaultConversa
   return Array.from(sessionIds);
 }
 
-const sortConversationsByUpdatedAtDesc = (conversations: TChatConversation[]): TChatConversation[] => [...conversations].sort((left, right) => right.modifyTime - left.modifyTime);
+const sortConversationsByUpdatedAtDesc = (conversations: TChatConversation[]): TChatConversation[] =>
+  [...conversations].sort((left, right) => right.modifyTime - left.modifyTime);
 
-export function getConversationStatusListConversations(scope: ConversationListScope, options: ConversationStatusListOptions = {}): TChatConversation[] {
+export function getConversationStatusListConversations(
+  scope: ConversationListScope,
+  options: ConversationStatusListOptions = {}
+): TChatConversation[] {
   const db = options.db || getDefaultConversationStatusListDatabase();
   const runtimeCandidateIds = options.runtimeCandidateIds || getDefaultConversationStatusCandidateIds();
 
@@ -525,7 +589,13 @@ export function getConversationStatusListConversations(scope: ConversationListSc
   return sortConversationsByUpdatedAtDesc(Array.from(conversations.values()));
 }
 
-const recordConversationApiDiagnostics = (input: { route: string; reason: string; sessionId?: string; force?: boolean; persist?: boolean }): void => {
+const recordConversationApiDiagnostics = (input: {
+  route: string;
+  reason: string;
+  sessionId?: string;
+  force?: boolean;
+  persist?: boolean;
+}): void => {
   try {
     apiDiagnosticsService.captureRouteSample(input);
   } catch (error) {
@@ -542,8 +612,14 @@ const sleep = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-const invokeStopWithTimeout = async (sessionId: string, timeoutMs: number): Promise<{ success: boolean; msg?: string }> => {
-  const stopPromise = ipcBridge.conversation.stop.invoke({ conversation_id: sessionId }) as Promise<{ success: boolean; msg?: string }>;
+const invokeStopWithTimeout = async (
+  sessionId: string,
+  timeoutMs: number
+): Promise<{ success: boolean; msg?: string }> => {
+  const stopPromise = ipcBridge.conversation.stop.invoke({ conversation_id: sessionId }) as Promise<{
+    success: boolean;
+    msg?: string;
+  }>;
   const timeoutPromise = new Promise<{ success: false; msg: string }>((resolve) => {
     setTimeout(() => {
       resolve({ success: false, msg: `Stop dispatch timeout after ${timeoutMs}ms` });
@@ -552,7 +628,9 @@ const invokeStopWithTimeout = async (sessionId: string, timeoutMs: number): Prom
   return Promise.race([stopPromise, timeoutPromise]);
 };
 
-const isStopConfirmed = (resolvedStatus: { runtime: { taskStatus?: ConversationStatusValue; isProcessing?: boolean; pendingConfirmations?: number } }): boolean => {
+const isStopConfirmed = (resolvedStatus: {
+  runtime: { taskStatus?: ConversationStatusValue; isProcessing?: boolean; pendingConfirmations?: number };
+}): boolean => {
   const runtime = resolvedStatus.runtime as {
     taskStatus?: ConversationStatusValue;
     isProcessing?: boolean;
@@ -561,7 +639,11 @@ const isStopConfirmed = (resolvedStatus: { runtime: { taskStatus?: ConversationS
   return !runtime.isProcessing && (runtime.pendingConfirmations ?? 0) === 0 && runtime.taskStatus !== 'running';
 };
 
-export function buildConversationUsageResponse(sessionId: string, conversation: TChatConversation, input: ConversationUsageResponseInput) {
+export function buildConversationUsageResponse(
+  sessionId: string,
+  conversation: TChatConversation,
+  input: ConversationUsageResponseInput
+) {
   return {
     success: true,
     sessionId,
@@ -577,7 +659,11 @@ export function buildConversationUsageResponse(sessionId: string, conversation: 
   };
 }
 
-export const buildConversationUsageSummaryListResponse = (items: ConversationUsageSummaryListItem[], notFoundSessionIds: string[] = [], range: ConversationTokenUsageRange = {}) => ({
+export const buildConversationUsageSummaryListResponse = (
+  items: ConversationUsageSummaryListItem[],
+  notFoundSessionIds: string[] = [],
+  range: ConversationTokenUsageRange = {}
+) => ({
   success: true,
   range,
   total: items.length,
@@ -683,38 +769,45 @@ const buildSimulationPayload = (action: SimulationAction, sessionId: string, pay
   };
   const encodedSessionId = encodeURIComponent(sessionId);
 
-  const requestMap: Record<SimulationAction, { method: 'GET' | 'POST'; path: string; body?: Record<string, unknown> }> = {
-    create: {
-      method: 'POST',
-      path: '/api/v1/conversation/create',
-      body: { ...defaultCreatePayload, ...payload },
-    },
-    message: {
-      method: 'POST',
-      path: `/api/v1/conversation/message?sessionId=${encodedSessionId}`,
-      body: { message: 'Continue response', ...payload },
-    },
-    status: {
-      method: 'GET',
-      path: `/api/v1/conversation/status?sessionId=${encodedSessionId}`,
-    },
-    stop: {
-      method: 'POST',
-      path: `/api/v1/conversation/stop?sessionId=${encodedSessionId}`,
-    },
-    messages: {
-      method: 'GET',
-      path: `/api/v1/conversation/messages?sessionId=${encodedSessionId}&page=0&pageSize=50`,
-    },
-  };
+  const requestMap: Record<SimulationAction, { method: 'GET' | 'POST'; path: string; body?: Record<string, unknown> }> =
+    {
+      create: {
+        method: 'POST',
+        path: '/api/v1/conversation/create',
+        body: { ...defaultCreatePayload, ...payload },
+      },
+      message: {
+        method: 'POST',
+        path: `/api/v1/conversation/message?sessionId=${encodedSessionId}`,
+        body: { message: 'Continue response', ...payload },
+      },
+      status: {
+        method: 'GET',
+        path: `/api/v1/conversation/status?sessionId=${encodedSessionId}`,
+      },
+      stop: {
+        method: 'POST',
+        path: `/api/v1/conversation/stop?sessionId=${encodedSessionId}`,
+      },
+      messages: {
+        method: 'GET',
+        path: `/api/v1/conversation/messages?sessionId=${encodedSessionId}&page=0&pageSize=50`,
+      },
+    };
 
   const selected = requestMap[action];
   const bodyJson = selected.body ? JSON.stringify(selected.body) : '';
   const escapedBodyJson = escapeSingleQuoteString(bodyJson);
 
-  const curlCommand = selected.method === 'GET' ? `curl -X GET "http://localhost:3000${selected.path}" -H "Authorization: Bearer <api_token>"` : `curl -X POST "http://localhost:3000${selected.path}" -H "Authorization: Bearer <api_token>" -H "Content-Type: application/json" -d '${bodyJson}'`;
+  const curlCommand =
+    selected.method === 'GET'
+      ? `curl -X GET "http://localhost:3000${selected.path}" -H "Authorization: Bearer <api_token>"`
+      : `curl -X POST "http://localhost:3000${selected.path}" -H "Authorization: Bearer <api_token>" -H "Content-Type: application/json" -d '${bodyJson}'`;
 
-  const powershellCommand = selected.method === 'GET' ? `Invoke-RestMethod -Method Get -Uri 'http://localhost:3000${selected.path}' -Headers @{ Authorization = 'Bearer <api_token>' }` : `$headers=@{ Authorization='Bearer <api_token>' }; $body='${escapedBodyJson}'; Invoke-RestMethod -Method Post -Uri 'http://localhost:3000${selected.path}' -Headers $headers -ContentType 'application/json' -Body $body`;
+  const powershellCommand =
+    selected.method === 'GET'
+      ? `Invoke-RestMethod -Method Get -Uri 'http://localhost:3000${selected.path}' -Headers @{ Authorization = 'Bearer <api_token>' }`
+      : `$headers=@{ Authorization='Bearer <api_token>' }; $body='${escapedBodyJson}'; Invoke-RestMethod -Method Post -Uri 'http://localhost:3000${selected.path}' -Headers $headers -ContentType 'application/json' -Body $body`;
 
   return {
     action,
@@ -725,7 +818,12 @@ const buildSimulationPayload = (action: SimulationAction, sessionId: string, pay
       'Content-Type': selected.method === 'POST' ? 'application/json' : undefined,
     },
     requestBody: selected.body,
-    sampleSuccessResponse: action === 'create' ? { success: true, sessionId: 'conv_example_001', status: 'running' } : action === 'messages' ? { success: true, messages: [] as unknown[], total: 0, page: 0, pageSize: 50, hasMore: false } : { success: true, sessionId, status: action === 'stop' ? 'finished' : 'running' },
+    sampleSuccessResponse:
+      action === 'create'
+        ? { success: true, sessionId: 'conv_example_001', status: 'running' }
+        : action === 'messages'
+          ? { success: true, messages: [] as unknown[], total: 0, page: 0, pageSize: 50, hasMore: false }
+          : { success: true, sessionId, status: action === 'stop' ? 'finished' : 'running' },
     commands: {
       curl: curlCommand,
       powershell: powershellCommand,
@@ -846,10 +944,14 @@ router.post('/create', async (req: Request, res: Response) => {
       void WorkerManage.sendMessage(conversation.id, message, msg_id)
         .then((sendResult) => {
           if (!sendResult.success) {
-            console.error('[API] Async initial message send failed:', 'msg' in sendResult ? sendResult.msg : 'Failed to send initial message', {
-              sessionId: conversation.id,
-              msg_id,
-            });
+            console.error(
+              '[API] Async initial message send failed:',
+              'msg' in sendResult ? sendResult.msg : 'Failed to send initial message',
+              {
+                sessionId: conversation.id,
+                msg_id,
+              }
+            );
           }
         })
         .catch((dispatchError) => {
@@ -896,8 +998,12 @@ router.post('/simulate', async (req: Request, res: Response) => {
       });
     }
 
-    const sessionId = typeof req.body?.sessionId === 'string' && req.body.sessionId.trim() ? req.body.sessionId.trim() : 'conv_example_001';
-    const payload = req.body?.payload && typeof req.body.payload === 'object' ? (req.body.payload as Record<string, unknown>) : {};
+    const sessionId =
+      typeof req.body?.sessionId === 'string' && req.body.sessionId.trim()
+        ? req.body.sessionId.trim()
+        : 'conv_example_001';
+    const payload =
+      req.body?.payload && typeof req.body.payload === 'object' ? (req.body.payload as Record<string, unknown>) : {};
 
     const simulation = buildSimulationPayload(action, sessionId, payload);
 
@@ -1224,10 +1330,14 @@ router.post('/message', async (req: Request, res: Response) => {
       void WorkerManage.sendMessage(sessionId, message, msg_id)
         .then((sendResult) => {
           if (!sendResult.success) {
-            console.error('[API] Async continue message send failed:', 'msg' in sendResult ? sendResult.msg : 'Failed to send message', {
-              sessionId,
-              msg_id,
-            });
+            console.error(
+              '[API] Async continue message send failed:',
+              'msg' in sendResult ? sendResult.msg : 'Failed to send message',
+              {
+                sessionId,
+                msg_id,
+              }
+            );
           }
         })
         .catch((dispatchError) => {

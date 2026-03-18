@@ -8,7 +8,14 @@ import { transformMessage } from '@/common/chatLib';
 import { AIONUI_FILES_MARKER } from '@/common/constants';
 import type { IResponseMessage } from '@/common/ipcBridge';
 import { parseError, uuid } from '@/common/utils';
-import type { AcpBackend, AcpModelInfo, AcpPermissionOption, AcpPermissionRequest, AcpPromptResponseUsage, AcpSessionConfigOption } from '@/types/acpTypes';
+import type {
+  AcpBackend,
+  AcpModelInfo,
+  AcpPermissionOption,
+  AcpPermissionRequest,
+  AcpPromptResponseUsage,
+  AcpSessionConfigOption,
+} from '@/types/acpTypes';
 import { ACP_BACKENDS_ALL } from '@/types/acpTypes';
 import { ExtensionRegistry } from '@/extensions';
 import { getDatabase } from '@process/database';
@@ -17,7 +24,11 @@ import { addMessage, addOrUpdateMessage, nextTickToLocalFinish } from '../messag
 import { handlePreviewOpenEvent } from '../utils/previewUtils';
 import { cronBusyGuard } from '@process/services/cron/CronBusyGuard';
 import { ConversationTurnCompletionService } from '@process/services/ConversationTurnCompletionService';
-import { getCodexSandboxModeForSessionMode, writeCodexSandboxMode, type CodexSandboxMode } from '@process/utils/codexConfig';
+import {
+  getCodexSandboxModeForSessionMode,
+  writeCodexSandboxMode,
+  type CodexSandboxMode,
+} from '@process/utils/codexConfig';
 import { mainLog, mainWarn, mainError } from '../utils/mainLogger';
 import { prepareFirstMessageWithSkillsIndex } from './agentUtils';
 /** Enable ACP performance diagnostics via ACP_PERF=1 */
@@ -72,7 +83,8 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   private persistedModelId: string | null = null;
   private persistedConfigOptionValues: Record<string, string>;
   private pendingPromptUsage: AcpPromptResponseUsage | null = null;
-  private pendingContextUsage: { used: number; size: number; cost?: { amount: number; currency: string } } | null = null;
+  private pendingContextUsage: { used: number; size: number; cost?: { amount: number; currency: string } } | null =
+    null;
   // Track current message for cron detection (accumulated from streaming chunks)
   private currentMsgId: string | null = null;
   private currentMsgContent: string = '';
@@ -179,7 +191,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
               id: data.customAgentId,
               name: typeof adapter.name === 'string' ? adapter.name : data.customAgentId,
               defaultCliPath: typeof adapter.defaultCliPath === 'string' ? adapter.defaultCliPath : undefined,
-              acpArgs: Array.isArray(adapter.acpArgs) ? adapter.acpArgs.filter((v): v is string => typeof v === 'string') : undefined,
+              acpArgs: Array.isArray(adapter.acpArgs)
+                ? adapter.acpArgs.filter((v): v is string => typeof v === 'string')
+                : undefined,
               env: typeof adapter.env === 'object' && adapter.env ? (adapter.env as Record<string, string>) : undefined,
             } as any;
           }
@@ -242,7 +256,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         }
 
         if (data.backend === 'codex') {
-          const sandboxMode = getCodexSandboxModeForSessionMode(data.sessionMode || this.currentMode, data.sandboxMode || codexConfig?.sandboxMode || 'workspace-write') as CodexSandboxMode;
+          const sandboxMode = getCodexSandboxModeForSessionMode(
+            data.sessionMode || this.currentMode,
+            data.sandboxMode || codexConfig?.sandboxMode || 'workspace-write'
+          ) as CodexSandboxMode;
           await writeCodexSandboxMode(sandboxMode);
           data.sandboxMode = sandboxMode;
         }
@@ -348,7 +365,11 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
 
           // Persist context usage to conversation extra for restore on page switch
           if (message.type === 'acp_context_usage') {
-            const usageData = message.data as { used: number; size: number; cost?: { amount: number; currency: string } };
+            const usageData = message.data as {
+              used: number;
+              size: number;
+              cost?: { amount: number; currency: string };
+            };
             this.pendingContextUsage = usageData;
             this.saveContextUsage(usageData);
           }
@@ -370,7 +391,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
               const dbDuration = Date.now() - dbStart;
 
               if (transformDuration > 5 || dbDuration > 5) {
-                if (ACP_PERF_LOG) console.log(`[ACP-PERF] stream: transform ${transformDuration}ms, db ${dbDuration}ms type=${message.type}`);
+                if (ACP_PERF_LOG)
+                  console.log(
+                    `[ACP-PERF] stream: transform ${transformDuration}ms, db ${dbDuration}ms type=${message.type}`
+                  );
               }
 
               // Track streaming content for cron detection when turn ends
@@ -408,7 +432,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
 
           const totalDuration = Date.now() - pipelineStart;
           if (totalDuration > 10) {
-            if (ACP_PERF_LOG) console.log(`[ACP-PERF] stream: onStreamEvent pipeline ${totalDuration}ms (filter=${filterDuration}ms, emit=${emitDuration}ms) type=${message.type}`);
+            if (ACP_PERF_LOG)
+              console.log(
+                `[ACP-PERF] stream: onStreamEvent pipeline ${totalDuration}ms (filter=${filterDuration}ms, emit=${emitDuration}ms) type=${message.type}`
+              );
           }
         },
         onSignalEvent: async (v) => {
@@ -517,7 +544,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           // Stale cache may reference models that no longer exist (e.g., gpt-5.3-codex).
           const isModelAvailable = currentInfo?.availableModels?.some((m) => m.id === this.persistedModelId);
           if (!isModelAvailable) {
-            mainWarn('[AcpAgentManager]', `Persisted model ${this.persistedModelId} is not in available models, clearing`);
+            mainWarn(
+              '[AcpAgentManager]',
+              `Persisted model ${this.persistedModelId} is not in available models, clearing`
+            );
             this.persistedModelId = null;
           } else if (currentInfo?.currentModelId !== this.persistedModelId) {
             try {
@@ -531,7 +561,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
                   type: 'error',
                   conversation_id: this.conversation_id,
                   msg_id: `model_error_${Date.now()}`,
-                  data: `Model "${this.persistedModelId}" is not available on your API relay service. ` + `Please add this model to your relay's channel configuration. Falling back to the default model.`,
+                  data:
+                    `Model "${this.persistedModelId}" is not available on your API relay service. ` +
+                    `Please add this model to your relay's channel configuration. Falling back to the default model.`,
                 });
               }
               this.persistedModelId = null;
@@ -546,7 +578,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
 
             const isValueAvailable = option.options?.some((choice) => choice.value === nextValue) ?? true;
             if (!isValueAvailable) {
-              mainWarn('[AcpAgentManager]', `Persisted config option ${option.id}=${nextValue} is not available, clearing`);
+              mainWarn(
+                '[AcpAgentManager]',
+                `Persisted config option ${option.id}=${nextValue} is not available, clearing`
+              );
               delete this.persistedConfigOptionValues[option.id];
               continue;
             }
@@ -615,7 +650,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           type: 'user_content',
           conversation_id: this.conversation_id,
           msg_id: data.msg_id,
-          data: data.cronMeta ? { content: userMessage.content.content, cronMeta: data.cronMeta } : userMessage.content.content,
+          data: data.cronMeta
+            ? { content: userMessage.content.content, cronMeta: data.cronMeta }
+            : userMessage.content.content,
         };
         ipcBridge.acpConversation.responseStream.emit(userResponseMessage);
       }
@@ -641,7 +678,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
 
         const agentSendStart = Date.now();
         const result = await this.agent.sendMessage({ ...data, content: contentToSend });
-        if (ACP_PERF_LOG) console.log(`[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`);
+        if (ACP_PERF_LOG)
+          console.log(
+            `[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`
+          );
         // 首条消息发送后标记，无论是否有 presetContext
         if (this.isFirstMessage) {
           this.isFirstMessage = false;
@@ -653,7 +693,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
       }
       const agentSendStart = Date.now();
       const result = await this.agent.sendMessage(data);
-      if (ACP_PERF_LOG) console.log(`[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`);
+      if (ACP_PERF_LOG)
+        console.log(
+          `[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`
+        );
       return result;
     } catch (e) {
       this.flushBufferedStreamTextMessages();
@@ -1165,7 +1208,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   }
 
   private async cacheConfigOptions(configOptions: AcpSessionConfigOption[]): Promise<void> {
-    const nextCachedOptions = configOptions.filter((option) => option.category !== 'model' && option.category !== 'mode');
+    const nextCachedOptions = configOptions.filter(
+      (option) => option.category !== 'model' && option.category !== 'mode'
+    );
     if (nextCachedOptions.length === 0) {
       return;
     }

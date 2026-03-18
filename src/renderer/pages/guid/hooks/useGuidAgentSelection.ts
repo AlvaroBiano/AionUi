@@ -10,7 +10,14 @@ import { ASSISTANT_PRESETS } from '@/common/presets/assistantPresets';
 import { DEFAULT_CODEX_MODELS } from '@/common/codex/codexModels';
 import type { IProvider } from '@/common/storage';
 import { ConfigStorage } from '@/common/storage';
-import type { AcpBackend, AcpBackendConfig, AcpModelInfo, AvailableAgent, EffectiveAgentInfo, PresetAgentType } from '../types';
+import type {
+  AcpBackend,
+  AcpBackendConfig,
+  AcpModelInfo,
+  AvailableAgent,
+  EffectiveAgentInfo,
+  PresetAgentType,
+} from '../types';
 import { getAgentModes } from '@/renderer/constants/agentModes';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR, { mutate } from 'swr';
@@ -43,7 +50,10 @@ async function savePreferredModelId(agentKey: string, modelId: string): Promise<
   }
 }
 
-async function savePreferredConfigOptions(agentKey: string, preferredConfigOptions: Record<string, string>): Promise<void> {
+async function savePreferredConfigOptions(
+  agentKey: string,
+  preferredConfigOptions: Record<string, string>
+): Promise<void> {
   try {
     const config = await ConfigStorage.get('acp.config');
     const backendConfig = config?.[agentKey as AcpBackend] || {};
@@ -80,10 +90,16 @@ export type GuidAgentSelectionResult = {
   currentEffectiveAgentInfo: EffectiveAgentInfo;
   getAgentKey: (agent: { backend: AcpBackend; customAgentId?: string }) => string;
   findAgentByKey: (key: string) => AvailableAgent | undefined;
-  resolvePresetRulesAndSkills: (agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined) => Promise<{ rules?: string; skills?: string }>;
-  resolvePresetContext: (agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined) => Promise<string | undefined>;
+  resolvePresetRulesAndSkills: (
+    agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined
+  ) => Promise<{ rules?: string; skills?: string }>;
+  resolvePresetContext: (
+    agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined
+  ) => Promise<string | undefined>;
   resolvePresetAgentType: (agentInfo: { backend: AcpBackend; customAgentId?: string } | undefined) => string;
-  resolveEnabledSkills: (agentInfo: { backend: AcpBackend; customAgentId?: string } | undefined) => string[] | undefined;
+  resolveEnabledSkills: (
+    agentInfo: { backend: AcpBackend; customAgentId?: string } | undefined
+  ) => string[] | undefined;
   isMainAgentAvailable: (agentType: string) => boolean;
   getAvailableFallbackAgent: () => string | null;
   getEffectiveAgentType: (agentInfo: { backend: AcpBackend; customAgentId?: string } | undefined) => EffectiveAgentInfo;
@@ -100,7 +116,11 @@ type UseGuidAgentSelectionOptions = {
 /**
  * Hook that manages agent selection, availability, and preset assistant logic.
  */
-export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: UseGuidAgentSelectionOptions): GuidAgentSelectionResult => {
+export const useGuidAgentSelection = ({
+  modelList,
+  isGoogleAuth,
+  localeKey,
+}: UseGuidAgentSelectionOptions): GuidAgentSelectionResult => {
   const [selectedAgentKey, _setSelectedAgentKey] = useState<string>('gemini');
   const [availableAgents, setAvailableAgents] = useState<AvailableAgent[]>();
   const [customAgents, setCustomAgents] = useState<AcpBackendConfig[]>([]);
@@ -192,7 +212,9 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
   const findAgentByKey = (key: string): AvailableAgent | undefined => {
     if (key.startsWith('custom:')) {
       const customAgentId = key.slice(7);
-      const foundInAvailable = availableAgents?.find((a) => a.backend === 'custom' && a.customAgentId === customAgentId);
+      const foundInAvailable = availableAgents?.find(
+        (a) => a.backend === 'custom' && a.customAgentId === customAgentId
+      );
       if (foundInAvailable) return foundInAvailable;
 
       const assistant = customAgents.find((a) => a.id === customAgentId);
@@ -212,7 +234,10 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
 
   // Derived state
   const selectedAgent = selectedAgentKey.startsWith('custom:') ? ('custom' as const) : (selectedAgentKey as AcpBackend);
-  const selectedAgentInfo = useMemo(() => findAgentByKey(selectedAgentKey), [selectedAgentKey, availableAgents, customAgents]);
+  const selectedAgentInfo = useMemo(
+    () => findAgentByKey(selectedAgentKey),
+    [selectedAgentKey, availableAgents, customAgents]
+  );
   const isPresetAgent = Boolean(selectedAgentInfo?.isPreset);
 
   const customAgentAvatarMap = useMemo(() => {
@@ -246,7 +271,8 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
         if (cancelled || !savedAgentKey) return;
 
         const isInAvailable = availableAgents.some((agent) => {
-          const key = agent.backend === 'custom' && agent.customAgentId ? `custom:${agent.customAgentId}` : agent.backend;
+          const key =
+            agent.backend === 'custom' && agent.customAgentId ? `custom:${agent.customAgentId}` : agent.backend;
           return key === savedAgentKey;
         });
 
@@ -268,10 +294,18 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
   // Load custom agents + extension-contributed assistants
   useEffect(() => {
     let isActive = true;
-    Promise.all([ConfigStorage.get('acp.customAgents'), ipcBridge.extensions.getAssistants.invoke().catch(() => [] as Record<string, unknown>[])])
+    Promise.all([
+      ConfigStorage.get('acp.customAgents'),
+      ipcBridge.extensions.getAssistants.invoke().catch(() => [] as Record<string, unknown>[]),
+    ])
       .then(([agents, extAssistants]) => {
         if (!isActive) return;
-        const list = (agents || []).filter((agent: AcpBackendConfig) => availableCustomAgentIds.has(agent.id));
+        const list = (agents || []).filter((agent: AcpBackendConfig) => {
+          // Keep preset assistants visible on Guid homepage even when ACP detection
+          // has not produced custom IDs yet (startup race / transient detection failure).
+          if (agent.isPreset) return true;
+          return availableCustomAgentIds.has(agent.id);
+        });
 
         // Merge extension-contributed assistants (they are preset assistants that don't need
         // to be in availableCustomAgentIds because they use existing backends like gemini/claude)
@@ -435,7 +469,9 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
     void ConfigStorage.get('acp.config')
       .then((config) => {
         if (cancelled) return;
-        const preferredConfigOptions = ((config?.[backend as AcpBackend] as { preferredConfigOptions?: Record<string, string> } | undefined)?.preferredConfigOptions || {}) as Record<string, string>;
+        const preferredConfigOptions = ((
+          config?.[backend as AcpBackend] as { preferredConfigOptions?: Record<string, string> } | undefined
+        )?.preferredConfigOptions || {}) as Record<string, string>;
         const cachedOptions = resolveCachedConfigOptions(backend);
         const nextSelectedConfigOptions = cachedOptions.reduce<Record<string, string>>((acc, option) => {
           const preferredValue = preferredConfigOptions[option.id];
@@ -519,7 +555,9 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
 
   // --- Preset assistant resolution ---
   const resolvePresetRulesAndSkills = useCallback(
-    async (agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined): Promise<{ rules?: string; skills?: string }> => {
+    async (
+      agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined
+    ): Promise<{ rules?: string; skills?: string }> => {
       if (!agentInfo) return {};
       if (agentInfo.backend !== 'custom') {
         return { rules: agentInfo.context };
@@ -583,7 +621,9 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
   );
 
   const resolvePresetContext = useCallback(
-    async (agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined): Promise<string | undefined> => {
+    async (
+      agentInfo: { backend: AcpBackend; customAgentId?: string; context?: string } | undefined
+    ): Promise<string | undefined> => {
       const { rules } = await resolvePresetRulesAndSkills(agentInfo);
       return rules;
     },
@@ -643,7 +683,12 @@ export const useGuidAgentSelection = ({ modelList, isGoogleAuth, localeKey }: Us
   const currentEffectiveAgentInfo = useMemo(() => {
     if (!isPresetAgent) {
       const isAvailable = isMainAgentAvailable(selectedAgent as string);
-      return { agentType: selectedAgent as string, isFallback: false, originalType: selectedAgent as string, isAvailable };
+      return {
+        agentType: selectedAgent as string,
+        isFallback: false,
+        originalType: selectedAgent as string,
+        isAvailable,
+      };
     }
     return getEffectiveAgentType(selectedAgentInfo);
   }, [isPresetAgent, selectedAgent, selectedAgentInfo, getEffectiveAgentType, isMainAgentAvailable]);

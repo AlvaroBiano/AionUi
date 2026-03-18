@@ -47,7 +47,9 @@ export async function killChild(child: ChildProcess, isDetached: boolean): Promi
     try {
       await execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 5000 });
     } catch (forceError) {
-      console.warn(`[ACP] taskkill /T /F failed for PID ${pid}:`, forceError);
+      if (isProcessAlive(pid)) {
+        console.warn(`[ACP] taskkill /T /F failed for PID ${pid}:`, forceError);
+      }
     }
   } else if (isDetached && pid) {
     try {

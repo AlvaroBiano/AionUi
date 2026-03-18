@@ -44,7 +44,12 @@ export interface IChannelPluginServiceRegistry {
 }
 
 export interface IChannelMessageServiceContract {
-  sendMessage: (sessionId: string, conversationId: string, message: string, onStream: (message: import('@/common/chatLib').TMessage, isInsert: boolean) => void) => Promise<string>;
+  sendMessage: (
+    sessionId: string,
+    conversationId: string,
+    message: string,
+    onStream: (message: import('@/common/chatLib').TMessage, isInsert: boolean) => void
+  ) => Promise<string>;
   confirm: (conversationId: string, callId: string, value: string) => Promise<void>;
 }
 
@@ -94,7 +99,9 @@ export class ChannelServiceRegistry {
       return undefined;
     }
 
-    const order = (options?.resolveOrder && options.resolveOrder.length > 0 ? options.resolveOrder : DEFAULT_RESOLVE_ORDER) as readonly ChannelServiceScope[];
+    const order = (
+      options?.resolveOrder && options.resolveOrder.length > 0 ? options.resolveOrder : DEFAULT_RESOLVE_ORDER
+    ) as readonly ChannelServiceScope[];
     const scopeRank = new Map<ChannelServiceScope, number>();
     order.forEach((scope, index) => {
       scopeRank.set(scope, index);

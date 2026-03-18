@@ -34,6 +34,7 @@ export interface AgentModeOption {
  * - Gemini: supports default/autoEdit/yolo (auto-approve at manager layer, not via ACP)
  * - Codex: default modes stay sandboxed; a dedicated unsafe full-auto mode disables the sandbox
  * - Goose: mode set at startup only, not during session
+ * - Cursor: agent/plan/ask modes via ACP session/set_mode (verified via `agent acp` session/new response)
  */
 export const AGENT_MODES: Record<string, AgentModeOption[]> = {
   claude: [
@@ -67,6 +68,11 @@ export const AGENT_MODES: Record<string, AgentModeOption[]> = {
     { value: CODEX_MODE_AUTO_EDIT, label: 'Auto Edit' },
     { value: CODEX_MODE_FULL_AUTO, label: 'Full Auto' },
     { value: CODEX_MODE_FULL_AUTO_NO_SANDBOX, label: 'Full Auto (No Sandbox)' },
+  ],
+  cursor: [
+    { value: 'agent', label: 'Agent', description: 'Full agent capabilities with tool access' },
+    { value: 'plan', label: 'Plan', description: 'Read-only mode for planning and designing before implementation' },
+    { value: 'ask', label: 'Ask', description: 'Q&A mode - no edits or command execution' },
   ],
 };
 

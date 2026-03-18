@@ -13,7 +13,14 @@ import { cronBusyGuard } from '@process/services/cron/CronBusyGuard';
 import { flushConversationMessages } from '@process/message';
 
 export type ConversationStatusValue = 'pending' | 'running' | 'finished';
-export type ConversationRuntimeState = 'ai_generating' | 'ai_waiting_input' | 'ai_waiting_confirmation' | 'initializing' | 'stopped' | 'error' | 'unknown';
+export type ConversationRuntimeState =
+  | 'ai_generating'
+  | 'ai_waiting_input'
+  | 'ai_waiting_confirmation'
+  | 'initializing'
+  | 'stopped'
+  | 'error'
+  | 'unknown';
 
 type StatusMessage = {
   id?: string;
@@ -69,7 +76,9 @@ export const extractWorkspaceFromConversation = (conversation: TChatConversation
   return conversation.extra?.workspace || '';
 };
 
-export const extractModelInfoFromConversation = (conversation: TChatConversation): IConversationTurnCompletedEvent['model'] => {
+export const extractModelInfoFromConversation = (
+  conversation: TChatConversation
+): IConversationTurnCompletedEvent['model'] => {
   const conversationWithModel = conversation as TChatConversation & {
     model?: {
       platform?: string;
@@ -89,12 +98,20 @@ export const extractModelInfoFromConversation = (conversation: TChatConversation
 
   return {
     platform: conversation.type || (typeof extra.backend === 'string' ? extra.backend : ''),
-    name: typeof extra.agentName === 'string' ? extra.agentName : typeof extra.backend === 'string' ? extra.backend : '',
-    useModel: typeof extra.currentModelId === 'string' ? extra.currentModelId : typeof extra.codexModel === 'string' ? extra.codexModel : '',
+    name:
+      typeof extra.agentName === 'string' ? extra.agentName : typeof extra.backend === 'string' ? extra.backend : '',
+    useModel:
+      typeof extra.currentModelId === 'string'
+        ? extra.currentModelId
+        : typeof extra.codexModel === 'string'
+          ? extra.codexModel
+          : '',
   };
 };
 
-export const formatStatusLastMessage = (lastMessage: StatusMessage | null): IConversationTurnCompletedEvent['lastMessage'] | undefined => {
+export const formatStatusLastMessage = (
+  lastMessage: StatusMessage | null
+): IConversationTurnCompletedEvent['lastMessage'] | undefined => {
   if (!lastMessage) {
     return undefined;
   }
@@ -121,7 +138,12 @@ const getConversationTask = (sessionId: string, options: ConversationStatusSnaps
   return WorkerManage.getTaskById(sessionId);
 };
 
-export const deriveConversationRuntimeStatus = (sessionId: string, conversation: ConversationStatusInput, lastMessage: StatusMessage | null, options: ConversationStatusSnapshotOptions = {}) => {
+export const deriveConversationRuntimeStatus = (
+  sessionId: string,
+  conversation: ConversationStatusInput,
+  lastMessage: StatusMessage | null,
+  options: ConversationStatusSnapshotOptions = {}
+) => {
   const task = getConversationTask(sessionId, options) as
     | {
         status?: ConversationStatusValue;
@@ -204,7 +226,10 @@ export const deriveConversationRuntimeStatus = (sessionId: string, conversation:
   };
 };
 
-export const getConversationStatusSnapshot = (sessionId: string, options: ConversationStatusSnapshotOptions = {}): ConversationStatusSnapshot | null => {
+export const getConversationStatusSnapshot = (
+  sessionId: string,
+  options: ConversationStatusSnapshotOptions = {}
+): ConversationStatusSnapshot | null => {
   const db = getDatabase();
   const convResult = db.getConversation(sessionId);
   if (!convResult.success || !convResult.data) {
@@ -227,7 +252,8 @@ export const getConversationStatusSnapshot = (sessionId: string, options: Conver
   };
 };
 
-export const getReadOnlyConversationStatusSnapshot = (sessionId: string): ConversationStatusSnapshot | null => getConversationStatusSnapshot(sessionId, { touchTask: false });
+export const getReadOnlyConversationStatusSnapshot = (sessionId: string): ConversationStatusSnapshot | null =>
+  getConversationStatusSnapshot(sessionId, { touchTask: false });
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {

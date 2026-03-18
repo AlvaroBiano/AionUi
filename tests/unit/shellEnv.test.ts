@@ -14,7 +14,8 @@
  * 4. Shell environment is loaded and merged on macOS/Linux
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import path from 'path';
 
 // -------------------------------------------------------------------
 // 1. Pure-logic tests for mergePaths (no Electron, no mocking needed)
@@ -233,7 +234,221 @@ describe('getEnhancedEnv Windows extra paths', () => {
 });
 
 // -------------------------------------------------------------------
-// 4. Regression test: the fix that was applied to ForkTask.ts
+// 4. Windows extra tool path detection (cross-platform, mocked platform)
+//    Verifies that getWindowsExtraToolPaths() appends Git, Chocolatey,
+//    and other tool paths. Runs on any OS by mocking process.platform.
+// -------------------------------------------------------------------
+describe('getEnhancedEnv Windows extra paths (cross-platform mock)', () => {
+  const originalPlatform = process.platform;
+  const originalPath = process.env.PATH;
+  const originalAppData = process.env.APPDATA;
+  const originalLocalAppData = process.env.LOCALAPPDATA;
+  const originalProgramFiles = process.env.ProgramFiles;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+    process.env.PATH = originalPath;
+    process.env.APPDATA = originalAppData;
+    process.env.LOCALAPPDATA = originalLocalAppData;
+    process.env.ProgramFiles = originalProgramFiles;
+  });
+
+  it('appends Git for Windows paths when they exist (cygpath fix)', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    process.env.PATH = 'C:\\Windows\\System32';
+    process.env.APPDATA = 'C:\\Users\\test\\AppData\\Roaming';
+    process.env.LOCALAPPDATA = 'C:\\Users\\test\\AppData\\Local';
+    process.env.ProgramFiles = 'C:\\Program Files';
+
+    // Use path.join to compute expected paths — on macOS path.join uses '/'
+    // but the source code also uses path.join, so they will match.
+    const GIT_USR_BIN = path.join('C:\\Program Files', 'Git', 'usr', 'bin');
+    const GIT_CMD = path.join('C:\\Program Files', 'Git', 'cmd');
+
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<typeof import('fs')>('fs');
+      return {
+        ...actual,
+        existsSync: vi.fn((p: string) => p === GIT_USR_BIN || p === GIT_CMD),
+        readdirSync: actual.readdirSync,
+        accessSync: actual.accessSync,
+      };
+    });
+
+    vi.doMock('child_process', () => ({
+      execFileSync: vi.fn().mockImplementation(() => {
+        throw new Error('skip shell');
+      }),
+      execFile: vi.fn(),
+    }));
+
+    const { getEnhancedEnv } = await import('@process/utils/shellEnv');
+    const result = getEnhancedEnv();
+
+    // PATH must include Git usr/bin (where cygpath lives) and Git cmd
+    expect(result.PATH).toContain(GIT_USR_BIN);
+    expect(result.PATH).toContain(GIT_CMD);
+  });
+
+  it('appends Chocolatey bin when it exists', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    process.env.PATH = 'C:\\Windows\\System32';
+    process.env.APPDATA = 'C:\\Users\\test\\AppData\\Roaming';
+    process.env.LOCALAPPDATA = 'C:\\Users\\test\\AppData\\Local';
+    process.env.ProgramFiles = 'C:\\Program Files';
+
+    const CHOCO_BIN = path.join('C:\\ProgramData\\chocolatey', 'bin');
+
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<typeof import('fs')>('fs');
+      return {
+        ...actual,
+        existsSync: vi.fn((p: string) => p === CHOCO_BIN),
+        readdirSync: actual.readdirSync,
+        accessSync: actual.accessSync,
+      };
+    });
+
+    vi.doMock('child_process', () => ({
+      execFileSync: vi.fn().mockImplementation(() => {
+        throw new Error('skip shell');
+      }),
+      execFile: vi.fn(),
+    }));
+
+    const { getEnhancedEnv } = await import('@process/utils/shellEnv');
+    const result = getEnhancedEnv();
+
+    expect(result.PATH).toContain(CHOCO_BIN);
+  });
+
+  it('does not append paths that are already in PATH', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+
+    const GIT_USR_BIN = path.join('C:\\Program Files', 'Git', 'usr', 'bin');
+    // Git usr/bin is already in PATH
+    process.env.PATH = `C:\\Windows\\System32;${GIT_USR_BIN}`;
+    process.env.APPDATA = 'C:\\Users\\test\\AppData\\Roaming';
+    process.env.LOCALAPPDATA = 'C:\\Users\\test\\AppData\\Local';
+    process.env.ProgramFiles = 'C:\\Program Files';
+
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<typeof import('fs')>('fs');
+      return {
+        ...actual,
+        existsSync: vi.fn((p: string) => p === GIT_USR_BIN),
+        readdirSync: actual.readdirSync,
+        accessSync: actual.accessSync,
+      };
+    });
+
+    vi.doMock('child_process', () => ({
+      execFileSync: vi.fn().mockImplementation(() => {
+        throw new Error('skip shell');
+      }),
+      execFile: vi.fn(),
+    }));
+
+    const { getEnhancedEnv } = await import('@process/utils/shellEnv');
+    const result = getEnhancedEnv();
+
+    // Should appear exactly once (from process.env.PATH), not duplicated
+    const occurrences = result.PATH.split(';').filter((p) => p === GIT_USR_BIN).length;
+    expect(occurrences).toBe(1);
+  });
+
+  it('skips shell env loading on Windows and relies on extra tool paths', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    process.env.PATH = 'C:\\Windows\\System32';
+    process.env.APPDATA = 'C:\\Users\\test\\AppData\\Roaming';
+    process.env.LOCALAPPDATA = 'C:\\Users\\test\\AppData\\Local';
+    process.env.ProgramFiles = 'C:\\Program Files';
+
+    const execFileSync = vi.fn();
+
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<typeof import('fs')>('fs');
+      return {
+        ...actual,
+        existsSync: vi.fn(() => false),
+        readdirSync: actual.readdirSync,
+        accessSync: actual.accessSync,
+      };
+    });
+
+    vi.doMock('child_process', () => ({
+      execFileSync,
+      execFile: vi.fn(),
+    }));
+
+    const { getEnhancedEnv } = await import('@process/utils/shellEnv');
+    getEnhancedEnv();
+
+    // execFileSync should NOT be called on Windows (shell env loading is skipped)
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolveNpxPath', () => {
+  const originalPlatform = process.platform;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+  });
+
+  it('prefers the Node-adjacent npx.cmd on Windows instead of falling back to PATH lookup', async () => {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+
+    vi.doMock('child_process', () => ({
+      execFileSync: vi.fn((file: string, args: string[]) => {
+        if (file === 'where' && args[0] === 'node') {
+          return 'E:\\evn\\nodeOthe\\node.exe\r\nE:\\broken\\node.exe\r\n';
+        }
+        if (
+          file === 'E:\\evn\\nodeOthe\\node.exe' &&
+          Array.isArray(args) &&
+          args[0] === 'E:\\evn\\nodeOthe\\node_modules\\npm\\bin\\npx-cli.js' &&
+          args[1] === '--version'
+        ) {
+          return '10.9.0';
+        }
+        throw new Error(`unexpected exec: ${file} ${args.join(' ')}`);
+      }),
+      execFile: vi.fn(),
+    }));
+
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<typeof import('fs')>('fs');
+      return {
+        ...actual,
+        existsSync: vi.fn((targetPath: string) =>
+          [
+            'E:\\evn\\nodeOthe\\npx.cmd',
+            'E:\\evn\\nodeOthe\\node_modules\\npm\\bin\\npm-prefix.js',
+            'E:\\evn\\nodeOthe\\node_modules\\npm\\bin\\npx-cli.js',
+          ].includes(targetPath)
+        ),
+      };
+    });
+
+    const { resolveNpxPath } = await import('@process/utils/shellEnv');
+
+    expect(resolveNpxPath({ PATH: 'E:\\broken-project\\node_modules\\.bin;E:\\evn\\nodeOthe' })).toBe(
+      'E:\\evn\\nodeOthe\\npx.cmd'
+    );
+  });
+});
+
+// -------------------------------------------------------------------
+// 5. Regression test: the fix that was applied to ForkTask.ts
 //    Documents the expected behavior: getEnhancedEnv must be called
 //    so workers get the full PATH.
 // -------------------------------------------------------------------

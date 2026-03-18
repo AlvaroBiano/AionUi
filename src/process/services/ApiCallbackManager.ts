@@ -46,7 +46,12 @@ export class ApiCallbackManager {
     const db = getDatabase();
 
     const configResult = db.getApiConfig();
-    if (!configResult.success || !configResult.data?.enabled || !configResult.data.callbackEnabled || !configResult.data.callbackUrl) {
+    if (
+      !configResult.success ||
+      !configResult.data?.enabled ||
+      !configResult.data.callbackEnabled ||
+      !configResult.data.callbackUrl
+    ) {
       return;
     }
 

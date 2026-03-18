@@ -17,7 +17,9 @@ function createPackagedRendererRoot(): string {
 
 function getRegisteredGetRoutePaths(app: express.Express): Array<string | RegExp> {
   return app.router.stack
-    .filter((layer: { route?: { path: string | RegExp; methods?: Record<string, boolean> } }) => layer.route?.methods?.get)
+    .filter(
+      (layer: { route?: { path: string | RegExp; methods?: Record<string, boolean> } }) => layer.route?.methods?.get
+    )
     .map((layer: { route?: { path: string | RegExp } }) => layer.route?.path)
     .filter((value): value is string | RegExp => value !== undefined);
 }
@@ -37,6 +39,7 @@ describe('registerStaticRoutes', () => {
 
     vi.doMock('electron', () => ({
       app: {
+        setName: vi.fn(),
         getAppPath: () => packagedRoot,
       },
     }));

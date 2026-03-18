@@ -19,14 +19,26 @@ type GuidAcpConfigSelectorProps = {
   onSelectOption: (configId: string, value: string) => void;
 };
 
-const GuidAcpConfigSelector: React.FC<GuidAcpConfigSelectorProps> = ({ backend, configOptions, selectedValues, onSelectOption }) => {
+const GuidAcpConfigSelector: React.FC<GuidAcpConfigSelectorProps> = ({
+  backend,
+  configOptions,
+  selectedValues,
+  onSelectOption,
+}) => {
   const { t } = useTranslation();
 
   if (!backend || !CONFIG_OPTION_SUPPORTED_BACKENDS.includes(backend)) {
     return null;
   }
 
-  const selectOptions = configOptions.filter((option) => option.type === 'select' && option.options && option.options.length > 1 && option.category !== 'model' && option.category !== 'mode');
+  const selectOptions = configOptions.filter(
+    (option) =>
+      option.type === 'select' &&
+      option.options &&
+      option.options.length > 1 &&
+      option.category !== 'model' &&
+      option.category !== 'mode'
+  );
   if (selectOptions.length === 0) {
     return null;
   }
@@ -35,7 +47,11 @@ const GuidAcpConfigSelector: React.FC<GuidAcpConfigSelectorProps> = ({ backend, 
     <>
       {selectOptions.map((option) => {
         const currentValue = selectedValues[option.id] || option.currentValue || option.selectedValue;
-        const currentLabel = option.options?.find((choice) => choice.value === currentValue)?.name || option.options?.find((choice) => choice.value === currentValue)?.label || currentValue || t('acp.config.default', { defaultValue: 'Default' });
+        const currentLabel =
+          option.options?.find((choice) => choice.value === currentValue)?.name ||
+          option.options?.find((choice) => choice.value === currentValue)?.label ||
+          currentValue ||
+          t('acp.config.default', { defaultValue: 'Default' });
 
         return (
           <Dropdown
@@ -43,12 +59,20 @@ const GuidAcpConfigSelector: React.FC<GuidAcpConfigSelectorProps> = ({ backend, 
             trigger='click'
             droplist={
               <Menu>
-                <Menu.ItemGroup title={t(`acp.config.${option.id}`, { defaultValue: option.name || option.label || 'Options' })}>
+                <Menu.ItemGroup
+                  title={t(`acp.config.${option.id}`, { defaultValue: option.name || option.label || 'Options' })}
+                >
                   {option.options?.map((choice) => (
-                    <Menu.Item key={choice.value} className={choice.value === currentValue ? 'bg-2!' : ''} onClick={() => onSelectOption(option.id, choice.value)}>
+                    <Menu.Item
+                      key={choice.value}
+                      className={choice.value === currentValue ? 'bg-2!' : ''}
+                      onClick={() => onSelectOption(option.id, choice.value)}
+                    >
                       <div className='flex items-center gap-8px'>
                         {choice.value === currentValue && <span className='text-primary'>✓</span>}
-                        <span className={choice.value !== currentValue ? 'ml-16px' : ''}>{choice.name || choice.label || choice.value}</span>
+                        <span className={choice.value !== currentValue ? 'ml-16px' : ''}>
+                          {choice.name || choice.label || choice.value}
+                        </span>
                       </div>
                     </Menu.Item>
                   ))}

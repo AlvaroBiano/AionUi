@@ -166,7 +166,9 @@ export class PluginManager {
     if (this.messageHandler) {
       plugin.onMessage(this.messageHandler);
     } else {
-      console.warn(`[PluginManager] WARNING: No message handler set when starting plugin ${id}! Messages will not be processed.`);
+      console.warn(
+        `[PluginManager] WARNING: No message handler set when starting plugin ${id}! Messages will not be processed.`
+      );
     }
 
     // Set confirm handler
@@ -352,7 +354,11 @@ export class PluginManager {
   /**
    * Send a message through a plugin
    */
-  async sendMessage(pluginId: string, chatId: string, message: import('../types').IUnifiedOutgoingMessage): Promise<string | null> {
+  async sendMessage(
+    pluginId: string,
+    chatId: string,
+    message: import('../types').IUnifiedOutgoingMessage
+  ): Promise<string | null> {
     const plugin = this.plugins.get(pluginId);
     if (!plugin) {
       console.error(`[PluginManager] Plugin ${pluginId} not found`);
@@ -370,7 +376,12 @@ export class PluginManager {
   /**
    * Edit a message through a plugin
    */
-  async editMessage(pluginId: string, chatId: string, messageId: string, message: import('../types').IUnifiedOutgoingMessage): Promise<boolean> {
+  async editMessage(
+    pluginId: string,
+    chatId: string,
+    messageId: string,
+    message: import('../types').IUnifiedOutgoingMessage
+  ): Promise<boolean> {
     const plugin = this.plugins.get(pluginId);
     if (!plugin) {
       console.error(`[PluginManager] Plugin ${pluginId} not found`);

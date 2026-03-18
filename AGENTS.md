@@ -87,6 +87,8 @@ bun run test:e2e           # E2E tests (Playwright)
 
 **Run `bun run lint:fix` after editing any `.ts` / `.tsx` file** — Prettier is enforced in CI and formatting errors block merges.
 
+**Run `bun run format` after editing `.css` / `.json` / `.md` files** — these file types are also checked by Prettier in CI.
+
 **Run `bunx tsc --noEmit` to verify there are no type errors** — TypeScript strict mode is enabled and type errors block merges.
 
 Common Prettier rules to follow (avoids needing a fix pass):
@@ -132,4 +134,20 @@ See [docs/tech/architecture.md](docs/tech/architecture.md) for IPC, WebUI, and C
 
 ## Internationalization
 
-Translation files: `src/renderer/i18n/locales/*.json`. Always use i18n keys for user-facing text — never hardcode strings in components.
+Translation files: `src/renderer/i18n/locales/<lang>/<module>.json`. Always use i18n keys for user-facing text — never hardcode strings in components.
+
+Supported languages: `en-US` (reference), `zh-CN`, `zh-TW`, `ja-JP`, `ko-KR`, `tr-TR`.
+
+When adding or modifying user-facing text, **always update all language files**. After changes, run the i18n validation script to verify completeness:
+
+```bash
+node scripts/check-i18n.js
+```
+
+This script checks: directory structure, missing keys across locales, empty translations, invalid `t()` key usages, and type definition sync. **Fix all errors before committing.**
+
+If you added new i18n keys, also regenerate the type definitions:
+
+```bash
+bun run i18n:types
+```

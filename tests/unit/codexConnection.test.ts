@@ -28,7 +28,10 @@ describe('CodexConnection stop cleanup', () => {
   });
 
   it('uses taskkill tree termination on Windows', async () => {
-    const processKillSpy = vi.spyOn(process, 'kill').mockImplementation(((pid: number, signal?: number | NodeJS.Signals) => {
+    const processKillSpy = vi.spyOn(process, 'kill').mockImplementation(((
+      pid: number,
+      signal?: number | NodeJS.Signals
+    ) => {
       if (signal === 0) {
         throw new Error(`Process ${pid} already exited`);
       }
@@ -63,7 +66,10 @@ describe('CodexConnection stop cleanup', () => {
   });
 
   it('clears pending runtime state when stop is called', async () => {
-    const processKillSpy = vi.spyOn(process, 'kill').mockImplementation(((pid: number, signal?: number | NodeJS.Signals) => {
+    const processKillSpy = vi.spyOn(process, 'kill').mockImplementation(((
+      pid: number,
+      signal?: number | NodeJS.Signals
+    ) => {
       if (signal === 0) {
         throw new Error(`Process ${pid} already exited`);
       }
@@ -105,10 +111,19 @@ describe('CodexConnection stop cleanup', () => {
 
     const connectionState = connection as unknown as {
       child: ChildProcess | null;
-      pending: Map<number, { resolve: (value: unknown) => void; reject: (error: unknown) => void; timeout?: NodeJS.Timeout }>;
+      pending: Map<
+        number,
+        { resolve: (value: unknown) => void; reject: (error: unknown) => void; timeout?: NodeJS.Timeout }
+      >;
       elicitationMap: Map<string, number>;
       pendingAutoApprovals: Map<string, string>;
-      pausedRequests: Array<{ method: string; params: unknown; resolve: (value: unknown) => void; reject: (error: unknown) => void; timeout: NodeJS.Timeout }>;
+      pausedRequests: Array<{
+        method: string;
+        params: unknown;
+        resolve: (value: unknown) => void;
+        reject: (error: unknown) => void;
+        timeout: NodeJS.Timeout;
+      }>;
       permissionResolvers: Map<string, { resolve: (approved: boolean) => void; reject: (error: Error) => void }>;
       isPaused: boolean;
       retryCount: number;

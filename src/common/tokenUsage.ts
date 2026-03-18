@@ -24,7 +24,10 @@ export type ConversationTokenUsageRecord = {
   updatedAt: number;
 };
 
-export type ConversationTokenUsageRecordInput = Omit<ConversationTokenUsageRecord, 'id' | 'replyIndex' | 'createdAt' | 'updatedAt'> & {
+export type ConversationTokenUsageRecordInput = Omit<
+  ConversationTokenUsageRecord,
+  'id' | 'replyIndex' | 'createdAt' | 'updatedAt'
+> & {
   replyIndex?: number;
 };
 

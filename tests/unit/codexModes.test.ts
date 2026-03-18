@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CODEX_MODE_FULL_AUTO_NO_SANDBOX, isCodexAutoApproveMode, isCodexNoSandboxMode } from '../../src/common/codex/codexModes';
+import {
+  CODEX_MODE_FULL_AUTO_NO_SANDBOX,
+  isCodexAutoApproveMode,
+  isCodexNoSandboxMode,
+} from '../../src/common/codex/codexModes';
 import { getCodexConfigPath, getCodexSandboxModeForSessionMode } from '../../src/process/utils/codexConfig';
 import { getAgentModes } from '../../src/renderer/constants/agentModes';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -27,7 +31,9 @@ describe('codex mode helpers', () => {
 
   it('derives sandbox mode from session mode', () => {
     expect(getCodexSandboxModeForSessionMode('default', 'danger-full-access')).toBe('workspace-write');
-    expect(getCodexSandboxModeForSessionMode(CODEX_MODE_FULL_AUTO_NO_SANDBOX, 'workspace-write')).toBe('danger-full-access');
+    expect(getCodexSandboxModeForSessionMode(CODEX_MODE_FULL_AUTO_NO_SANDBOX, 'workspace-write')).toBe(
+      'danger-full-access'
+    );
     expect(getCodexSandboxModeForSessionMode(undefined, 'danger-full-access')).toBe('danger-full-access');
   });
 

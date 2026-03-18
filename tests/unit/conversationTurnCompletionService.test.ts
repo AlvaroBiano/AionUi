@@ -92,7 +92,8 @@ describe('ConversationTurnCompletionService', () => {
   });
 
   it('flushes pending messages before emitting turn completion', async () => {
-    const { ConversationTurnCompletionService } = await import('../../src/process/services/ConversationTurnCompletionService');
+    const { ConversationTurnCompletionService } =
+      await import('../../src/process/services/ConversationTurnCompletionService');
 
     await ConversationTurnCompletionService.getInstance().notifyPotentialCompletion('session-1');
 
@@ -116,7 +117,8 @@ describe('ConversationTurnCompletionService', () => {
     };
     peekTaskById.mockReturnValue(task);
 
-    const { getConversationStatusSnapshot } = await import('../../src/process/services/ConversationTurnCompletionService');
+    const { getConversationStatusSnapshot } =
+      await import('../../src/process/services/ConversationTurnCompletionService');
 
     const snapshot = getConversationStatusSnapshot('session-1', {
       touchTask: false,
