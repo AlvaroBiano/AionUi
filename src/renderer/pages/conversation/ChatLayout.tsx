@@ -508,6 +508,7 @@ const ChatLayout: React.FC<{
   const showDesktopWorkspaceSidebar = workspaceEnabled && isDesktop && !rightSiderCollapsed;
   const desktopWorkspaceSidebarWidth = Math.max(220, Math.round(workspaceWidthPx));
   const titleAreaMaxWidth = Math.max(320, Math.min(820, containerWidth - 520));
+  const showStandaloneMinimap = !layout?.isMobile && hasTabs && !!conversationId;
 
   const headerBlock = (
     <>
@@ -598,6 +599,11 @@ const ChatLayout: React.FC<{
           )}
         </FlexFullContainer>
         <div className='flex items-center gap-12px shrink-0'>
+          {showStandaloneMinimap && (
+            <div className='flex items-center justify-center shrink-0'>
+              <ConversationTitleMinimap conversationId={conversationId} />
+            </div>
+          )}
           {props.headerExtra}
           {(backend || agentLogo) && (
             <AgentModeSelector
