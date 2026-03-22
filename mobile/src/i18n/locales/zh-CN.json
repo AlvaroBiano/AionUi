@@ -83,7 +83,13 @@
     "done": "完成",
     "toolSummaryExecuting": "正在执行…",
     "toolSummaryCompleted": "执行了 {{count}} 个步骤",
-    "toolSummaryWithErrors": "执行了 {{count}} 个步骤（{{errorCount}} 个失败）"
+    "toolSummaryWithErrors": "执行了 {{count}} 个步骤（{{errorCount}} 个失败）",
+    "shellCommand": "Shell 命令",
+    "fileEdit": "文件编辑",
+    "fileRead": "文件读取",
+    "applyingPatch": "正在应用补丁…",
+    "patchApplied": "补丁已应用",
+    "exitCode": "退出码 {{code}}"
   },
   "workspace": {
     "temporarySpace": "临时会话",

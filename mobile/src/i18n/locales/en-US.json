@@ -83,7 +83,13 @@
     "done": "Done",
     "toolSummaryExecuting": "Executing...",
     "toolSummaryCompleted": "Executed {{count}} steps",
-    "toolSummaryWithErrors": "Executed {{count}} steps ({{errorCount}} failed)"
+    "toolSummaryWithErrors": "Executed {{count}} steps ({{errorCount}} failed)",
+    "shellCommand": "Shell Command",
+    "fileEdit": "File Edit",
+    "fileRead": "File Read",
+    "applyingPatch": "Applying patch...",
+    "patchApplied": "Patch applied",
+    "exitCode": "Exit {{code}}"
   },
   "workspace": {
     "temporarySpace": "Temporary Session",
