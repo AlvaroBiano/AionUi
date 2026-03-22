@@ -130,6 +130,11 @@
     "serverAddress": "服务器地址",
     "reconnect": "重新连接",
     "changeServer": "更换服务器",
+    "appearance": "外观",
+    "theme": "主题",
+    "themeAuto": "跟随系统",
+    "themeLight": "浅色",
+    "themeDark": "深色",
     "about": "关于",
     "version": "版本",
     "language": "语言"

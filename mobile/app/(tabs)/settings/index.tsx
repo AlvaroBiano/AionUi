@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../../src/components/ui/ThemedText';
 import { useConnection } from '../../../src/context/ConnectionContext';
+import { useTheme } from '../../../src/context/ThemeContext';
 import { useThemeColor } from '../../../src/hooks/useThemeColor';
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const { config, connectionState, disconnect, tryReconnect } = useConnection();
+  const { preference, setPreference } = useTheme();
   const surface = useThemeColor({}, 'surface');
   const border = useThemeColor({}, 'border');
   const success = useThemeColor({}, 'success');
@@ -78,6 +80,44 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Appearance Section */}
+      <View style={styles.section}>
+        <ThemedText type='caption' style={styles.sectionTitle}>
+          {t('settings.appearance').toUpperCase()}
+        </ThemedText>
+        <View style={[styles.card, { backgroundColor: surface }]}>
+          <View style={styles.themeRow}>
+            <ThemedText>{t('settings.theme')}</ThemedText>
+            <View style={styles.pillGroup}>
+              {(
+                [
+                  { key: 'auto', label: t('settings.themeAuto'), icon: 'phone-portrait-outline' },
+                  { key: 'light', label: t('settings.themeLight'), icon: 'sunny-outline' },
+                  { key: 'dark', label: t('settings.themeDark'), icon: 'moon-outline' },
+                ] as const
+              ).map(({ key, label, icon }) => {
+                const selected = preference === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.pill, { backgroundColor: selected ? tint : surface }]}
+                    onPress={() => setPreference(key)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={icon} size={14} color={selected ? '#fff' : tint} />
+                    <ThemedText
+                      style={[styles.pillText, { color: selected ? '#fff' : undefined }]}
+                    >
+                      {label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </View>
+
       {/* Actions */}
       <View style={styles.section}>
         <TouchableOpacity style={[styles.actionButton, { backgroundColor: surface }]} onPress={handleDisconnect}>
@@ -132,6 +172,29 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  themeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  pillGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   actionButton: {
     flexDirection: 'row',

@@ -1,11 +1,15 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider as NavigationThemeProvider,
+} from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
 import { ConnectionProvider } from '../src/context/ConnectionContext';
 import { WebSocketProvider } from '../src/context/WebSocketContext';
 import { ConversationProvider } from '../src/context/ConversationContext';
@@ -19,38 +23,48 @@ SplashScreen.preventAutoHideAsync();
 // Initialize i18n early
 initI18n();
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function AppContent() {
+  const { preference, effectiveTheme } = useTheme();
 
   return (
+    <>
+      <NavigationThemeProvider value={effectiveTheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name='index' />
+          <Stack.Screen name='connect' />
+          <Stack.Screen name='(tabs)' />
+          <Stack.Screen
+            name='file-preview'
+            options={{
+              headerShown: true,
+              headerTitle: '',
+              headerBackTitle: '',
+              animation: 'slide_from_right',
+            }}
+          />
+        </Stack>
+      </NavigationThemeProvider>
+      <StatusBar style={preference === 'auto' ? 'auto' : preference === 'light' ? 'dark' : 'light'} />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ConnectionProvider>
-        <WebSocketProvider>
-          <ConversationProvider>
-            <WorkspaceProvider>
-              <FilesTabProvider>
-                <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name='index' />
-                    <Stack.Screen name='connect' />
-                    <Stack.Screen name='(tabs)' />
-                    <Stack.Screen
-                      name='file-preview'
-                      options={{
-                        headerShown: true,
-                        headerTitle: '',
-                        headerBackTitle: '',
-                        animation: 'slide_from_right',
-                      }}
-                    />
-                  </Stack>
-                  <StatusBar style='auto' />
-                </ThemeProvider>
-              </FilesTabProvider>
-            </WorkspaceProvider>
-          </ConversationProvider>
-        </WebSocketProvider>
-      </ConnectionProvider>
+      <ThemeProvider>
+        <ConnectionProvider>
+          <WebSocketProvider>
+            <ConversationProvider>
+              <WorkspaceProvider>
+                <FilesTabProvider>
+                  <AppContent />
+                </FilesTabProvider>
+              </WorkspaceProvider>
+            </ConversationProvider>
+          </WebSocketProvider>
+        </ConnectionProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

@@ -130,6 +130,11 @@
     "serverAddress": "Server Address",
     "reconnect": "Reconnect",
     "changeServer": "Change Server",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeAuto": "Auto",
+    "themeLight": "Light",
+    "themeDark": "Dark",
     "about": "About",
     "version": "Version",
     "language": "Language"
