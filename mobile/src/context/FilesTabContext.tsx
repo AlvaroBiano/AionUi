@@ -1,7 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useWorkspace } from './WorkspaceContext';
 
-const STORAGE_KEY = 'files_tabs_state';
+const STORAGE_KEY_PREFIX = 'files_tabs:';
+
+function storageKeyFor(workspace: string | null): string {
+  return STORAGE_KEY_PREFIX + (workspace ?? '__none__');
+}
 
 export type FileTab = {
   path: string;
@@ -36,31 +41,79 @@ export function FilesTabProvider({ children }: { children: React.ReactNode }) {
   const [tabs, setTabs] = useState<FileTab[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const { currentWorkspace } = useWorkspace();
 
-  // Load persisted state on mount
+  // Refs to access current values in the workspace-switch effect without stale closures
+  const tabsRef = useRef(tabs);
+  const activeTabIndexRef = useRef(activeTabIndex);
   useEffect(() => {
-    void AsyncStorage.getItem(STORAGE_KEY).then((value) => {
-      if (value) {
-        try {
+    tabsRef.current = tabs;
+  }, [tabs]);
+  useEffect(() => {
+    activeTabIndexRef.current = activeTabIndex;
+  }, [activeTabIndex]);
+
+  // Track previous workspace (undefined = not yet initialized)
+  const previousWorkspaceRef = useRef<string | null | undefined>(undefined);
+
+  // Save/load tabs when workspace changes
+  useEffect(() => {
+    const prevWorkspace = previousWorkspaceRef.current;
+    const newWorkspace = currentWorkspace;
+    if (prevWorkspace === newWorkspace) return;
+
+    const run = async () => {
+      // Save current tabs for previous workspace
+      if (prevWorkspace !== undefined) {
+        const prevKey = storageKeyFor(prevWorkspace);
+        await AsyncStorage.setItem(
+          prevKey,
+          JSON.stringify({
+            tabs: tabsRef.current,
+            activeTabIndex: activeTabIndexRef.current,
+          }),
+        ).catch(() => {});
+      }
+
+      // Load tabs for new workspace
+      const newKey = storageKeyFor(newWorkspace);
+      try {
+        const value = await AsyncStorage.getItem(newKey);
+        if (value) {
           const parsed = JSON.parse(value);
           if (parsed.tabs && Array.isArray(parsed.tabs)) {
-            const cleanTabs = parsed.tabs.map((t: FileTab) => ({ ...t, isDirty: false }));
-            setTabs(cleanTabs);
+            setTabs(parsed.tabs.map((t: FileTab) => ({ ...t, isDirty: false })));
             setActiveTabIndex(parsed.activeTabIndex ?? 0);
+          } else {
+            setTabs([]);
+            setActiveTabIndex(0);
           }
-        } catch {
-          // Ignore
+        } else {
+          setTabs([]);
+          setActiveTabIndex(0);
         }
+      } catch {
+        setTabs([]);
+        setActiveTabIndex(0);
       }
-      setIsLoaded(true);
-    });
-  }, []);
 
-  // Persist state on changes
+      previousWorkspaceRef.current = newWorkspace;
+      setIsLoaded(true);
+    };
+    void run();
+  }, [currentWorkspace]);
+
+  // Persist tabs on changes within the current workspace
   useEffect(() => {
     if (!isLoaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeTabIndex })).catch(() => {});
-  }, [tabs, activeTabIndex, isLoaded]);
+    const key = storageKeyFor(currentWorkspace);
+    AsyncStorage.setItem(key, JSON.stringify({ tabs, activeTabIndex })).catch(() => {});
+  }, [tabs, activeTabIndex, isLoaded, currentWorkspace]);
+
+  // Clean up legacy global key
+  useEffect(() => {
+    AsyncStorage.removeItem('files_tabs_state').catch(() => {});
+  }, []);
 
   const openTab = useCallback(
     (path: string) => {
@@ -73,7 +126,7 @@ export function FilesTabProvider({ children }: { children: React.ReactNode }) {
         setActiveTabIndex(tabs.length);
       }
     },
-    [tabs]
+    [tabs],
   );
 
   const closeTab = useCallback(
@@ -93,7 +146,7 @@ export function FilesTabProvider({ children }: { children: React.ReactNode }) {
         return prev;
       });
     },
-    [tabs.length]
+    [tabs.length],
   );
 
   const switchTab = useCallback(
@@ -102,7 +155,7 @@ export function FilesTabProvider({ children }: { children: React.ReactNode }) {
         setActiveTabIndex(index);
       }
     },
-    [tabs.length]
+    [tabs.length],
   );
 
   const closeAllTabs = useCallback(() => {

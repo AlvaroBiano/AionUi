@@ -1,8 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { bridge } from '../services/bridge';
 import { setPendingInitialMessage } from '../services/pendingInitialMessages';
 import { useConnection } from './ConnectionContext';
+
+const CONVERSATION_STORAGE_KEY = 'active_conversation_id';
 
 /**
  * Conversation type matching TChatConversation from AionUi.
@@ -93,6 +96,7 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
   const [availableAgents, setAvailableAgents] = useState<AgentInfo[]>([]);
   const [activeConversationId, setActiveConversationIdRaw] = useState<string | null>(null);
   const [pendingAgent, setPendingAgent] = useState<AgentInfo | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
   const { connectionState, config } = useConnection();
 
   // When selecting an existing conversation, clear pendingAgent
@@ -128,21 +132,52 @@ export function ConversationProvider({ children }: { children: React.ReactNode }
     }
   }, [connectionState, refresh]);
 
+  // Restore active conversation ID from AsyncStorage on mount
+  useEffect(() => {
+    void AsyncStorage.getItem(CONVERSATION_STORAGE_KEY).then((value) => {
+      if (value) {
+        setActiveConversationIdRaw(value);
+      }
+      setIsLoaded(true);
+    });
+  }, []);
+
+  // Persist active conversation ID when it changes
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (activeConversationId) {
+      AsyncStorage.setItem(CONVERSATION_STORAGE_KEY, activeConversationId).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(CONVERSATION_STORAGE_KEY).catch(() => {});
+    }
+  }, [activeConversationId, isLoaded]);
+
   // Clear data only when user actively disconnects (config becomes null)
   useEffect(() => {
     if (config === null) {
       setConversations([]);
       setActiveConversationIdRaw(null);
       setPendingAgent(null);
+      AsyncStorage.removeItem(CONVERSATION_STORAGE_KEY).catch(() => {});
     }
   }, [config]);
 
   // Auto-select most recent conversation when loaded and no active selection
   useEffect(() => {
+    if (!isLoaded) return;
     if (conversations.length > 0 && !activeConversationId && !pendingAgent) {
       setActiveConversationIdRaw(conversations[0].id);
     }
-  }, [conversations, activeConversationId, pendingAgent]);
+  }, [conversations, activeConversationId, pendingAgent, isLoaded]);
+
+  // Validate restored conversation ID still exists in the list
+  useEffect(() => {
+    if (!isLoaded || conversations.length === 0 || !activeConversationId) return;
+    const exists = conversations.some((c) => c.id === activeConversationId);
+    if (!exists) {
+      setActiveConversationIdRaw(null);
+    }
+  }, [isLoaded, conversations, activeConversationId]);
 
   // Refresh conversation list when app returns to foreground
   useEffect(() => {

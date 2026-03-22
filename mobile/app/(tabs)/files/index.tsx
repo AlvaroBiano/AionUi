@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerActions } from '@react-navigation/routers';
@@ -13,18 +13,11 @@ import { useThemeColor } from '../../../src/hooks/useThemeColor';
 
 export default function FilesIndexScreen() {
   const { t } = useTranslation();
-  const { tabs, activeTabIndex, closeAllTabs } = useFilesTab();
-  const { currentWorkspace, workspaceChanged } = useWorkspace();
+  const { tabs, activeTabIndex } = useFilesTab();
+  const { currentWorkspace } = useWorkspace();
   const navigation = useNavigation();
   const background = useThemeColor({}, 'background');
   const iconColor = useThemeColor({}, 'icon');
-
-  // Reset tabs when workspace changes to a different project
-  useEffect(() => {
-    if (workspaceChanged) {
-      closeAllTabs();
-    }
-  }, [workspaceChanged, closeAllTabs]);
 
   const openDrawer = () => {
     navigation.dispatch(DrawerActions.openDrawer());
