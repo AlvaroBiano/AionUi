@@ -29,6 +29,7 @@ import {
 import { convertHtmlToDingTalkMarkdown } from '../plugins/dingtalk/DingTalkAdapter';
 import { createMainMenuKeyboard, createToolConfirmationKeyboard } from '../plugins/telegram/TelegramKeyboards';
 import { escapeHtml } from '../plugins/telegram/TelegramAdapter';
+import { stripHtml } from '../plugins/weixin/WeixinAdapter';
 import type { ChannelAgentType, IUnifiedIncomingMessage, IUnifiedOutgoingMessage, PluginType } from '../types';
 import type { PluginManager } from './PluginManager';
 import type { AcpBackend } from '@/common/types/acpTypes';
@@ -105,6 +106,9 @@ function formatTextForPlatform(text: string, platform: PluginType): string {
   }
   if (platform === 'dingtalk') {
     return convertHtmlToDingTalkMarkdown(text);
+  }
+  if (platform === 'weixin') {
+    return stripHtml(text);
   }
   return escapeHtml(text);
 }
@@ -339,7 +343,7 @@ export class ActionExecutor {
 
     try {
       // Check if user is authorized
-      const isAuthorized = this.pairingService.isUserAuthorized(user.id, platform);
+      const isAuthorized = await this.pairingService.isUserAuthorized(user.id, platform);
 
       // Handle /start command - always show pairing
       if (content.type === 'command' && content.text === '/start') {
@@ -360,7 +364,7 @@ export class ActionExecutor {
       }
 
       // User is authorized - look up the assistant user
-      const db = getDatabase();
+      const db = await getDatabase();
       const userResult = db.getChannelUserByPlatform(user.id, platform);
       const channelUser = userResult.data;
 
@@ -380,16 +384,14 @@ export class ActionExecutor {
       // Get or create session (scoped by chatId for per-chat isolation)
       let session = this.sessionManager.getSession(channelUser.id, chatId);
       if (!session || !session.conversationId) {
-        const source = platform === 'lark' ? 'lark' : platform === 'dingtalk' ? 'dingtalk' : 'telegram';
+        const source = platform;
 
         // Read selected agent for this platform (defaults to Gemini)
         let savedAgent: unknown = undefined;
         try {
-          savedAgent = await (platform === 'lark'
-            ? ProcessConfig.get('assistant.lark.agent')
-            : platform === 'dingtalk'
-              ? ProcessConfig.get('assistant.dingtalk.agent')
-              : ProcessConfig.get('assistant.telegram.agent'));
+          savedAgent = await ProcessConfig.get(
+            `assistant.${platform}.agent` as Parameters<typeof ProcessConfig.get>[0]
+          );
         } catch {
           // ignore
         }
@@ -413,7 +415,7 @@ export class ActionExecutor {
         const conversationName = getChannelConversationName(platform, convType, convBackend, chatId);
 
         // Lookup existing conversation by source + chatId + type + backend (per-chat isolation)
-        const db2 = getDatabase();
+        const db2 = await getDatabase();
         const latest = db2.findChannelConversation(source, chatId, convType, convBackend);
         const existing = latest.success ? latest.data : null;
 
@@ -474,7 +476,7 @@ export class ActionExecutor {
 
         if (sessionConversation) {
           const { convType: agentType } = resolveChannelConvType(backend);
-          session = this.sessionManager.createSessionWithConversation(
+          session = await this.sessionManager.createSessionWithConversation(
             channelUser,
             sessionConversation.id,
             agentType as ChannelAgentType,
@@ -622,7 +624,10 @@ export class ActionExecutor {
           // Tool confirmation cards set replyMarkup (e.g., for Confirming status),
           // but DingTalk interprets replyMarkup as "stream complete" and finishes the AI Card.
           // Channel conversations use yoloMode (auto-approve), so confirmation buttons are unnecessary.
-          const streamOutgoing: IUnifiedOutgoingMessage = { ...outgoingMessage, replyMarkup: undefined };
+          const streamOutgoing: IUnifiedOutgoingMessage = {
+            ...outgoingMessage,
+            replyMarkup: undefined,
+          };
 
           // 保存最后一条消息内容（不含 replyMarkup，最终消息会单独添加）
           // Save last message content (without replyMarkup, final message adds it separately)
@@ -724,7 +729,12 @@ export class ActionExecutor {
         const responseMarkup = getResponseActionsMarkup(context.platform as PluginType, lastMessageContent?.text);
         const finalMessage: IUnifiedOutgoingMessage = lastMessageContent
           ? { ...lastMessageContent, replyMarkup: responseMarkup }
-          : { type: 'text', text: '✅ Done', parseMode: 'HTML', replyMarkup: responseMarkup };
+          : {
+              type: 'text',
+              text: '✅ Done',
+              parseMode: 'HTML',
+              replyMarkup: responseMarkup,
+            };
         await context.editMessage(lastMsgId, finalMessage);
       } catch {
         // 忽略最终编辑错误

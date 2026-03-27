@@ -44,6 +44,7 @@ export const conversation = {
     'update-conversation'
   ), // 更新对话信息
   reset: bridge.buildProvider<void, IResetConversationParams>('reset-conversation'), // 重置对话
+  warmup: bridge.buildProvider<void, { conversation_id: string }>('conversation.warmup'), // 预热对话 bootstrap
   stop: bridge.buildProvider<IBridgeResponse<{}>, { conversation_id: string }>('chat.stop.stream'), // 停止会话
   sendMessage: bridge.buildProvider<IBridgeResponse<{}>, ISendMessageParams>('chat.send.message'), // 发送消息（统一接口）
   getSlashCommands: bridge.buildProvider<
@@ -105,6 +106,8 @@ export interface ICdpStatus {
     cwd: string;
     startTime: number;
   }>;
+  /** Whether CDP is enabled in the persisted config file (may differ from runtime) */
+  configEnabled: boolean;
   /** Whether the app is running in development mode */
   isDevMode: boolean;
 }
@@ -552,6 +555,15 @@ export const document = {
     import('../types/conversion').DocumentConversionResponse,
     import('../types/conversion').DocumentConversionRequest
   >('document.convert'),
+};
+
+// PPT preview via officecli watch
+export const pptPreview = {
+  start: bridge.buildProvider<{ url: string }, { filePath: string }>('ppt-preview.start'),
+  stop: bridge.buildProvider<void, { filePath: string }>('ppt-preview.stop'),
+  status: bridge.buildEmitter<{ state: 'starting' | 'installing' | 'ready' | 'error'; message?: string }>(
+    'ppt-preview.status'
+  ),
 };
 
 // Deep link protocol handling / 深度链接协议处理

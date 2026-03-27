@@ -14,6 +14,7 @@ import { PairingService } from '../pairing/PairingService';
 import { DingTalkPlugin } from '../plugins/dingtalk/DingTalkPlugin';
 import { LarkPlugin } from '../plugins/lark/LarkPlugin';
 import { TelegramPlugin } from '../plugins/telegram/TelegramPlugin';
+import { WeixinPlugin } from '../plugins/weixin/WeixinPlugin';
 import { isBuiltinChannelPlatform, resolveChannelConvType } from '../types';
 import type { ChannelPlatform, IChannelPluginConfig, PluginType } from '../types';
 import { SessionManager } from './SessionManager';
@@ -50,6 +51,7 @@ export class ChannelManager {
     registerPlugin('telegram', TelegramPlugin);
     registerPlugin('lark', LarkPlugin);
     registerPlugin('dingtalk', DingTalkPlugin);
+    registerPlugin('weixin', WeixinPlugin);
   }
 
   /**
@@ -91,7 +93,7 @@ export class ChannelManager {
       this.pluginManager.setConfirmHandler(async (userId: string, platform: string, callId: string, value: string) => {
         // 查找用户
         // Find user
-        const db = getDatabase();
+        const db = await getDatabase();
         const userResult = db.getChannelUserByPlatform(userId, platform as PluginType);
         if (!userResult.data) {
           console.error(`[ChannelManager] User not found: ${userId}@${platform}`);
@@ -171,7 +173,7 @@ export class ChannelManager {
    * Load and start enabled plugins from database
    */
   private async loadEnabledPlugins(): Promise<void> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const result = db.getChannelPlugins();
 
     if (!result.success || !result.data) {
@@ -180,7 +182,7 @@ export class ChannelManager {
     }
 
     const enabledPlugins = result.data.filter((p) => p.enabled);
-    const builtinStartableTypes = new Set<PluginType>(['telegram', 'lark', 'dingtalk']);
+    const builtinStartableTypes = new Set<PluginType>(['telegram', 'lark', 'dingtalk', 'weixin']);
     const extensionRegistry = ExtensionRegistry.getInstance();
 
     for (const plugin of enabledPlugins) {
@@ -234,14 +236,15 @@ export class ChannelManager {
       return { success: false, error: 'Assistant manager not initialized' };
     }
 
-    const db = getDatabase();
+    const db = await getDatabase();
 
     // Get existing plugin or create new one
     const existingResult = db.getChannelPlugin(pluginId);
     const existing = existingResult.data;
 
-    // Resolve plugin type
-    const pluginType = (existing?.type || this.getPluginTypeFromId(pluginId)) as PluginType;
+    // Resolve plugin type — always derive from pluginId so stale DB records don't cause
+    // "Unknown plugin type" errors after renaming or fixing the type mapping.
+    const pluginType = this.getPluginTypeFromId(pluginId) as PluginType;
     let credentials = existing?.credentials;
     let pluginRuntimeConfig = existing?.config ? { ...existing.config } : {};
 
@@ -264,6 +267,12 @@ export class ChannelManager {
       const clientSecret = config.clientSecret as string | undefined;
       if (clientId && clientSecret) {
         credentials = { clientId, clientSecret };
+      }
+    } else if (pluginType === 'weixin') {
+      const accountId = config.accountId as string | undefined;
+      const botToken = config.botToken as string | undefined;
+      if (accountId && botToken) {
+        credentials = { accountId, botToken };
       }
     } else {
       // Extension or unknown plugin type:
@@ -349,7 +358,7 @@ export class ChannelManager {
    * Disable and stop a plugin
    */
   async disablePlugin(pluginId: string): Promise<{ success: boolean; error?: string }> {
-    const db = getDatabase();
+    const db = await getDatabase();
 
     try {
       // Stop the plugin
@@ -398,7 +407,10 @@ export class ChannelManager {
       const appId = extraConfig?.appId;
       const appSecret = extraConfig?.appSecret;
       if (!appId || !appSecret) {
-        return { success: false, error: 'App ID and App Secret are required for Lark' };
+        return {
+          success: false,
+          error: 'App ID and App Secret are required for Lark',
+        };
       }
       const result = await LarkPlugin.testConnection(appId, appSecret);
       return {
@@ -412,7 +424,10 @@ export class ChannelManager {
       const clientId = extraConfig?.appId; // Reuse appId field for clientId
       const clientSecret = extraConfig?.appSecret; // Reuse appSecret field for clientSecret
       if (!clientId || !clientSecret) {
-        return { success: false, error: 'Client ID and Client Secret are required for DingTalk' };
+        return {
+          success: false,
+          error: 'Client ID and Client Secret are required for DingTalk',
+        };
       }
       const result = await DingTalkPlugin.testConnection(clientId, clientSecret);
       return {
@@ -436,6 +451,7 @@ export class ChannelManager {
     if (pluginId.startsWith('discord')) return 'discord';
     if (pluginId.startsWith('lark')) return 'lark';
     if (pluginId.startsWith('dingtalk')) return 'dingtalk';
+    if (pluginId.startsWith('weixin')) return 'weixin';
     // Extension plugins: use pluginId as type (e.g., 'ext-feishu')
     return pluginId;
   }
@@ -507,9 +523,9 @@ export class ChannelManager {
       // For gemini + model info: update existing conversations' model field
       if (newType === 'gemini' && model?.id && model?.useModel) {
         if (isBuiltinChannelPlatform(platform)) {
-          const builtinPlatform: 'telegram' | 'lark' | 'dingtalk' = platform;
+          const builtinPlatform: 'telegram' | 'lark' | 'dingtalk' | 'weixin' = platform;
           const fullModel = await getChannelDefaultModel(builtinPlatform);
-          const db = getDatabase();
+          const db = await getDatabase();
           const result = db.updateChannelConversationModel(builtinPlatform, 'gemini', fullModel);
           if (result.success) {
             console.log(`[ChannelManager] Updated ${result.data} gemini conversation(s) for ${builtinPlatform}`);
@@ -520,7 +536,7 @@ export class ChannelManager {
       }
 
       // Clear all sessions to force re-evaluation on next message
-      const cleared = this.sessionManager.clearAllSessions();
+      const cleared = await this.sessionManager.clearAllSessions();
       console.log(`[ChannelManager] syncChannelSettings: platform=${platform}, type=${newType}, cleared=${cleared}`);
 
       return { success: true };
@@ -550,7 +566,7 @@ export class ChannelManager {
     let cleanedUp = false;
 
     // 1. Clear session associated with this conversation
-    const clearedSession = this.sessionManager?.clearSessionByConversationId(conversationId);
+    const clearedSession = await this.sessionManager?.clearSessionByConversationId(conversationId);
     if (clearedSession) {
       cleanedUp = true;
 

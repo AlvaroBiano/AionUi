@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// configureChromium sets app name (dev isolation) and Chromium flags — must run before
+// ANY module that calls app.getPath('userData'), because Electron caches the path on first call.
+import './process/utils/configureChromium';
 import * as Sentry from '@sentry/electron/main';
 
 Sentry.init({
@@ -11,8 +14,6 @@ Sentry.init({
 });
 
 import './process/utils/configureConsoleLog';
-// configureChromium sets app name (dev isolation) and Chromium flags — must run before other modules
-import './process/utils/configureChromium';
 import { app, BrowserWindow, nativeImage, net, powerMonitor, protocol, screen } from 'electron';
 import fixPath from 'fix-path';
 import * as fs from 'fs';
@@ -325,13 +326,8 @@ const createWindow = (): void => {
     console.log('[AionUi] Main window closed');
   });
 
-  // 只在开发环境自动打开 DevTools / Only auto-open DevTools in development
-  // 使用 app.isPackaged 判断更可靠，打包后的应用不会自动打开 DevTools
-  // Using app.isPackaged is more reliable, packaged apps won't auto-open DevTools
-  const disableDevToolsByEnv = process.env.AIONUI_DISABLE_DEVTOOLS === '1' || process.env.AIONUI_E2E_TEST === '1';
-  if (!app.isPackaged && !disableDevToolsByEnv) {
-    mainWindow.webContents.openDevTools();
-  }
+  // DevTools is no longer auto-opened at startup.
+  // Use the DevTools toggle in Settings > System (dev mode only) to open it.
 
   // Listen to DevTools state changes and notify Renderer
   mainWindow.webContents.on('devtools-opened', () => {
@@ -353,7 +349,9 @@ const createWindow = (): void => {
 };
 
 const handleAppReady = async (): Promise<void> => {
-  console.log('[AionUi] app.whenReady resolved');
+  const t0 = performance.now();
+  const mark = (label: string) => console.log(`[AionUi:ready] ${label} +${Math.round(performance.now() - t0)}ms`);
+  mark('start');
 
   // CLI mode: print app version and exit immediately (used by CI smoke tests)
   if (isVersionMode) {
@@ -396,6 +394,7 @@ const handleAppReady = async (): Promise<void> => {
 
   try {
     await initializeProcess();
+    mark('initializeProcess');
   } catch (error) {
     console.error('Failed to initialize process:', error);
     app.exit(1);
@@ -426,7 +425,13 @@ const handleAppReady = async (): Promise<void> => {
     }
     const resolvedPort = resolveWebUIPort(userConfigInfo.config, getSwitchValue);
     const allowRemote = resolveRemoteAccess(userConfigInfo.config, isRemoteMode);
-    await startWebServer(resolvedPort, allowRemote);
+    try {
+      await startWebServer(resolvedPort, allowRemote);
+    } catch (err) {
+      console.error(`[WebUI] Failed to start server on port ${resolvedPort}:`, err);
+      app.exit(1);
+      return;
+    }
 
     // Keep the process alive in WebUI mode by preventing default quit behavior.
     // On Linux headless (systemd), Electron may attempt to quit when no windows exist.
@@ -439,12 +444,15 @@ const handleAppReady = async (): Promise<void> => {
       }
     });
   } else {
-    // Initialize ACP detector BEFORE creating the window to prevent a race
-    // condition where the renderer fetches getAvailableAgents before detection
-    // finishes, caching an empty result via SWR.
-    await initializeAcpDetector();
-
     createWindow();
+    mark('createWindow');
+
+    // Run ACP detection in parallel with renderer loading.
+    // By the time React mounts and calls getAvailableAgents (~300ms+),
+    // detection (~700ms) is usually already done.
+    initializeAcpDetector()
+      .then(() => mark('initializeAcpDetector'))
+      .catch((error) => console.error('[ACP] Detection failed:', error));
 
     // 读取语言设置并初始化主进程 i18n，然后刷新托盘菜单
     // Read language setting and initialize main process i18n, then refresh tray menu
@@ -542,13 +550,17 @@ const handleAppReady = async (): Promise<void> => {
 
   // Listen for system resume (wake from sleep/hibernate) to recover missed cron jobs
   powerMonitor.on('resume', () => {
-    console.log('[App] System resumed from sleep, triggering cron recovery');
+    try {
+      console.log('[App] System resumed from sleep, triggering cron recovery');
+    } catch {
+      // Console write may fail with EIO when PTY is broken after sleep
+    }
     import('@process/services/cron/cronServiceSingleton')
       .then(({ cronService }) => {
         void cronService.handleSystemResume();
       })
-      .catch((error) => {
-        console.error('[App] Failed to handle system resume for cron:', error);
+      .catch(() => {
+        // Cron recovery is best-effort after system resume
       });
   });
 };

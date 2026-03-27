@@ -11,7 +11,7 @@ import type { IAgentManager } from '@process/task/IAgentManager';
 import type { IConversationService } from '@process/services/IConversationService';
 import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
 import { ipcBridge } from '@/common';
-import { getSkillsDir, ProcessChat } from '@process/utils/initStorage';
+import { getSkillsDir, getBuiltinSkillsCopyDir, getSystemDir, ProcessChat } from '@process/utils/initStorage';
 import type AcpAgentManager from '../task/AcpAgentManager';
 import type { GeminiAgentManager } from '../task/GeminiAgentManager';
 import type OpenClawAgentManager from '../task/OpenClawAgentManager';
@@ -65,7 +65,11 @@ export function initConversationBridge(
       const identityHash = await computeOpenClawIdentityHash(diagnostics.workspace || conversation.extra?.workspace);
       const conversationModel = (conversation as { model?: { useModel?: string } }).model;
       const extra = conversation.extra as
-        | { cliPath?: string; gateway?: { cliPath?: string }; runtimeValidation?: unknown }
+        | {
+            cliPath?: string;
+            gateway?: { cliPath?: string };
+            runtimeValidation?: unknown;
+          }
         | undefined;
       const gatewayCliPath = extra?.gateway?.cliPath;
 
@@ -88,7 +92,10 @@ export function initConversationBridge(
         },
       };
     } catch (error) {
-      return { success: false, msg: error instanceof Error ? error.message : String(error) };
+      return {
+        success: false,
+        msg: error instanceof Error ? error.message : String(error),
+      };
     }
   });
 
@@ -116,7 +123,10 @@ export function initConversationBridge(
       await (task as GeminiAgentManager).reloadContext();
       return { success: true };
     } catch (e: unknown) {
-      return { success: false, msg: e instanceof Error ? e.message : String(e) };
+      return {
+        success: false,
+        msg: e instanceof Error ? e.message : String(e),
+      };
     }
   });
 
@@ -164,12 +174,13 @@ export function initConversationBridge(
   ipcBridge.conversation.createWithConversation.provider(
     async ({ conversation, sourceConversationId, migrateCron }) => {
       try {
-        void workerTaskManager.getOrBuildTask(conversation.id);
-
         const result = await conversationService.createWithMigration({
           conversation,
           sourceConversationId,
           migrateCron,
+        });
+        workerTaskManager.getOrBuildTask(result.id).catch((err) => {
+          console.warn('[conversationBridge] Failed to pre-warm task after migration:', err);
         });
         emitConversationListChanged(result, 'created');
         if (sourceConversationId) {
@@ -258,6 +269,22 @@ export function initConversationBridge(
     }
   );
 
+  // Pre-warm conversation bootstrap: trigger getOrBuildTask early so that
+  // the worker is ready when the user sends their first message.
+  // For ACP agents, also trigger initAgent() to start the CLI subprocess
+  // (~7s). Stream events are suppressed during bootstrap (via `bootstrapping`
+  // flag) to avoid triggering the sidebar loading spinner prematurely.
+  ipcBridge.conversation.warmup.provider(async ({ conversation_id }) => {
+    try {
+      const task = await workerTaskManager.getOrBuildTask(conversation_id);
+      if (task && task.type === 'acp') {
+        await (task as unknown as AcpAgentManager).initAgent();
+      }
+    } catch {
+      // Ignore errors — warmup is best-effort
+    }
+  });
+
   ipcBridge.conversation.reset.provider(({ id }) => {
     if (id) {
       workerTaskManager.kill(id);
@@ -306,8 +333,8 @@ export function initConversationBridge(
   })();
 
   ipcBridge.conversation.getWorkspace.provider(async ({ workspace, search, path }) => {
-    const fileService = GeminiAgent.buildFileServer(workspace);
     try {
+      const fileService = GeminiAgent.buildFileServer(workspace);
       return await readDirectoryRecursive(path, {
         root: workspace,
         fileService,
@@ -358,7 +385,10 @@ export function initConversationBridge(
       const commands = await task.loadAcpSlashCommands();
       return { success: true, data: { commands } };
     } catch (error) {
-      return { success: false, msg: error instanceof Error ? error.message : String(error) };
+      return {
+        success: false,
+        msg: error instanceof Error ? error.message : String(error),
+      };
     }
   });
 
@@ -370,7 +400,10 @@ export function initConversationBridge(
       task = await workerTaskManager.getOrBuildTask(conversation_id);
     } catch (err) {
       console.error(`[conversationBridge] sendMessage: failed to get/build task: ${conversation_id}`, err);
-      return { success: false, msg: err instanceof Error ? err.message : 'conversation not found' };
+      return {
+        success: false,
+        msg: err instanceof Error ? err.message : 'conversation not found',
+      };
     }
 
     if (!task) {
@@ -378,20 +411,31 @@ export function initConversationBridge(
     }
 
     // Copy files to workspace (unified for all agents)
-    const workspaceFiles = await copyFilesToDirectory(task.workspace, files, false);
+    // Wrap in try-catch to prevent unhandled rejection when workspace directory is missing
+    // (bridge library does not attach .catch to provider promises)
+    let workspaceFiles: string[];
+    try {
+      workspaceFiles = await copyFilesToDirectory(task.workspace, files, false, getSystemDir().cacheDir);
+    } catch (error) {
+      console.error('[conversationBridge] sendMessage: failed to copy files to workspace:', error);
+      workspaceFiles = [];
+    }
 
     // Precompute agent content with optional skill injection.
     // OpenClaw uses full-content mode: inject full skill text rather than index paths,
     // because the CLI may not proactively read SKILL.md files the way ACP agents do.
     let agentContent = other.input;
     if (other.injectSkills?.length) {
-      agentContent = await prepareFirstMessage(other.input, { enabledSkills: other.injectSkills });
+      agentContent = await prepareFirstMessage(other.input, {
+        enabledSkills: other.injectSkills,
+      });
       // Provide absolute skills directory so agent can resolve relative script paths
       // e.g. "skills/star-office-helper/scripts/..." → "${skillsDir}/star-office-helper/scripts/..."
       const skillsDir = getSkillsDir();
+      const builtinSkillsCopyDir = getBuiltinSkillsCopyDir();
       agentContent = agentContent.replace(
         '[User Request]',
-        `[Skills Directory]\nSkills are installed at: ${skillsDir}\nWhen skill instructions reference relative paths like "skills/{name}/scripts/...", resolve them as "${skillsDir}/{name}/scripts/...".\n\n[User Request]`
+        `[Skills Directory]\nBuiltin skills: ${builtinSkillsCopyDir}\nUser skills: ${skillsDir}\nWhen skill instructions reference relative paths like "skills/{name}/scripts/...", resolve them under the appropriate directory.\n\n[User Request]`
       );
     }
 
@@ -407,7 +451,10 @@ export function initConversationBridge(
       });
       return { success: true };
     } catch (err: unknown) {
-      return { success: false, msg: err instanceof Error ? err.message : String(err) };
+      return {
+        success: false,
+        msg: err instanceof Error ? err.message : String(err),
+      };
     }
   });
 

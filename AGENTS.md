@@ -58,13 +58,26 @@ See the `testing` skill (`.claude/skills/testing/SKILL.md`) for complete workflo
 
 ## Code Quality
 
-Run these after every edit — all three are enforced in CI and block merges:
+**During development** — auto-fix as you edit:
 
 ```bash
-bun run lint:fix       # after editing .ts / .tsx (oxlint)
-bun run format         # after editing .ts / .tsx / .css / .json / .md (oxfmt)
+bun run lint:fix       # auto-fix lint issues in .ts / .tsx (oxlint)
+bun run format         # auto-format .ts / .tsx / .css / .json / .md (oxfmt)
 bunx tsc --noEmit      # verify no type errors
 ```
+
+**Before every PR** — run the full CI check locally to catch everything CI catches (end-of-file, trailing whitespace, all file types):
+
+```bash
+# One-time setup
+npm install -g @j178/prek
+
+# Replicate exact CI check (read-only — does not auto-fix)
+prek run --from-ref origin/main --to-ref HEAD
+```
+
+> Note: `prek` uses `lint` (check only) and `format:check` (check only) — it will fail if there are issues but won't fix them.
+> If prek reports formatting or lint issues, run the auto-fix commands above first, then re-run prek to verify.
 
 Common Oxfmt rules (Prettier-compatible, avoid a fix pass):
 
@@ -76,7 +89,7 @@ Common Oxfmt rules (Prettier-compatible, avoid a fix pass):
 
 Commit format: `<type>(<scope>): <subject>` in English. Types: feat, fix, refactor, chore, docs, test, style, perf. **NEVER add AI signatures** (Co-Authored-By, Generated with, etc.).
 
-See the `commit` skill (`.claude/skills/commit/SKILL.md`) for complete workflow, quality gates, and rules. For pull request creation, see the `pr` skill (`.claude/skills/pr/SKILL.md`).
+For pull request creation, see the `pr` skill (`.claude/skills/pr/SKILL.md`).
 
 ## Skills Index
 
@@ -87,7 +100,6 @@ Detailed rules and guidelines are organized into Skills for better modularity:
 | **architecture** | File & directory structure conventions for all process types                       | Creating files, adding modules, architectural decisions            |
 | **i18n**         | Internationalization workflow and standards                                        | Adding user-facing text, creating components with user-facing text |
 | **testing**      | Testing workflow and quality standards                                             | Writing tests, adding features, before claiming completion         |
-| **commit**       | Structured git commit workflow with quality checks                                 | Committing code, `/commit`, `/oss-pr`                              |
 | **pr**           | Pull request workflow: ensure issue exists, push branch, open PR                   | Creating pull requests, after committing, `/oss-pr`                |
 | **pr-review**    | Local PR code review with full project context, no truncation limits               | Reviewing a PR, user says "review PR", `/pr-review`                |
 | **pr-fix**       | Fix all issues from a pr-review report, create a follow-up PR, and verify each fix | After pr-review, user says "fix all issues", `/pr-fix`             |

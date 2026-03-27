@@ -17,6 +17,10 @@ import os from 'os';
 // 这必须在所有其他代码之前执行，因为 getPath('userData') 会锁定当前的 app 名称
 if (!app.isPackaged) {
   app.setName('AionUi-Dev');
+  // In Electron 28+, setName alone no longer updates userData path on macOS.
+  // Explicitly override userData to the AionUi-Dev directory.
+  const appSupportDir = path.dirname(app.getPath('userData'));
+  app.setPath('userData', path.join(appSupportDir, 'AionUi-Dev'));
 }
 
 // Configure Chromium command-line flags for WebUI and CLI modes
@@ -92,6 +96,8 @@ export interface CdpStatus {
   port: number | null;
   /** Whether CDP was enabled at startup (requires restart to change) */
   startupEnabled: boolean;
+  /** Whether CDP is enabled in the persisted config file (may differ from runtime) */
+  configEnabled: boolean;
   /** All active CDP instances from registry */
   instances: CdpRegistryEntry[];
   /** Whether the app is running in development mode */
@@ -356,10 +362,12 @@ export function getActiveCdpInstances(): CdpRegistryEntry[] {
  * Get current CDP status for display in UI.
  */
 export function getCdpStatus(): CdpStatus {
+  const config = loadCdpConfig();
   return {
     enabled: cdpPort !== null,
     port: cdpPort,
     startupEnabled: cdpStartupEnabled,
+    configEnabled: config.enabled ?? cdpStartupEnabled,
     instances: getActiveCdpInstances(),
     isDevMode: !app.isPackaged,
   };

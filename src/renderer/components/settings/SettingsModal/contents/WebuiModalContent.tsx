@@ -14,6 +14,7 @@ import ChannelDiscordLogo from '@/renderer/assets/channel-logos/discord.svg';
 import ChannelLarkLogo from '@/renderer/assets/channel-logos/lark.svg';
 import ChannelSlackLogo from '@/renderer/assets/channel-logos/slack.svg';
 import ChannelTelegramLogo from '@/renderer/assets/channel-logos/telegram.svg';
+import ChannelWeixinLogo from '@/renderer/assets/channel-logos/weixin.svg';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import { Button, Form, Input, Message, Switch, Tabs, Tooltip } from '@arco-design/web-react';
 import { CheckOne, Communication, Copy, Earth, EditTwo, Refresh } from '@icon-park/react';
@@ -47,6 +48,7 @@ const CHANNEL_LOGOS = [
   { src: ChannelTelegramLogo, alt: 'Telegram' },
   { src: ChannelLarkLogo, alt: 'Lark' },
   { src: ChannelDingTalkLogo, alt: 'DingTalk' },
+  { src: ChannelWeixinLogo, alt: 'WeChat' },
   { src: ChannelSlackLogo, alt: 'Slack' },
   { src: ChannelDiscordLogo, alt: 'Discord' },
 ] as const;
@@ -823,12 +825,22 @@ const WebuiModalContent: React.FC = () => {
                   )}
                 </div>
 
-                {/* 过期时间和刷新按钮 / Expiration time and refresh button */}
+                {/* 过期时间、复制链接和刷新按钮 / Expiration time, copy link and refresh button */}
                 <div className='flex items-center gap-8px'>
                   {qrExpiresAt && (
                     <span className='text-12px text-t-tertiary'>
                       {t('settings.webui.qrExpires', { time: formatExpiresAt(qrExpiresAt) })}
                     </span>
+                  )}
+                  {qrUrl && (
+                    <Tooltip content={t('settings.webui.copyQrLink')}>
+                      <button
+                        className='p-4px bg-transparent border-none text-t-tertiary hover:text-t-primary cursor-pointer'
+                        onClick={() => handleCopy(qrUrl)}
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </Tooltip>
                   )}
                   <Tooltip content={t('settings.webui.refreshQr')}>
                     <button

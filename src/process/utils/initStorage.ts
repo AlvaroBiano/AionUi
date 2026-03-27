@@ -7,7 +7,7 @@
 import { mkdirSync as _mkdirSync, existsSync, readdirSync, readFileSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import { app } from 'electron';
+import { getPlatformServices } from '@/common/platform';
 import { application } from '@/common/adapter/ipcBridge';
 import type { TMessage } from '@/common/chat/chatLib';
 import { ASSISTANT_PRESETS } from '@/common/config/presets/assistantPresets';
@@ -26,10 +26,12 @@ import {
   getConfigPath,
   getDataPath,
   getTempPath,
+  hasElectronAppPath,
   verifyDirectoryFiles,
 } from './utils';
 import { getDatabase } from '../services/database/export';
 import type { AcpBackendConfig } from '@/common/types/acpTypes';
+import { migrateFromElectronConfig, importConfigFromFile } from './configMigration';
 import {
   BUILTIN_IMAGE_GEN_ID,
   BUILTIN_IMAGE_GEN_LEGACY_NAMES,
@@ -48,6 +50,7 @@ const STORAGE_PATH = {
   env: '.aionui-env',
   assistants: 'assistants',
   skills: 'skills',
+  builtinSkills: 'builtin-skills',
 };
 
 const getHomePage = getConfigPath;
@@ -106,8 +109,11 @@ const migrateLegacyData = async () => {
   return false;
 };
 
-const WriteFile = (path: string, data: string) => {
-  return fs.writeFile(path, data);
+const WriteFile = async (filePath: string, data: string) => {
+  // Ensure parent directory exists to prevent ENOENT on first write
+  const dir = nodePath.dirname(filePath);
+  await fs.mkdir(dir, { recursive: true });
+  return fs.writeFile(filePath, data);
 };
 
 const ReadFile = (path: string) => {
@@ -367,12 +373,19 @@ const getSkillsDir = () => {
 };
 
 /**
- * 获取内置技能目录路径（_builtin 子目录）
- * Get builtin skills directory path (_builtin subdirectory)
- * Skills in this directory are automatically injected for ALL agents and scenarios
+ * Get the directory where bundled skills are copied to (config/builtin-skills/).
+ * This directory is fully managed by the app — synced on every startup.
  */
-const getBuiltinSkillsDir = () => {
-  return path.join(getSkillsDir(), '_builtin');
+const getBuiltinSkillsCopyDir = () => {
+  return path.join(cacheDir, STORAGE_PATH.builtinSkills);
+};
+
+/**
+ * Get the auto-enabled builtin skills directory (_builtin subdirectory).
+ * Skills in this directory are automatically injected for ALL agents and scenarios.
+ */
+const getAutoSkillsDir = () => {
+  return path.join(getBuiltinSkillsCopyDir(), '_builtin');
 };
 
 /**
@@ -382,34 +395,23 @@ const getBuiltinSkillsDir = () => {
 const initBuiltinAssistantRules = async (): Promise<void> => {
   const assistantsDir = getAssistantsDir();
 
-  // 开发模式下使用项目根目录，生产模式使用 app.getAppPath()
-  // In development, use project root. In production, use app.getAppPath()
-  // When packaged, resources are in asarUnpack, so they're at app.asar.unpacked/
-  // 打包后，资源在 asarUnpack 中，所以在 app.asar.unpacked/ 目录下
+  // In development, use project root. In production, use app.getAppPath().
+  // viteStaticCopy maps src/process/resources/* to root-level dirs in the asar.
+  // 开发模式下使用项目根目录，生产模式下 viteStaticCopy 将资源映射到 asar 根级目录。
   const resolveBuiltinDir = (dirPath: string): string => {
-    const appPath = app.getAppPath();
+    const platform = getPlatformServices().paths;
+    const appPath = platform.getAppPath()!;
     let candidates: string[];
-    if (app.isPackaged) {
-      // asarUnpack extracts files to app.asar.unpacked directory
-      // asarUnpack 会将文件解压到 app.asar.unpacked 目录
-      const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked');
-      // In production, viteStaticCopy places resources without src/ prefix,
-      // but direct file inclusion keeps the src/ prefix
-      const legacyPath = dirPath.startsWith('src/') ? dirPath.slice(4) : dirPath;
-      candidates = [
-        path.join(unpackedPath, legacyPath), // viteStaticCopy output (preferred)
-        path.join(unpackedPath, dirPath), // Direct inclusion from src/
-        path.join(appPath, legacyPath), // Fallback to asar path (viteStaticCopy)
-        path.join(appPath, dirPath), // Fallback to asar path (direct)
-      ];
+    if (platform.isPackaged()) {
+      // In production, viteStaticCopy maps src/process/resources/* to root-level dirs in the asar.
+      // skills/ and assistant/ are read from asar at startup and copied to user config dirs.
+      const RESOURCES_PREFIX = 'src/process/resources/';
+      const prodPath = dirPath.startsWith(RESOURCES_PREFIX) ? dirPath.slice(RESOURCES_PREFIX.length) : dirPath;
+      candidates = [path.join(appPath, prodPath)];
     } else {
-      candidates = [
-        path.join(appPath, dirPath),
-        path.join(appPath, '..', dirPath),
-        path.join(appPath, '..', '..', dirPath),
-        path.join(appPath, '..', '..', '..', dirPath),
-        path.join(process.cwd(), dirPath),
-      ];
+      // In dev, viteStaticCopy doesn't run; resolve source paths directly.
+      // appPath is the project root, so a single join is sufficient.
+      candidates = [path.join(appPath, dirPath)];
     }
 
     for (const candidate of candidates) {
@@ -426,24 +428,54 @@ const initBuiltinAssistantRules = async (): Promise<void> => {
     (preset) => !preset.resourceDir && Object.keys(preset.ruleFiles).length > 0
   );
   const rulesDir = presetsNeedDefaultRulesDir ? resolveBuiltinDir('rules') : '';
-  const builtinSkillsDir = resolveBuiltinDir('src/skills');
+  // resolveBuiltinDir("src/process/resources/skills") works for packaged Electron
+  // (viteStaticCopy outputs to skills/ which matches after stripping the prefix),
+  // but in standalone server mode the actual path differs.
+  let builtinSkillsDir = resolveBuiltinDir('src/process/resources/skills');
+  if (!existsSync(builtinSkillsDir)) {
+    const skillsFallbacks = [
+      // Standalone production: bundled alongside server binary by build-server.mjs
+      path.join(__dirname, 'skills'),
+      path.join(__dirname, '..', 'skills'),
+      path.join(process.cwd(), 'dist-server', 'skills'),
+    ];
+    const found = skillsFallbacks.find((d) => existsSync(d));
+    if (found) builtinSkillsDir = found;
+  }
+  const builtinSkillsCopyDir = getBuiltinSkillsCopyDir();
   const userSkillsDir = getSkillsDir();
 
-  // 复制技能脚本目录到用户配置目录
-  // Copy skills scripts directory to user config directory
+  // Sync builtin skills to a dedicated directory (config/builtin-skills/).
+  // This directory is fully managed by the app: overwrite existing, remove stale.
+  // User-custom skills live in config/skills/ and are never touched.
   if (existsSync(builtinSkillsDir)) {
     try {
-      // 确保用户技能目录存在
-      if (!existsSync(userSkillsDir)) {
-        mkdirSync(userSkillsDir);
+      if (!existsSync(builtinSkillsCopyDir)) {
+        mkdirSync(builtinSkillsCopyDir);
       }
-      // 复制内置技能到用户目录（不覆盖已存在的文件）
-      await copyDirectoryRecursively(builtinSkillsDir, userSkillsDir, {
-        overwrite: false,
+      await copyDirectoryRecursively(builtinSkillsDir, builtinSkillsCopyDir, {
+        overwrite: true,
       });
+      // Remove stale: entries in dest that no longer exist in source
+      const srcNames = new Set(
+        readdirSync(builtinSkillsDir, { withFileTypes: true })
+          .filter((e) => e.isDirectory())
+          .map((e) => e.name)
+      );
+      for (const entry of readdirSync(builtinSkillsCopyDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (!srcNames.has(entry.name)) {
+          await fs.rm(path.join(builtinSkillsCopyDir, entry.name), { recursive: true, force: true });
+        }
+      }
     } catch (error) {
-      console.warn(`[AionUi] Failed to copy skills directory:`, error);
+      console.warn(`[AionUi] Failed to sync builtin skills directory:`, error);
     }
+  }
+
+  // Ensure user skills directory exists
+  if (!existsSync(userSkillsDir)) {
+    mkdirSync(userSkillsDir);
   }
 
   // 确保助手目录存在 / Ensure assistants directory exists
@@ -566,6 +598,7 @@ const getBuiltinAssistants = (): AcpBackendConfig[] => {
     // Read default enabled skills from preset config (excluding cron, which is builtin and auto-injected)
     const defaultEnabledSkills = preset.defaultEnabledSkills;
     const enabledByDefault =
+      preset.id === 'morph-ppt' ||
       preset.id === 'cowork' ||
       preset.id === 'openclaw-setup' ||
       preset.id === 'star-office-helper' ||
@@ -633,7 +666,7 @@ const getBuiltinMcpBaseDir = (): string => {
   const baseDir = path.basename(mainModuleDir) === 'chunks' ? path.dirname(mainModuleDir) : mainModuleDir;
   // In packaged mode the main bundle lives inside app.asar, but external node
   // processes cannot read files from ASAR archives. Redirect to the unpacked copy.
-  if (app.isPackaged) {
+  if (getPlatformServices().paths.isPackaged()) {
     return baseDir.replace('app.asar', 'app.asar.unpacked');
   }
   return baseDir;
@@ -783,9 +816,9 @@ const ensureBuiltinMcpServers = async (): Promise<void> => {
  * 启动时清理异常遗留的健康检测临时会话
  * Cleanup orphaned health-check temporary conversations on startup
  */
-const cleanupOrphanedHealthCheckConversations = () => {
+const cleanupOrphanedHealthCheckConversations = async () => {
   try {
-    const db = getDatabase();
+    const db = await getDatabase();
     const pageSize = 1000;
     const idsToDelete: string[] = [];
     let page = 0;
@@ -820,10 +853,13 @@ const cleanupOrphanedHealthCheckConversations = () => {
 };
 
 const initStorage = async () => {
-  console.log('[AionUi] Starting storage initialization...');
+  const t0 = performance.now();
+  const mark = (label: string) => console.log(`[AionUi:init] ${label} +${Math.round(performance.now() - t0)}ms`);
+  mark('start');
 
   // 1. 先执行数据迁移（在任何目录创建之前）
   await migrateLegacyData();
+  mark('1. migrateLegacyData');
 
   // 2. 创建必要的目录（迁移后再创建，确保迁移能正常进行）
   // Use ensureDirectory to handle cases where a regular file blocks the path (#841)
@@ -835,6 +871,24 @@ const initStorage = async () => {
   ChatStorage.interceptor(chatFile);
   ChatMessageStorage.interceptor(chatMessageFile);
   EnvStorage.interceptor(envFile);
+  mark('3. storage interceptors');
+
+  // Config migration only makes sense in standalone server mode (not inside Electron itself)
+  if (!hasElectronAppPath()) {
+    // Migrate config from Electron desktop app (once, after storage is ready)
+    await migrateFromElectronConfig(configFile as unknown as Parameters<typeof migrateFromElectronConfig>[0]);
+
+    // Manual import from specified path (if env var present)
+    const importFrom = process.env.IMPORT_CONFIG_FROM;
+    if (importFrom) {
+      const overwrite = process.env.IMPORT_CONFIG_OVERWRITE === 'true';
+      await importConfigFromFile(
+        importFrom,
+        overwrite,
+        configFile as unknown as Parameters<typeof importConfigFromFile>[2]
+      );
+    }
+  }
 
   // 4. 初始化 MCP 配置（为所有用户提供默认配置）
   try {
@@ -852,12 +906,14 @@ const initStorage = async () => {
 
   // 4.1 Ensure built-in MCP servers exist and are up-to-date
   await ensureBuiltinMcpServers();
+  mark('4. MCP config');
 
   // 5. 初始化内置助手（Assistants）
   try {
     // 5.1 初始化内置助手的规则文件到用户目录
     // Initialize builtin assistant rule files to user directory
     await initBuiltinAssistantRules();
+    mark('5.1 initBuiltinAssistantRules');
 
     // 5.2 初始化助手配置（只包含元数据，不包含 context）
     // Initialize assistant config (metadata only, no context)
@@ -973,21 +1029,26 @@ const initStorage = async () => {
     if (needsPromptsI18nMigration) {
       await configFile.set(PROMPTS_I18N_MIGRATION_KEY, true);
     }
+    mark('5.2 assistant config + migrations');
   } catch (error) {
     console.error('[AionUi] Failed to initialize builtin assistants:', error);
   }
 
   // 6. 初始化数据库（better-sqlite3）
   try {
-    getDatabase();
-    cleanupOrphanedHealthCheckConversations();
+    await getDatabase();
+    await cleanupOrphanedHealthCheckConversations();
   } catch (error) {
     console.error('[InitStorage] Database initialization failed, falling back to file-based storage:', error);
   }
+  mark('6. database');
 
-  application.systemInfo.provider(() => {
-    return Promise.resolve(getSystemDir());
-  });
+  if (hasElectronAppPath()) {
+    application.systemInfo.provider(() => {
+      return Promise.resolve(getSystemDir());
+    });
+  }
+  mark('done');
 };
 
 export const ProcessConfig = configFile;
@@ -1000,7 +1061,7 @@ export const ProcessEnv = envFile;
 
 export const getSystemDir = () => {
   // electron-log writes to the platform-standard logs directory
-  const logDir = path.join(app.getPath('logs'));
+  const logDir = getPlatformServices().paths.getLogsDir();
 
   return {
     cacheDir: cacheDir,
@@ -1017,7 +1078,14 @@ export const getSystemDir = () => {
  * 获取助手规则目录路径（供其他模块使用）
  * Get assistant rules directory path (for use by other modules)
  */
-export { getAssistantsDir, getSkillsDir, getBuiltinSkillsDir, BUILTIN_IMAGE_GEN_ID, getBuiltinMcpScriptPath };
+export {
+  getAssistantsDir,
+  getSkillsDir,
+  getBuiltinSkillsCopyDir,
+  getAutoSkillsDir,
+  BUILTIN_IMAGE_GEN_ID,
+  getBuiltinMcpScriptPath,
+};
 
 /**
  * Skills 内容缓存，避免重复从文件系统读取
@@ -1045,15 +1113,15 @@ export const loadSkillsContent = async (enabledSkills: string[]): Promise<string
   }
 
   const skillsDir = getSkillsDir();
-  const builtinSkillsDir = getBuiltinSkillsDir();
+  const builtinSkillsDir = getAutoSkillsDir();
   const skillContents: string[] = [];
 
   for (const skillName of enabledSkills) {
-    // 优先尝试内置 skills 目录：_builtin/{skillName}/SKILL.md
-    // First try builtin skills directory: _builtin/{skillName}/SKILL.md
+    // 1. Auto-enabled builtin: builtin-skills/_builtin/{skillName}/SKILL.md
     const builtinSkillFile = path.join(builtinSkillsDir, skillName, 'SKILL.md');
-    // 然后尝试目录结构：{skillName}/SKILL.md（与 aioncli-core 的 loadSkillsFromDir 一致）
-    // Then try directory structure: {skillName}/SKILL.md (consistent with aioncli-core's loadSkillsFromDir)
+    // 2. Bundled skill: builtin-skills/{skillName}/SKILL.md
+    const bundledSkillFile = path.join(getBuiltinSkillsCopyDir(), skillName, 'SKILL.md');
+    // 3. User custom: skills/{skillName}/SKILL.md
     const skillDirFile = path.join(skillsDir, skillName, 'SKILL.md');
     // 向后兼容：扁平结构 {skillName}.md
     // Backward compatible: flat structure {skillName}.md
@@ -1064,6 +1132,8 @@ export const loadSkillsContent = async (enabledSkills: string[]): Promise<string
 
       if (existsSync(builtinSkillFile)) {
         content = await fs.readFile(builtinSkillFile, 'utf-8');
+      } else if (existsSync(bundledSkillFile)) {
+        content = await fs.readFile(bundledSkillFile, 'utf-8');
       } else if (existsSync(skillDirFile)) {
         content = await fs.readFile(skillDirFile, 'utf-8');
       } else if (existsSync(skillFlatFile)) {

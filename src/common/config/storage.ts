@@ -49,8 +49,12 @@ export interface IConfigStorageRefer {
       preferredMode?: string;
       /** Preferred model ID for new conversations / 新会话的默认模型 */
       preferredModelId?: string;
+      /** LLM prompt timeout in seconds (default: 300) / LLM 请求超时时间（秒，默认 300） */
+      promptTimeout?: number;
     };
   };
+  /** Global LLM prompt timeout in seconds (default: 300). Per-backend promptTimeout overrides this. */
+  'acp.promptTimeout'?: number;
   'acp.customAgents'?: AcpBackendConfig[];
   // Cached model lists per ACP backend for Guid page pre-selection
   'acp.cachedModels'?: Record<string, import('@/common/types/acpTypes').AcpModelInfo>;
@@ -87,6 +91,8 @@ export interface IConfigStorageRefer {
   'migration.builtinDefaultSkillsAdded_v2'?: boolean;
   // 迁移标记：为所有内置助手添加 promptsI18n / Migration flag: add promptsI18n for all builtin assistants
   'migration.promptsI18nAdded'?: boolean;
+  /** Migration flag: Electron desktop config has been imported to server config */
+  'migration.electronConfigImported'?: boolean;
   // 关闭窗口时最小化到系统托盘 / Minimize to system tray when closing window
   'system.closeToTray'?: boolean;
   // 任务完成时显示系统通知 / Show system notification when task completes
@@ -126,6 +132,17 @@ export interface IConfigStorageRefer {
     customAgentId?: string;
     name?: string;
   };
+  // WeChat assistant default model / WeChat 助手默认模型
+  'assistant.weixin.defaultModel'?: {
+    id: string;
+    useModel: string;
+  };
+  // WeChat assistant agent selection / WeChat 助手所使用的 Agent
+  'assistant.weixin.agent'?: {
+    backend: AcpBackendAll;
+    customAgentId?: string;
+    name?: string;
+  };
   // Skills Market: whether the aionui-skills builtin skill is enabled
   'skillsMarket.enabled'?: boolean;
 }
@@ -141,7 +158,7 @@ export interface IEnvStorageRefer {
  * Conversation source type - identifies where the conversation was created
  * 会话来源类型 - 标识会话创建的来源
  */
-export type ConversationSource = 'aionui' | 'telegram' | 'lark' | 'dingtalk' | (string & {});
+export type ConversationSource = 'aionui' | 'telegram' | 'lark' | 'dingtalk' | 'weixin' | (string & {});
 
 interface IChatConversation<T, Extra> {
   createTime: number;
@@ -402,7 +419,9 @@ export interface IProvider {
   >;
 }
 
-export type TProviderWithModel = Omit<IProvider, 'model'> & { useModel: string };
+export type TProviderWithModel = Omit<IProvider, 'model'> & {
+  useModel: string;
+};
 
 // MCP Server Configuration Types
 export type McpTransportType = 'stdio' | 'sse' | 'http';

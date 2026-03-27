@@ -69,11 +69,19 @@ async function loadConfigureChromium(options: SetupOptions = {}) {
     };
   });
 
+  const setNameSpy = vi.fn();
+  const setPathSpy = vi.fn();
+
   vi.doMock('electron', () => ({
     app: {
       isPackaged: options.isPackaged ?? false,
-      setName: vi.fn(),
-      getPath: vi.fn((name: string) => (name === 'userData' ? userDataDir : sandbox)),
+      setName: setNameSpy,
+      setPath: setPathSpy,
+      getPath: vi.fn((name: string) => {
+        if (name === 'userData') return userDataDir;
+        if (name === 'appData') return sandbox;
+        return sandbox;
+      }),
       commandLine: {
         appendSwitch,
       },
@@ -85,6 +93,8 @@ async function loadConfigureChromium(options: SetupOptions = {}) {
   return {
     mod,
     appendSwitch,
+    setNameSpy,
+    setPathSpy,
     sandbox,
     configPath,
     registryPath,
@@ -201,5 +211,97 @@ describe('configureChromium CDP (lightweight mock + file sandbox)', () => {
 
     const raw = fs.readFileSync(ctx.configPath, 'utf-8');
     expect(JSON.parse(raw)).toEqual({ enabled: true, port: 9235 });
+  });
+
+  describe('getCdpStatus configEnabled field', () => {
+    it('returns configEnabled from config file when config.enabled is explicitly set', async () => {
+      const ctx = await loadConfigureChromium({
+        isPackaged: false,
+        config: { enabled: false },
+      });
+      restores.push(ctx.restore);
+
+      const status = ctx.mod.getCdpStatus();
+      expect(status.configEnabled).toBe(false);
+    });
+
+    it('falls back to startupEnabled when config file has no enabled field', async () => {
+      const ctx = await loadConfigureChromium({
+        isPackaged: false,
+        config: { port: 9300 },
+      });
+      restores.push(ctx.restore);
+
+      const status = ctx.mod.getCdpStatus();
+      expect(status.configEnabled).toBe(status.startupEnabled);
+    });
+
+    it('falls back to startupEnabled when config file does not exist', async () => {
+      const ctx = await loadConfigureChromium({ isPackaged: false });
+      restores.push(ctx.restore);
+
+      const status = ctx.mod.getCdpStatus();
+      expect(status.configEnabled).toBe(status.startupEnabled);
+    });
+
+    it('reflects updated config after updateCdpConfig toggles enabled off', async () => {
+      const ctx = await loadConfigureChromium({
+        isPackaged: false,
+        config: { enabled: true },
+      });
+      restores.push(ctx.restore);
+
+      expect(ctx.mod.getCdpStatus().configEnabled).toBe(true);
+
+      ctx.mod.updateCdpConfig({ enabled: false });
+
+      expect(ctx.mod.getCdpStatus().configEnabled).toBe(false);
+    });
+
+    it('reflects updated config after updateCdpConfig toggles enabled on', async () => {
+      const ctx = await loadConfigureChromium({
+        isPackaged: false,
+        config: { enabled: false },
+      });
+      restores.push(ctx.restore);
+
+      expect(ctx.mod.getCdpStatus().configEnabled).toBe(false);
+
+      ctx.mod.updateCdpConfig({ enabled: true });
+
+      expect(ctx.mod.getCdpStatus().configEnabled).toBe(true);
+    });
+
+    it('returns isDevMode=true in unpackaged builds', async () => {
+      const ctx = await loadConfigureChromium({ isPackaged: false });
+      restores.push(ctx.restore);
+
+      expect(ctx.mod.getCdpStatus().isDevMode).toBe(true);
+    });
+
+    it('returns isDevMode=false in packaged builds', async () => {
+      const ctx = await loadConfigureChromium({ isPackaged: true });
+      restores.push(ctx.restore);
+
+      expect(ctx.mod.getCdpStatus().isDevMode).toBe(false);
+    });
+  });
+
+  describe('dev environment isolation', () => {
+    it('sets app name and userData path in dev mode', async () => {
+      const ctx = await loadConfigureChromium({ isPackaged: false });
+      restores.push(ctx.restore);
+
+      expect(ctx.setNameSpy).toHaveBeenCalledWith('AionUi-Dev');
+      expect(ctx.setPathSpy).toHaveBeenCalledWith('userData', path.join(ctx.sandbox, 'AionUi-Dev'));
+    });
+
+    it('does not set app name or userData path in packaged builds', async () => {
+      const ctx = await loadConfigureChromium({ isPackaged: true });
+      restores.push(ctx.restore);
+
+      expect(ctx.setNameSpy).not.toHaveBeenCalled();
+      expect(ctx.setPathSpy).not.toHaveBeenCalled();
+    });
   });
 });

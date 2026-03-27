@@ -28,6 +28,8 @@ const ACP_PERF_LOG = process.env.ACP_PERF === '1';
 import BaseAgentManager from './BaseAgentManager';
 import { IpcAgentEventEmitter } from './IpcAgentEventEmitter';
 import { hasCronCommands } from './CronCommandDetector';
+import { hasNativeSkillSupport } from '@process/utils/initAgent';
+import { prepareFirstMessageWithSkillsIndex } from '@process/task/agentUtils';
 import { extractTextFromMessage, processCronInMessage } from './MessageMiddleware';
 import { stripThinkTags } from './ThinkTagDetector';
 
@@ -66,6 +68,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   workspace: string;
   agent: AcpAgent;
   private bootstrap: Promise<AcpAgent> | undefined;
+  private bootstrapping: boolean = false;
   private isFirstMessage: boolean = true;
   options: AcpAgentManagerData;
   private currentMode: string = 'default';
@@ -146,6 +149,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
 
   initAgent(data: AcpAgentManagerData = this.options) {
     if (this.bootstrap) return this.bootstrap;
+    this.bootstrapping = true;
     this.bootstrap = (async () => {
       let cliPath = data.cliPath;
       let customArgs: string[] | undefined;
@@ -289,6 +293,12 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           }
         },
         onStreamEvent: (message) => {
+          // During bootstrap (warmup), suppress UI stream events to avoid
+          // triggering sidebar loading spinner before user sends a message.
+          if (this.bootstrapping) {
+            return;
+          }
+
           const pipelineStart = Date.now();
 
           // Reduce status noise: show full lifecycle only for the first turn.
@@ -533,6 +543,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         if (modelInfo && modelInfo.availableModels?.length > 0) {
           void this.cacheModelList(modelInfo);
         }
+        this.bootstrapping = false;
         return this.agent;
       });
     })();
@@ -544,6 +555,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
     msg?: string;
     message?: string;
   }> {
+    // Allow stream events through once user actually sends a message,
+    // so initAgent progress (agent_status) is visible during the wait.
+    this.bootstrapping = false;
+
     const managerSendStart = Date.now();
     // Mark conversation as busy to prevent cron jobs from running
     cronBusyGuard.setProcessing(this.conversation_id, true);
@@ -568,7 +583,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         addMessage(this.conversation_id, userMessage);
         // Ensure conversation list sorting updates immediately after user sends.
         try {
-          getDatabase().updateConversation(this.conversation_id, {});
+          (await getDatabase()).updateConversation(this.conversation_id, {});
         } catch {
           // Conversation might not exist in DB yet
         }
@@ -583,9 +598,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         ipcBridge.acpConversation.responseStream.emit(userResponseMessage);
       }
 
-      const initStart = Date.now();
       await this.initAgent(this.options);
-      if (ACP_PERF_LOG) console.log(`[ACP-PERF] manager: initAgent completed ${Date.now() - initStart}ms`);
 
       if (data.msg_id && data.content) {
         let contentToSend = data.content;
@@ -593,19 +606,33 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           contentToSend = contentToSend.split(AIONUI_FILES_MARKER)[0].trimEnd();
         }
 
-        // 首条消息时注入预设规则（来自智能助手配置）
-        // Inject preset context on first message (from smart assistant config)
-        // Skills are handled natively via workspace symlinks + activate_skill — no injection needed
-        if (this.isFirstMessage && this.options.presetContext) {
-          contentToSend = `[Assistant Rules - You MUST follow these instructions]\n${this.options.presetContext}\n\n[User Request]\n${contentToSend}`;
+        // 首条消息时注入预设规则和 skills
+        // Inject preset rules and skills on first message
+        //
+        // Symlinks 仅在临时工作空间创建；自定义工作空间跳过 symlink 以避免污染用户目录。
+        // Symlinks are only created for temp workspaces; custom workspaces skip symlinks.
+        // 因此自定义工作空间或不支持原生 skill 发现的 backend 都需要通过 prompt 注入 skills。
+        // So custom workspaces or backends without native skill discovery need prompt injection.
+        if (this.isFirstMessage) {
+          const useNativeSkills = hasNativeSkillSupport(this.options.backend) && !this.options.customWorkspace;
+          if (useNativeSkills) {
+            // Native skill discovery via workspace symlinks — only inject preset rules
+            if (this.options.presetContext) {
+              contentToSend = `[Assistant Rules - You MUST follow these instructions]\n${this.options.presetContext}\n\n[User Request]\n${contentToSend}`;
+            }
+          } else {
+            // Custom workspace or no native support — inject rules + skills via prompt
+            contentToSend = await prepareFirstMessageWithSkillsIndex(contentToSend, {
+              presetContext: this.options.presetContext,
+              enabledSkills: this.options.enabledSkills,
+            });
+          }
         }
 
-        const agentSendStart = Date.now();
-        const result = await this.agent.sendMessage({ ...data, content: contentToSend });
-        if (ACP_PERF_LOG)
-          console.log(
-            `[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`
-          );
+        const result = await this.agent.sendMessage({
+          ...data,
+          content: contentToSend,
+        });
         // 首条消息发送后标记，无论是否有 presetContext
         if (this.isFirstMessage) {
           this.isFirstMessage = false;
@@ -613,6 +640,11 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         // Note: cronBusyGuard.setProcessing(false) is not called here
         // because the response streaming is still in progress.
         // It will be cleared when the conversation ends or on error.
+        // Exception: if the agent returns a failure (e.g. timeout), clean up
+        // immediately so the conversation isn't stuck in a busy/running state.
+        if (!result.success) {
+          this.clearBusyState();
+        }
         return result;
       }
       const agentSendStart = Date.now();
@@ -621,11 +653,13 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         console.log(
           `[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`
         );
+      if (!result.success) {
+        this.clearBusyState();
+      }
       return result;
     } catch (e) {
       this.flushBufferedStreamTextMessages();
-      cronBusyGuard.setProcessing(this.conversation_id, false);
-      this.status = 'finished';
+      this.clearBusyState();
       const message: IResponseMessage = {
         type: 'error',
         conversation_id: this.conversation_id,
@@ -770,14 +804,13 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   }
 
   /**
-   * Override stop() because AcpAgentManager doesn't use ForkTask's subprocess architecture.
-   * It directly creates AcpAgent in the main process, so we need to call agent.stop() directly.
+   * Override stop() to cancel the current prompt without killing the backend process.
+   * Uses ACP session/cancel so the connection stays alive for subsequent messages.
    */
   async stop() {
     if (this.agent) {
-      return this.agent.stop();
+      this.agent.cancelPrompt();
     }
-    return Promise.resolve();
   }
 
   /**
@@ -894,7 +927,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         await this.initAgent(this.options);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        return { success: false, msg: `Agent initialization failed: ${errorMsg}` };
+        return {
+          success: false,
+          msg: `Agent initialization failed: ${errorMsg}`,
+        };
       }
     }
 
@@ -916,7 +952,11 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         void this.clearLegacyYoloConfig();
       }
     }
-    return { success: result.success, msg: result.error, data: { mode: this.currentMode } };
+    return {
+      success: result.success,
+      msg: result.error,
+      data: { mode: this.currentMode },
+    };
   }
 
   /** Check if a mode value represents YOLO mode for any backend */
@@ -948,9 +988,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
    * Save model ID to database for resume support.
    * 保存模型 ID 到数据库以支持恢复。
    */
-  private saveModelId(modelId: string): void {
+  private async saveModelId(modelId: string): Promise<void> {
     try {
-      const db = getDatabase();
+      const db = await getDatabase();
       const result = db.getConversation(this.conversation_id);
       if (result.success && result.data && result.data.type === 'acp') {
         const conversation = result.data;
@@ -958,7 +998,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           ...conversation.extra,
           currentModelId: modelId,
         };
-        db.updateConversation(this.conversation_id, { extra: updatedExtra } as Partial<typeof conversation>);
+        db.updateConversation(this.conversation_id, {
+          extra: updatedExtra,
+        } as Partial<typeof conversation>);
       }
     } catch (error) {
       mainWarn('[AcpAgentManager]', 'Failed to save model ID', error);
@@ -969,9 +1011,14 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
    * Save context usage to database for restore on page switch.
    * 保存上下文使用量到数据库，以便在页面切换时恢复。
    */
-  private saveContextUsage(usage: { used: number; size: number }): void {
+  private clearBusyState(): void {
+    cronBusyGuard.setProcessing(this.conversation_id, false);
+    this.status = 'finished';
+  }
+
+  private async saveContextUsage(usage: { used: number; size: number }): Promise<void> {
     try {
-      const db = getDatabase();
+      const db = await getDatabase();
       const result = db.getConversation(this.conversation_id);
       if (result.success && result.data && result.data.type === 'acp') {
         const conversation = result.data;
@@ -980,7 +1027,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           lastTokenUsage: { totalTokens: usage.used },
           lastContextLimit: usage.size,
         };
-        db.updateConversation(this.conversation_id, { extra: updatedExtra } as Partial<typeof conversation>);
+        db.updateConversation(this.conversation_id, {
+          extra: updatedExtra,
+        } as Partial<typeof conversation>);
       }
     } catch {
       // Non-critical metadata, silently ignore errors
@@ -991,9 +1040,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
    * Save session mode to database for resume support.
    * 保存会话模式到数据库以支持恢复。
    */
-  private saveSessionMode(mode: string): void {
+  private async saveSessionMode(mode: string): Promise<void> {
     try {
-      const db = getDatabase();
+      const db = await getDatabase();
       const result = db.getConversation(this.conversation_id);
       if (result.success && result.data && result.data.type === 'acp') {
         const conversation = result.data;
@@ -1001,7 +1050,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           ...conversation.extra,
           sessionMode: mode,
         };
-        db.updateConversation(this.conversation_id, { extra: updatedExtra } as Partial<typeof conversation>);
+        db.updateConversation(this.conversation_id, {
+          extra: updatedExtra,
+        } as Partial<typeof conversation>);
       }
     } catch (error) {
       mainError('[AcpAgentManager]', 'Failed to save session mode', error);
@@ -1015,11 +1066,11 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
    * processes via AcpConnection. The default kill() from the base class only
    * kills the immediate worker, leaving the CLI process running as an orphan.
    *
-   * Solution: Call agent.stop() first, which triggers AcpConnection.disconnect()
+   * Solution: Call agent.kill() first, which triggers AcpConnection.disconnect()
    * → ChildProcess.kill(). We add a grace period for the process to exit
    * cleanly before calling super.kill() to tear down the worker.
    *
-   * A hard timeout ensures we don't hang forever if stop() gets stuck.
+   * A hard timeout ensures we don't hang forever if agent.kill() gets stuck.
    * An idempotent doKill() guard prevents double super.kill() when the hard
    * timeout and graceful path race against each other.
    */
@@ -1028,7 +1079,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
 
     let killed = false;
     const GRACE_PERIOD_MS = 500; // Allow child process time to exit cleanly
-    const HARD_TIMEOUT_MS = 1500; // Force kill if stop() hangs
+    const HARD_TIMEOUT_MS = 1500; // Force kill if agent.kill() hangs
 
     // Clear pending slash command waiters to prevent memory leaks
     // 清除待处理的斜杠命令等待者，防止内存泄漏
@@ -1048,10 +1099,10 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
     // Hard fallback: force kill after timeout regardless
     const hardTimer = setTimeout(doKill, HARD_TIMEOUT_MS);
 
-    // Graceful path: stop → grace period → kill
-    void (this.agent?.stop?.() || Promise.resolve())
+    // Graceful path: agent.kill → grace period → super.kill
+    void (this.agent?.kill?.() || Promise.resolve())
       .catch((err) => {
-        mainWarn('[AcpAgentManager]', 'agent.stop() failed during kill', err);
+        mainWarn('[AcpAgentManager]', 'agent.kill() failed during kill', err);
       })
       .then(() => new Promise<void>((r) => setTimeout(r, GRACE_PERIOD_MS)))
       .finally(doKill);
@@ -1094,9 +1145,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
    * Save ACP session ID to database for resume support.
    * 保存 ACP session ID 到数据库以支持会话恢复。
    */
-  private saveAcpSessionId(sessionId: string): void {
+  private async saveAcpSessionId(sessionId: string): Promise<void> {
     try {
-      const db = getDatabase();
+      const db = await getDatabase();
       const result = db.getConversation(this.conversation_id);
       if (result.success && result.data && result.data.type === 'acp') {
         const conversation = result.data;
@@ -1105,7 +1156,9 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           acpSessionId: sessionId,
           acpSessionUpdatedAt: Date.now(),
         };
-        db.updateConversation(this.conversation_id, { extra: updatedExtra } as Partial<typeof conversation>);
+        db.updateConversation(this.conversation_id, {
+          extra: updatedExtra,
+        } as Partial<typeof conversation>);
         mainLog('[AcpAgentManager]', `Saved ACP session ID: ${sessionId} for conversation: ${this.conversation_id}`);
       }
     } catch (error) {

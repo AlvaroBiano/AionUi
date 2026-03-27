@@ -33,11 +33,11 @@ export function initChannelBridge(channelRepo: IChannelRepository): void {
    */
   channel.getPluginStatus.provider(async () => {
     try {
-      const BUILTIN_TYPES = new Set(['telegram', 'lark', 'dingtalk', 'slack', 'discord']);
+      const BUILTIN_TYPES = new Set(['telegram', 'lark', 'dingtalk', 'slack', 'discord', 'weixin']);
 
       let dbPlugins: import('@process/channels/types').IChannelPluginConfig[] = [];
       try {
-        dbPlugins = channelRepo.getChannelPlugins();
+        dbPlugins = await channelRepo.getChannelPlugins();
       } catch (dbError) {
         console.warn('[ChannelBridge] getChannelPlugins failed, proceeding with builtin-only list:', dbError);
       }
@@ -144,6 +144,7 @@ export function initChannelBridge(channelRepo: IChannelRepository): void {
         dingtalk: 'DingTalk',
         slack: 'Slack',
         discord: 'Discord',
+        weixin: 'WeChat',
       };
       for (const builtinType of BUILTIN_TYPES) {
         if (statusMap.has(builtinType)) continue;
@@ -226,7 +227,7 @@ export function initChannelBridge(channelRepo: IChannelRepository): void {
    */
   channel.getPendingPairings.provider(async () => {
     try {
-      const data = channelRepo.getPendingPairingRequests();
+      const data = await channelRepo.getPendingPairingRequests();
       return { success: true, data };
     } catch (error: any) {
       console.error('[ChannelBridge] getPendingPairings error:', error);
@@ -283,7 +284,7 @@ export function initChannelBridge(channelRepo: IChannelRepository): void {
    */
   channel.getAuthorizedUsers.provider(async () => {
     try {
-      const data = channelRepo.getChannelUsers();
+      const data = await channelRepo.getChannelUsers();
       return { success: true, data };
     } catch (error: any) {
       console.error('[ChannelBridge] getAuthorizedUsers error:', error);
@@ -297,7 +298,7 @@ export function initChannelBridge(channelRepo: IChannelRepository): void {
   channel.revokeUser.provider(async ({ userId }) => {
     try {
       // Delete user (cascades to sessions)
-      channelRepo.deleteChannelUser(userId);
+      await channelRepo.deleteChannelUser(userId);
       console.log(`[ChannelBridge] Revoked user ${userId}`);
       return { success: true };
     } catch (error: any) {
@@ -313,7 +314,7 @@ export function initChannelBridge(channelRepo: IChannelRepository): void {
    */
   channel.getActiveSessions.provider(async () => {
     try {
-      const data = channelRepo.getChannelSessions();
+      const data = await channelRepo.getChannelSessions();
       return { success: true, data };
     } catch (error: any) {
       console.error('[ChannelBridge] getActiveSessions error:', error);
