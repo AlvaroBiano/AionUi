@@ -75,6 +75,10 @@ export type GroupChatTimelineProps = {
   onViewDetail?: (childTaskId: string) => void;
   /** Currently selected child task ID (for highlight) */
   selectedChildTaskId?: string | null;
+  /** F-3.1: Save teammate callback */
+  onSaveTeammate?: (childTaskId: string) => void;
+  /** F-3.1: Set of teammate names that have been saved */
+  savedTeammateNames?: Set<string>;
 };
 
 /** Props for the ChildTaskCard component */
@@ -88,6 +92,10 @@ export type ChildTaskCardProps = {
   onViewDetail?: (childTaskId: string) => void;
   /** Whether this card is currently selected (highlighted) */
   isSelected?: boolean;
+  /** Save callback for teammate */
+  onSave?: (childTaskId: string) => void;
+  /** Whether this teammate has already been saved */
+  isSaved?: boolean;
 };
 
 /** Props for the GroupChatCreationModal component */
@@ -109,6 +117,30 @@ export type TaskPanelProps = {
   onClose: () => void;
   /** Cancel child task callback */
   onCancel: (childTaskId: string) => void;
+  /** F-3.1: Notify parent when teammate is saved from TaskPanel */
+  onTeammateSaved?: (teammateName: string) => void;
+};
+
+/** Props for the SaveTeammateModal component */
+export type SaveTeammateModalProps = {
+  visible: boolean;
+  childSessionId: string;
+  /** Pre-filled values from useGroupChatInfo (avoids IPC if already known) */
+  initialName?: string;
+  initialAvatar?: string;
+  onClose: () => void;
+  onSaved: (assistantId: string) => void;
+};
+
+/** Props for the TaskOverview component */
+export type TaskOverviewProps = {
+  dispatcherName: string;
+  dispatcherAvatar?: string;
+  children: ChildTaskInfoVO[];
+  selectedChildTaskId?: string | null;
+  onSelectChild: (childTaskId: string) => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 };
 
 /** TaskPanel transcript message */

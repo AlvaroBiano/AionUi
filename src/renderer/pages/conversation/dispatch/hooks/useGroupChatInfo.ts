@@ -5,7 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { GroupChatInfoVO } from '../types';
 
@@ -13,8 +13,9 @@ import type { GroupChatInfoVO } from '../types';
  * Hook to fetch group chat info (dispatcher identity, children list, pending count).
  * Fetches on mount and provides a refresh callback.
  * CF-3: Exposes error state and retry mechanism.
+ * F-3.2: Optional auto-refresh interval (skips when all children are in terminal states).
  */
-export function useGroupChatInfo(conversationId: string) {
+export function useGroupChatInfo(conversationId: string, options?: { autoRefreshInterval?: number }) {
   const [info, setInfo] = useState<GroupChatInfoVO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +62,26 @@ export function useGroupChatInfo(conversationId: string) {
     setIsLoading(true);
     refresh();
   }, [refresh]);
+
+  // F-3.2: Auto-refresh interval with terminal-state skip
+  const infoRef = useRef(info);
+  infoRef.current = info;
+
+  useEffect(() => {
+    if (!options?.autoRefreshInterval) return;
+
+    const timer = setInterval(() => {
+      // Skip refresh if all children are in terminal states
+      const children = infoRef.current?.children;
+      if (children && children.length > 0) {
+        const hasActive = children.some((c) => c.status === 'running' || c.status === 'pending');
+        if (!hasActive) return;
+      }
+      refresh();
+    }, options.autoRefreshInterval);
+
+    return () => clearInterval(timer);
+  }, [options?.autoRefreshInterval, refresh]);
 
   return { info, isLoading, error, retry, refresh };
 }

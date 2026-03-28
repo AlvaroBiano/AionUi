@@ -68,5 +68,33 @@
   "error": {
     "groupChatLoadFailed": "그룹 채팅을 불러오지 못했습니다",
     "retry": "다시 시도"
+  },
+  "teammate": {
+    "save": "저장",
+    "saveAsAssistant": "어시스턴트로 저장",
+    "saved": "저장됨",
+    "saveTitle": "어시스턴트로 저장",
+    "cancel": "취소",
+    "nameLabel": "이름",
+    "namePlaceholder": "어시스턴트 이름",
+    "nameRequired": "이름은 필수입니다",
+    "avatarLabel": "아바타",
+    "avatarPlaceholder": "이모지를 입력하세요",
+    "promptLabel": "시스템 프롬프트",
+    "promptPlaceholder": "이 어시스턴트의 시스템 프롬프트 (선택사항)",
+    "saveConfirm": "저장",
+    "saveSuccess": "어시스턴트가 성공적으로 저장되었습니다",
+    "saveDuplicate": "같은 이름의 어시스턴트가 이미 존재합니다",
+    "saveError": "어시스턴트 저장에 실패했습니다"
+  },
+  "overview": {
+    "title": "작업 개요",
+    "collapse": "접기",
+    "expand": "펼치기",
+    "total": "{{count}}개 작업",
+    "running": "{{count}}개 실행 중",
+    "completed": "{{count}}개 완료",
+    "failed": "{{count}}개 실패",
+    "pending": "{{count}}개 대기 중"
   }
 }

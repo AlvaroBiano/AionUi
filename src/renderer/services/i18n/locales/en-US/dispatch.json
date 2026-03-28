@@ -68,5 +68,33 @@
   "error": {
     "groupChatLoadFailed": "Failed to load group chat",
     "retry": "Retry"
+  },
+  "teammate": {
+    "save": "Save",
+    "saveAsAssistant": "Save as Assistant",
+    "saved": "Saved",
+    "saveTitle": "Save as Assistant",
+    "cancel": "Cancel",
+    "nameLabel": "Name",
+    "namePlaceholder": "Assistant name",
+    "nameRequired": "Name is required",
+    "avatarLabel": "Avatar",
+    "avatarPlaceholder": "Enter an emoji",
+    "promptLabel": "System Prompt",
+    "promptPlaceholder": "System prompt for this assistant (optional)",
+    "saveConfirm": "Save",
+    "saveSuccess": "Assistant saved successfully",
+    "saveDuplicate": "An assistant with this name already exists",
+    "saveError": "Failed to save assistant"
+  },
+  "overview": {
+    "title": "Task Overview",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "total": "{{count}} tasks",
+    "running": "{{count}} running",
+    "completed": "{{count}} completed",
+    "failed": "{{count}} failed",
+    "pending": "{{count}} pending"
   }
 }

@@ -5,7 +5,7 @@
  */
 
 import { Button, Card, Modal, Spin, Tag } from '@arco-design/web-react';
-import { CheckOne, CloseOne, Forbid, Loading, People } from '@icon-park/react';
+import { CheckOne, CloseOne, Forbid, Loading, People, Save } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -64,7 +64,14 @@ const getTagColor = (status: string): string => {
   }
 };
 
-const ChildTaskCard: React.FC<ChildTaskCardProps> = ({ message, onCancel, onViewDetail, isSelected }) => {
+const ChildTaskCard: React.FC<ChildTaskCardProps> = ({
+  message,
+  onCancel,
+  onViewDetail,
+  isSelected,
+  onSave,
+  isSaved,
+}) => {
   const { t } = useTranslation();
   const [cancelling, setCancelling] = useState(false);
 
@@ -99,6 +106,15 @@ const ChildTaskCard: React.FC<ChildTaskCardProps> = ({ message, onCancel, onView
       onViewDetail(message.childTaskId);
     }
   }, [message.childTaskId, onViewDetail]);
+
+  // F-3.1: Determine if save button should show
+  const hasTeammateConfig = Boolean(message.avatar || (message.displayName && message.displayName !== 'Agent'));
+
+  const handleSave = useCallback(() => {
+    if (message.childTaskId && onSave) {
+      onSave(message.childTaskId);
+    }
+  }, [message.childTaskId, onSave]);
 
   // CF-2: Display progressSummary separately from content (title)
   const progressText = message.progressSummary || '';
@@ -154,7 +170,24 @@ const ChildTaskCard: React.FC<ChildTaskCardProps> = ({ message, onCancel, onView
       {/* CF-2: Show progressSummary separately when running */}
       {status === 'running' && progressText && <div className='mt-8px text-13px text-t-secondary'>{progressText}</div>}
 
-      <div className='mt-8px flex justify-end'>
+      <div className='mt-8px flex justify-end gap-4px'>
+        {!isSaved && hasTeammateConfig && onSave && (
+          <Button
+            type='text'
+            size='mini'
+            icon={<Save theme='outline' size='14' />}
+            onClick={handleSave}
+            aria-label={t('dispatch.teammate.save')}
+          >
+            {t('dispatch.teammate.save')}
+          </Button>
+        )}
+        {isSaved && (
+          <span className='flex items-center gap-4px text-t-secondary text-12px px-8px'>
+            <CheckOne theme='outline' size='14' />
+            {t('dispatch.teammate.saved')}
+          </span>
+        )}
         <Button type='text' size='mini' onClick={handleViewDetail} disabled={!onViewDetail}>
           {t('dispatch.timeline.viewDetails')}
         </Button>

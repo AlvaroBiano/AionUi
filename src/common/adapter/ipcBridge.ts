@@ -952,6 +952,26 @@ export const dispatch = {
     IBridgeResponse<{ cancelled: boolean }>,
     { conversationId: string; childSessionId: string }
   >('dispatch.cancel-child-task'),
+
+  /** F-3.1: Get full teammate config for save-as-assistant modal */
+  getTeammateConfig: bridge.buildProvider<
+    IBridgeResponse<{
+      name: string;
+      avatar?: string;
+      presetRules?: string;
+    }>,
+    { childSessionId: string }
+  >('dispatch.get-teammate-config'),
+
+  /** F-3.1: Save a temporary teammate as a persistent assistant */
+  saveTeammate: bridge.buildProvider<
+    IBridgeResponse<{ assistantId: string }>,
+    {
+      name: string;
+      avatar?: string;
+      presetRules?: string;
+    }
+  >('dispatch.save-teammate'),
 };
 
 // ==================== Extensions API ====================

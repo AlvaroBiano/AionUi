@@ -68,5 +68,33 @@
   "error": {
     "groupChatLoadFailed": "加载群聊失败",
     "retry": "重试"
+  },
+  "teammate": {
+    "save": "保存",
+    "saveAsAssistant": "保存为助手",
+    "saved": "已保存",
+    "saveTitle": "保存为助手",
+    "cancel": "取消",
+    "nameLabel": "名称",
+    "namePlaceholder": "助手名称",
+    "nameRequired": "名称为必填项",
+    "avatarLabel": "头像",
+    "avatarPlaceholder": "输入一个 emoji",
+    "promptLabel": "系统提示词",
+    "promptPlaceholder": "该助手的系统提示词（可选）",
+    "saveConfirm": "保存",
+    "saveSuccess": "助手保存成功",
+    "saveDuplicate": "已存在同名助手",
+    "saveError": "保存助手失败"
+  },
+  "overview": {
+    "title": "任务概览",
+    "collapse": "折叠",
+    "expand": "展开",
+    "total": "{{count}} 个任务",
+    "running": "{{count}} 个运行中",
+    "completed": "{{count}} 个已完成",
+    "failed": "{{count}} 个失败",
+    "pending": "{{count}} 个等待中"
   }
 }

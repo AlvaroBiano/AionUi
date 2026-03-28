@@ -29,6 +29,11 @@ vi.mock('@/common', () => ({
         },
       },
     },
+    acpConversation: {
+      getAvailableAgents: {
+        invoke: vi.fn().mockResolvedValue({ success: true, data: [] }),
+      },
+    },
   },
 }));
 

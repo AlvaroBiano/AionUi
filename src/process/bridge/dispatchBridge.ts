@@ -177,7 +177,7 @@ export function initDispatchBridge(
           return {
             sessionId: conv.id,
             title: childExtra.dispatchTitle || conv.name,
-            status: conv.status || 'pending',
+            status: conv.status || 'unknown',
             teammateName: childExtra.teammateConfig?.name,
             teammateAvatar: childExtra.teammateConfig?.avatar,
             createdAt: conv.createTime,
@@ -225,6 +225,69 @@ export function initDispatchBridge(
       return { success: true, data: { cancelled: true } };
     } catch (error) {
       mainWarn('[DispatchBridge:cancelChildTask]', 'ERROR: ' + String(error));
+      return { success: false, msg: String(error) };
+    }
+  });
+
+  // --- dispatch.get-teammate-config (F-3.1) ---
+  ipcBridge.dispatch.getTeammateConfig.provider(async (params) => {
+    mainLog('[DispatchBridge:getTeammateConfig]', 'received', params);
+    try {
+      const conversation = await conversationService.getConversation(params.childSessionId);
+      if (!conversation) {
+        return { success: false, msg: 'Child session not found' };
+      }
+      const extra = conversation.extra as {
+        teammateConfig?: { name: string; avatar?: string };
+        presetRules?: string;
+      };
+      return {
+        success: true,
+        data: {
+          name: extra.teammateConfig?.name || conversation.name,
+          avatar: extra.teammateConfig?.avatar,
+          presetRules: extra.presetRules,
+        },
+      };
+    } catch (error) {
+      mainWarn('[DispatchBridge:getTeammateConfig]', 'ERROR: ' + String(error));
+      return { success: false, msg: String(error) };
+    }
+  });
+
+  // --- dispatch.save-teammate (F-3.1) ---
+  ipcBridge.dispatch.saveTeammate.provider(async (params) => {
+    mainLog('[DispatchBridge:saveTeammate]', 'received', { name: params.name });
+    try {
+      const customAgents =
+        ((await ProcessConfig.get('acp.customAgents')) as Array<
+          Record<string, unknown> & { id: string; name: string; avatar?: string; context?: string; enabled?: boolean }
+        >) || [];
+
+      // Duplicate name check
+      if (customAgents.some((a) => a.name === params.name)) {
+        return { success: false, msg: 'Assistant with this name already exists' };
+      }
+
+      const newId = uuid();
+      const newAgent = {
+        id: newId,
+        name: params.name,
+        avatar: params.avatar,
+        context: params.presetRules,
+        enabled: true,
+        isPreset: true,
+        presetAgentType: 'gemini',
+        source: 'dispatch_teammate',
+      };
+
+      customAgents.push(newAgent as (typeof customAgents)[number]);
+      await ProcessConfig.set('acp.customAgents', customAgents);
+
+      mainLog('[DispatchBridge:saveTeammate]', 'success, assistantId=' + newId);
+      return { success: true, data: { assistantId: newId } };
+    } catch (error) {
+      mainWarn('[DispatchBridge:saveTeammate]', 'ERROR: ' + String(error));
       return { success: false, msg: String(error) };
     }
   });

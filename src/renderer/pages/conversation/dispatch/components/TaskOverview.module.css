@@ -1,0 +1,76 @@
+.container {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.contentArea {
+  max-height: 240px;
+  overflow: hidden;
+  transition: max-height 200ms ease;
+}
+
+.contentAreaCollapsed {
+  max-height: 0;
+}
+
+.childRow {
+  padding: 6px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.childRow:hover {
+  background-color: var(--color-fill-2);
+}
+
+.childRowSelected {
+  background-color: rgba(var(--primary-6), 0.08);
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusRunning {
+  background-color: rgb(var(--primary-6));
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.statusPending {
+  background-color: var(--color-text-4);
+}
+
+.statusCompleted {
+  background-color: rgb(var(--success-6));
+}
+
+.statusFailed {
+  background-color: rgb(var(--danger-6));
+}
+
+.statusCancelled {
+  background-color: var(--color-text-4);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.summaryBar {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--color-text-3);
+  border-top: 1px solid var(--color-border);
+}

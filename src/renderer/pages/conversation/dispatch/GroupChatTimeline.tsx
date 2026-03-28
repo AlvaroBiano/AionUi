@@ -31,6 +31,8 @@ const GroupChatTimeline: React.FC<GroupChatTimelineProps> = ({
   conversationId,
   onViewDetail,
   selectedChildTaskId,
+  onSaveTeammate,
+  savedTeammateNames,
 }) => {
   const { t } = useTranslation();
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -88,6 +90,8 @@ const GroupChatTimeline: React.FC<GroupChatTimelineProps> = ({
             conversationId={conversationId}
             onViewDetail={onViewDetail}
             isSelected={selectedChildTaskId === message.childTaskId}
+            onSave={onSaveTeammate}
+            isSaved={message.displayName ? savedTeammateNames?.has(message.displayName) : false}
           />
         </div>
       );

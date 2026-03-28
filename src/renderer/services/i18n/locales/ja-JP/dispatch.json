@@ -68,5 +68,33 @@
   "error": {
     "groupChatLoadFailed": "グループチャットの読み込みに失敗しました",
     "retry": "再試行"
+  },
+  "teammate": {
+    "save": "保存",
+    "saveAsAssistant": "アシスタントとして保存",
+    "saved": "保存済み",
+    "saveTitle": "アシスタントとして保存",
+    "cancel": "キャンセル",
+    "nameLabel": "名前",
+    "namePlaceholder": "アシスタント名",
+    "nameRequired": "名前は必須です",
+    "avatarLabel": "アバター",
+    "avatarPlaceholder": "絵文字を入力",
+    "promptLabel": "システムプロンプト",
+    "promptPlaceholder": "このアシスタントのシステムプロンプト（任意）",
+    "saveConfirm": "保存",
+    "saveSuccess": "アシスタントを保存しました",
+    "saveDuplicate": "同じ名前のアシスタントが既に存在します",
+    "saveError": "アシスタントの保存に失敗しました"
+  },
+  "overview": {
+    "title": "タスク概要",
+    "collapse": "折りたたむ",
+    "expand": "展開する",
+    "total": "{{count}} タスク",
+    "running": "{{count}} 実行中",
+    "completed": "{{count}} 完了",
+    "failed": "{{count}} 失敗",
+    "pending": "{{count}} 保留中"
   }
 }

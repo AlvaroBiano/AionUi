@@ -68,5 +68,33 @@
   "error": {
     "groupChatLoadFailed": "Grup sohbeti yüklenemedi",
     "retry": "Tekrar Dene"
+  },
+  "teammate": {
+    "save": "Kaydet",
+    "saveAsAssistant": "Asistan Olarak Kaydet",
+    "saved": "Kaydedildi",
+    "saveTitle": "Asistan Olarak Kaydet",
+    "cancel": "İptal",
+    "nameLabel": "Ad",
+    "namePlaceholder": "Asistan adı",
+    "nameRequired": "Ad gereklidir",
+    "avatarLabel": "Avatar",
+    "avatarPlaceholder": "Bir emoji girin",
+    "promptLabel": "Sistem Komutu",
+    "promptPlaceholder": "Bu asistan için sistem komutu (isteğe bağlı)",
+    "saveConfirm": "Kaydet",
+    "saveSuccess": "Asistan başarıyla kaydedildi",
+    "saveDuplicate": "Bu isimde bir asistan zaten mevcut",
+    "saveError": "Asistan kaydedilemedi"
+  },
+  "overview": {
+    "title": "Görev Genel Bakışı",
+    "collapse": "Daralt",
+    "expand": "Genişlet",
+    "total": "{{count}} görev",
+    "running": "{{count}} çalışıyor",
+    "completed": "{{count}} tamamlandı",
+    "failed": "{{count}} başarısız",
+    "pending": "{{count}} bekliyor"
   }
 }

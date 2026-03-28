@@ -35,6 +35,16 @@ vi.mock('@/common', () => ({
           providerHandlers['cancelChildTask'] = handler;
         },
       },
+      getTeammateConfig: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['getTeammateConfig'] = handler;
+        },
+      },
+      saveTeammate: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['saveTeammate'] = handler;
+        },
+      },
     },
     conversation: {
       listChanged: { emit: vi.fn() },

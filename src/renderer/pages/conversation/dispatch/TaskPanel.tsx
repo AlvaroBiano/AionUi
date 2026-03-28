@@ -5,10 +5,12 @@
  */
 
 import { Button, Modal, Spin, Tag } from '@arco-design/web-react';
-import { Close, CloseOne, People, Refresh } from '@icon-park/react';
-import React, { useCallback, useEffect, useRef } from 'react';
+import { CheckOne, Close, CloseOne, People, Refresh } from '@icon-park/react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import SaveTeammateModal from './components/SaveTeammateModal';
+import { useIsSavedTeammate } from './hooks/useIsSavedTeammate';
 import { useTaskPanelTranscript } from './hooks/useTaskPanelTranscript';
 import type { TaskPanelProps } from './types';
 import styles from './TaskPanel.module.css';
@@ -37,12 +39,16 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
   conversationId: _conversationId,
   onClose,
   onCancel,
+  onTeammateSaved,
 }) => {
   const { t } = useTranslation();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   const isRunning = childInfo.status === 'running' || childInfo.status === 'pending';
   const { transcript, isLoading, error, refresh } = useTaskPanelTranscript(childTaskId, isRunning);
+  const { isSaved, recheck: recheckSaved } = useIsSavedTeammate(childInfo.teammateName);
+  const hasTeammateConfig = Boolean(childInfo.teammateName);
 
   // Auto-scroll to bottom when transcript changes
   useEffect(() => {
@@ -96,6 +102,22 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
           <Tag color={getTagColor(childInfo.status)} className='flex-shrink-0 ml-4px'>
             {t(`dispatch.taskPanel.status.${childInfo.status}`)}
           </Tag>
+          {!isSaved && hasTeammateConfig && (
+            <Button
+              type='text'
+              size='mini'
+              onClick={() => setShowSaveModal(true)}
+              aria-label={t('dispatch.teammate.saveAsAssistant')}
+            >
+              {t('dispatch.teammate.saveAsAssistant')}
+            </Button>
+          )}
+          {isSaved && (
+            <span className='flex items-center gap-4px text-t-secondary text-12px ml-4px'>
+              <CheckOne theme='outline' size='14' />
+              {t('dispatch.teammate.saved')}
+            </span>
+          )}
         </div>
         <Button type='text' size='mini' icon={<Close theme='outline' size='16' />} onClick={onClose} />
       </div>
@@ -117,7 +139,7 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
             <Spin />
           </div>
         )}
-        {error && <div className='text-13px text-danger-6 text-center py-16px'>{error}</div>}
+        {error && <div className='text-13px text-danger text-center py-16px'>{error}</div>}
         {!isLoading && !error && transcript.length === 0 && (
           <div className='text-13px text-t-secondary text-center py-16px'>{t('dispatch.taskPanel.noTranscript')}</div>
         )}
@@ -154,6 +176,21 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
           </Button>
         )}
       </div>
+
+      {/* F-3.1: Save Teammate Modal */}
+      <SaveTeammateModal
+        visible={showSaveModal}
+        childSessionId={childTaskId}
+        initialName={childInfo.teammateName}
+        initialAvatar={childInfo.teammateAvatar}
+        onClose={() => setShowSaveModal(false)}
+        onSaved={() => {
+          recheckSaved();
+          if (childInfo.teammateName && onTeammateSaved) {
+            onTeammateSaved(childInfo.teammateName);
+          }
+        }}
+      />
     </div>
   );
 };

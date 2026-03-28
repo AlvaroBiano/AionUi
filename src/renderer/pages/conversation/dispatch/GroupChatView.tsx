@@ -14,6 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { emitter } from '@/renderer/utils/emitter';
 
 import ChatLayout from '../components/ChatLayout';
+import SaveTeammateModal from './components/SaveTeammateModal';
+import TaskOverview from './components/TaskOverview';
 import GroupChatTimeline from './GroupChatTimeline';
 import TaskPanel from './TaskPanel';
 import { useGroupChatInfo } from './hooks/useGroupChatInfo';
@@ -23,11 +25,24 @@ import type { GroupChatViewProps } from './types';
 const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
   const { t } = useTranslation();
   const { messages, isLoading: messagesLoading } = useGroupChatMessages(conversation.id);
-  const { info, error: infoError, retry: retryInfo, refresh: refreshInfo } = useGroupChatInfo(conversation.id);
+  const {
+    info,
+    error: infoError,
+    retry: retryInfo,
+    refresh: refreshInfo,
+  } = useGroupChatInfo(conversation.id, {
+    autoRefreshInterval: 10_000,
+  });
   const [sendBoxContent, setSendBoxContent] = useState('');
   const [sending, setSending] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [selectedChildTaskId, setSelectedChildTaskId] = useState<string | null>(null);
+  const [overviewCollapsed, setOverviewCollapsed] = useState(false);
+  const [saveModalTarget, setSaveModalTarget] = useState<{
+    childSessionId: string;
+    name?: string;
+    avatar?: string;
+  } | null>(null);
 
   const extra = conversation.extra as {
     groupChatName?: string;
@@ -75,6 +90,46 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
     if (!selectedChildTaskId || !info?.children) return undefined;
     return info.children.find((c) => c.sessionId === selectedChildTaskId);
   }, [selectedChildTaskId, info?.children]);
+
+  // F-3.1: Track saved teammate names for ChildTaskCard display
+  const [savedTeammateNames, setSavedTeammateNames] = useState<Set<string>>(new Set());
+
+  // Build a lookup of childTaskId -> child info for save modal
+  const childInfoMap = useMemo(() => {
+    const map = new Map<string, { sessionId: string; teammateName?: string; teammateAvatar?: string }>();
+    if (info?.children) {
+      for (const child of info.children) {
+        map.set(child.sessionId, child);
+      }
+    }
+    return map;
+  }, [info?.children]);
+
+  // F-3.1: Handle save teammate from ChildTaskCard
+  const handleSaveTeammate = useCallback(
+    (childTaskId: string) => {
+      const childData = childInfoMap.get(childTaskId);
+      if (childData) {
+        setSaveModalTarget({
+          childSessionId: childData.sessionId,
+          name: childData.teammateName,
+          avatar: childData.teammateAvatar,
+        });
+      }
+    },
+    [childInfoMap]
+  );
+
+  const handleTeammateSaved = useCallback(
+    (_assistantId: string) => {
+      // Mark the teammate name as saved
+      if (saveModalTarget?.name) {
+        setSavedTeammateNames((prev) => new Set(prev).add(saveModalTarget.name!));
+      }
+      setSaveModalTarget(null);
+    },
+    [saveModalTarget]
+  );
 
   const handleSend = useCallback(
     async (message: string) => {
@@ -137,6 +192,19 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
       <div className='flex-1 flex flex-row min-h-0'>
         {/* Left: Timeline + SendBox */}
         <div className='flex-1 flex flex-col min-h-0 min-w-0'>
+          {/* F-3.2: Task Overview */}
+          {info?.children && info.children.length > 0 && (
+            <TaskOverview
+              dispatcherName={dispatcherName}
+              dispatcherAvatar={dispatcherAvatar}
+              children={info.children}
+              selectedChildTaskId={selectedChildTaskId}
+              onSelectChild={handleViewDetail}
+              collapsed={overviewCollapsed}
+              onToggleCollapse={() => setOverviewCollapsed((prev) => !prev)}
+            />
+          )}
+
           {showBanner && (
             <div
               className='mx-16px mt-8px px-16px py-12px rd-8px flex items-center justify-between'
@@ -167,6 +235,8 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
             conversationId={conversation.id}
             onViewDetail={handleViewDetail}
             selectedChildTaskId={selectedChildTaskId}
+            onSaveTeammate={handleSaveTeammate}
+            savedTeammateNames={savedTeammateNames}
           />
 
           <div className='max-w-800px w-full mx-auto mb-16px px-20px'>
@@ -191,9 +261,24 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
             conversationId={conversation.id}
             onClose={() => setSelectedChildTaskId(null)}
             onCancel={handleCancelChild}
+            onTeammateSaved={(name) => {
+              setSavedTeammateNames((prev) => new Set(prev).add(name));
+            }}
           />
         )}
       </div>
+
+      {/* F-3.1: Save Teammate Modal */}
+      {saveModalTarget && (
+        <SaveTeammateModal
+          visible={Boolean(saveModalTarget)}
+          childSessionId={saveModalTarget.childSessionId}
+          initialName={saveModalTarget.name}
+          initialAvatar={saveModalTarget.avatar}
+          onClose={() => setSaveModalTarget(null)}
+          onSaved={handleTeammateSaved}
+        />
+      )}
     </ChatLayout>
   );
 };
