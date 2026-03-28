@@ -185,6 +185,9 @@ export class DispatchMcpServer {
 
   /**
    * Get the tool schemas for MCP registration.
+   *
+   * IMPORTANT: Keep in sync with TOOL_SCHEMAS in dispatchMcpServerScript.ts.
+   * When adding or modifying dispatch tools, update BOTH locations.
    */
   static getToolSchemas(): Array<{
     name: string;
@@ -293,8 +296,8 @@ export class DispatchMcpServer {
       {
         name: 'send_message',
         description:
-          'Send a follow-up message to a running child task. ' +
-          'Use this when you need to refine, redirect, or add context to a task that is already running. ' +
+          'Send a follow-up message to a child task. ' +
+          'Works on running and idle tasks. Idle tasks will be automatically resumed. ' +
           'For new work, use start_task instead. ' +
           'Returns confirmation; use read_transcript to see the response.',
         inputSchema: {

@@ -23,16 +23,27 @@ export class DispatchResourceGuard {
 
   /**
    * Check concurrency limit before creating a new child task.
+   * F-5.2: Before rejecting, attempt lazy cleanup of stale idle children.
    * @returns undefined if allowed; error message string if limit exceeded
    */
-  checkConcurrencyLimit(parentId: string): string | undefined {
-    const activeCount = this.tracker.countActiveChildren(parentId);
+  checkConcurrencyLimit(parentId: string, transcriptReadSet?: Set<string>): string | undefined {
+    let activeCount = this.tracker.countActiveChildren(parentId);
 
     if (activeCount >= MAX_CONCURRENT_CHILDREN) {
-      return (
-        `Maximum concurrent tasks reached (${activeCount}/${MAX_CONCURRENT_CHILDREN}). ` +
-        `Wait for existing tasks to complete or read their transcripts.`
-      );
+      // F-5.2: Try to free slots by cleaning up stale idle children
+      if (transcriptReadSet) {
+        const freed = this.cleanupStaleChildren(parentId, transcriptReadSet);
+        if (freed > 0) {
+          activeCount = this.tracker.countActiveChildren(parentId);
+        }
+      }
+
+      if (activeCount >= MAX_CONCURRENT_CHILDREN) {
+        return (
+          `Maximum concurrent tasks reached (${activeCount}/${MAX_CONCURRENT_CHILDREN}). ` +
+          `Wait for existing tasks to complete or read their transcripts.`
+        );
+      }
     }
     return undefined;
   }
@@ -49,6 +60,38 @@ export class DispatchResourceGuard {
       this.taskManager.kill(childId);
       this.tracker.removeChild(childId);
     }
+  }
+
+  /**
+   * F-5.2: Clean up the oldest idle children whose transcripts have been read.
+   * Called when concurrency limit is hit to free slots for new tasks.
+   * @returns number of children released
+   */
+  cleanupStaleChildren(parentId: string, transcriptReadSet: Set<string>): number {
+    const children = this.tracker.getChildren(parentId);
+    // Find idle children whose transcripts have been read, sorted oldest first
+    const stale = children
+      .filter(
+        (c) =>
+          (c.status === 'idle' || c.status === 'finished') &&
+          transcriptReadSet.has(c.sessionId),
+      )
+      .toSorted((a, b) => a.lastActivityAt - b.lastActivityAt);
+
+    let freed = 0;
+    for (const child of stale) {
+      mainLog('[DispatchResourceGuard]', `Lazy cleanup: releasing stale child ${child.sessionId}`);
+      this.taskManager.kill(child.sessionId);
+      this.tracker.removeChild(child.sessionId);
+      transcriptReadSet.delete(child.sessionId);
+      freed++;
+      // Only free enough to get below the limit
+      if (this.tracker.countActiveChildren(parentId) < MAX_CONCURRENT_CHILDREN) {
+        break;
+      }
+    }
+
+    return freed;
   }
 
   /**

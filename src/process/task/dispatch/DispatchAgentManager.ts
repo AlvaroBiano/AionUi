@@ -80,6 +80,15 @@ export class DispatchAgentManager extends BaseAgentManager<
   /** Tool call phase state machine for message filtering */
   private isToolCallPhase = false;
 
+  /** F-5.2: Track children whose transcripts have been read (for lazy cleanup) */
+  private readonly transcriptReadChildren = new Set<string>();
+
+  /** F-5.2: Guard against concurrent resume of the same child */
+  private readonly resumingChildren = new Map<string, Promise<void>>();
+
+  /** Track children with active polling to prevent duplicate pollers */
+  private readonly activePollers = new Set<string>();
+
   /** Reference to the shared WorkerTaskManager (set after construction) */
   private taskManager: IWorkerTaskManager | undefined;
   private conversationRepo: IConversationRepository | undefined;
@@ -182,6 +191,12 @@ export class DispatchAgentManager extends BaseAgentManager<
     if (this.notifier) {
       await this.notifier.restoreFromDb(this.conversation_id);
     }
+
+    // F-5.3: Inject resume context if children exist from a previous session
+    const restoredChildren = this.tracker.getChildren(this.conversation_id);
+    if (restoredChildren.length > 0 && this.notifier) {
+      this.notifier.injectResumeContext(this.conversation_id, restoredChildren);
+    }
   }
 
   /**
@@ -217,6 +232,8 @@ export class DispatchAgentManager extends BaseAgentManager<
           input: `[System Notification]\n${pending}`,
           msg_id: uuid(),
         });
+        // Only clear after successful delivery
+        this.notifier.confirmFlush(this.conversation_id);
       }
     }
 
@@ -304,8 +321,8 @@ export class DispatchAgentManager extends BaseAgentManager<
       throw new Error('Dependencies not set. Call setDependencies() first.');
     }
 
-    // Check concurrency limit
-    const limitError = this.resourceGuard.checkConcurrencyLimit(this.conversation_id);
+    // Check concurrency limit (F-5.2: pass transcriptReadChildren for lazy cleanup)
+    const limitError = this.resourceGuard.checkConcurrencyLimit(this.conversation_id, this.transcriptReadChildren);
     if (limitError) {
       throw new Error(limitError);
     }
@@ -417,24 +434,52 @@ export class DispatchAgentManager extends BaseAgentManager<
 
   /**
    * Listen for a child agent's completion event.
+   * F-5.6: Adaptive polling — 500ms for first 30s, 2s for 30s-5min, 5s beyond 5min.
+   * Uses setTimeout chain instead of setInterval for adaptive timing.
+   * Maximum lifetime: 30 minutes.
    */
   private listenForChildCompletion(childId: string, _childTask: IAgentManager): void {
-    const checkInterval = setInterval(() => {
+    // Prevent duplicate pollers for the same child
+    if (this.activePollers.has(childId)) return;
+    this.activePollers.add(childId);
+
+    const startTime = Date.now();
+    const maxLifetimeMs = 30 * 60 * 1000; // 30 minutes
+
+    const getPollingInterval = (elapsedMs: number): number => {
+      if (elapsedMs < 30_000) return 500;
+      if (elapsedMs < 5 * 60_000) return 2000;
+      return 5000;
+    };
+
+    const stopPolling = (): void => {
+      this.activePollers.delete(childId);
+    };
+
+    const poll = (): void => {
+      const elapsedMs = Date.now() - startTime;
+
+      // Safety: stop after max lifetime, mark child as timed out
+      if (elapsedMs >= maxLifetimeMs) {
+        mainWarn('[DispatchAgentManager]', `Polling max lifetime reached for child: ${childId}, marking idle`);
+        this.tracker.updateChildStatus(childId, 'idle');
+        stopPolling();
+        return;
+      }
+
       // F-2.5: If child was cancelled, stop polling
       const childInfo = this.tracker.getChildInfo(childId);
       if (childInfo?.status === 'cancelled') {
-        clearInterval(checkInterval);
+        stopPolling();
         return;
       }
 
       const task = this.taskManager?.getTask(childId);
       if (!task) {
-        // Task was killed or removed
-        clearInterval(checkInterval);
+        stopPolling();
         return;
       }
       if (task.status === 'finished' || task.status === 'idle') {
-        clearInterval(checkInterval);
         this.tracker.updateChildStatus(childId, 'idle');
         void this.notifier.handleChildCompletion(childId, 'completed');
         this.emitGroupChatEvent({
@@ -446,8 +491,9 @@ export class DispatchAgentManager extends BaseAgentManager<
           timestamp: Date.now(),
           childTaskId: childId,
         });
+        stopPolling();
+        return;
       } else if (task.status === 'failed') {
-        clearInterval(checkInterval);
         this.tracker.updateChildStatus(childId, 'failed');
         void this.notifier.handleChildCompletion(childId, 'failed');
         this.emitGroupChatEvent({
@@ -459,8 +505,16 @@ export class DispatchAgentManager extends BaseAgentManager<
           timestamp: Date.now(),
           childTaskId: childId,
         });
+        stopPolling();
+        return;
       }
-    }, 2000); // Poll every 2 seconds
+
+      // Schedule next poll with adaptive interval
+      setTimeout(poll, getPollingInterval(elapsedMs));
+    };
+
+    // Start first poll
+    setTimeout(poll, getPollingInterval(0));
   }
 
   /**
@@ -523,9 +577,10 @@ export class DispatchAgentManager extends BaseAgentManager<
     const currentInfo = this.tracker.getChildInfo(options.sessionId);
     const isRunning = currentInfo?.status === 'running' || currentInfo?.status === 'pending';
 
-    // Mark transcript as read for resource release
+    // F-5.2: Track that this child's transcript has been read (for lazy cleanup).
+    // No longer auto-release the child worker — idle children remain resumable.
     if (!isRunning) {
-      this.resourceGuard.releaseChild(options.sessionId);
+      this.transcriptReadChildren.add(options.sessionId);
     }
 
     return {
@@ -621,27 +676,63 @@ export class DispatchAgentManager extends BaseAgentManager<
       throw new Error(`Session "${childInfo.title}" has been ${childInfo.status}. Start a new task instead.`);
     }
 
-    // Idle/finished children: worker has exited, reject in Phase 2a
-    if (childInfo.status === 'idle' || childInfo.status === 'finished') {
-      throw new Error(
-        `Session "${childInfo.title}" has completed (status: ${childInfo.status}). ` + `Start a new task instead.`
-      );
+    // F-5.2: Idle/finished children can be resumed by re-creating worker
+    let task = this.taskManager.getTask(params.sessionId);
+
+    if (!task || childInfo.status === 'idle' || childInfo.status === 'finished') {
+      // Wait if this child is already being resumed by another concurrent call
+      const inFlight = this.resumingChildren.get(params.sessionId);
+      if (inFlight) {
+        await inFlight;
+        task = this.taskManager.getTask(params.sessionId);
+      } else {
+        // Re-create worker for the idle child
+        const resumePromise = this.resumeChild(params.sessionId);
+        this.resumingChildren.set(params.sessionId, resumePromise);
+        try {
+          await resumePromise;
+        } finally {
+          this.resumingChildren.delete(params.sessionId);
+        }
+        task = this.taskManager.getTask(params.sessionId);
+      }
     }
 
-    const task = this.taskManager.getTask(params.sessionId);
     if (!task) {
       throw new Error(`Child task process not found for "${params.sessionId}"`);
     }
 
     mainLog('[DispatchAgentManager]', `Sending message to child: ${params.sessionId} (status: ${childInfo.status})`);
+    this.tracker.updateChildStatus(params.sessionId, 'running');
+
     await task.sendMessage({
       input: params.message,
       msg_id: uuid(),
     });
 
-    this.tracker.updateChildStatus(params.sessionId, 'running');
-
     return `Message sent to "${childInfo.title}". Use read_transcript to see the response.`;
+  }
+
+  /**
+   * F-5.2: Re-create a worker for an idle/finished child session.
+   * Reads config from conversation DB and rebuilds the agent.
+   */
+  private async resumeChild(childId: string): Promise<void> {
+    if (!this.taskManager) throw new Error('Dependencies not set');
+
+    mainLog('[DispatchAgentManager]', `Resuming idle child: ${childId}`);
+
+    const childTask = await this.taskManager.getOrBuildTask(childId, {
+      yoloMode: true,
+      dispatchSessionType: 'dispatch_child',
+      parentSessionId: this.conversation_id,
+    });
+
+    // Re-attach completion listener
+    this.listenForChildCompletion(childId, childTask);
+
+    // Clear from transcript-read set since child is being resumed
+    this.transcriptReadChildren.delete(childId);
   }
 
   /**

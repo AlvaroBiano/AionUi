@@ -11,6 +11,9 @@
 // Communicates with the main process via IPC (process.send/on).
 //
 // JSON-RPC 2.0 over stdio (MCP protocol).
+//
+// IMPORTANT: TOOL_SCHEMAS must stay in sync with DispatchMcpServer.getToolSchemas().
+// When adding or modifying dispatch tools, update BOTH locations.
 
 const TOOL_SCHEMAS = [
   {
@@ -55,6 +58,36 @@ const TOOL_SCHEMAS = [
         format: { type: 'string', enum: ['auto', 'full'] },
       },
       required: ['session_id'],
+    },
+  },
+  {
+    name: 'list_sessions',
+    description:
+      'List all child sessions spawned by this dispatcher. ' +
+      'Shows session ID, title, status (running/idle/cancelled/failed), and last activity time. ' +
+      'Sorted by most recent activity first. Use session IDs with read_transcript or send_message.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        limit: { type: 'number', description: 'Max sessions to return (default 20, most recent first)' },
+      },
+      required: [] as string[],
+    },
+  },
+  {
+    name: 'send_message',
+    description:
+      'Send a follow-up message to a child task. ' +
+      'Works on running and idle tasks. Idle tasks will be automatically resumed. ' +
+      'For new work, use start_task instead. ' +
+      'Returns confirmation; use read_transcript to see the response.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        session_id: { type: 'string', description: 'session_id from start_task or list_sessions' },
+        message: { type: 'string', description: 'The follow-up user message to send' },
+      },
+      required: ['session_id', 'message'],
     },
   },
 ];

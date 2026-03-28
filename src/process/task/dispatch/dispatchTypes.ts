@@ -96,6 +96,15 @@ export type ListSessionsParams = {
   limit?: number;
 };
 
+/** Structured pending notification for deduplication and correlation */
+export type PendingNotification = {
+  childSessionId: string;
+  childTitle: string;
+  result: 'completed' | 'failed' | 'cancelled' | 'context_resume';
+  message: string;
+  timestamp: number;
+};
+
 /** Child task completion notification */
 export type ChildCompletionNotification = {
   childSessionId: string;
