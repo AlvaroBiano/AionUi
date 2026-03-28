@@ -197,7 +197,7 @@ async function handleSlashCommand(
       }
       agentKeyRef.current = resolvedKey;
       const emitter = makeStdoutEmitter();
-      const factory = createCliAgentFactory(config);
+      const factory = createCliAgentFactory(config, undefined, resolvedKey);
       managerRef.current = factory(`solo-${Date.now()}`, '', emitter);
       process.stdout.write(
         fmt.green(`Switched to ${fmt.bold(resolvedKey)}\n`) +
@@ -263,12 +263,13 @@ export async function runSolo(options: SoloOptions = {}): Promise<void> {
   process.stdout.write(fmt.dim(hr()) + '\n\n');
 
   const emitter = makeStdoutEmitter();
-  const factory = createCliAgentFactory(config);
+  const factory = createCliAgentFactory(config, undefined, selectedKey);
   const managerRef: { current: IAgentManager } = {
     current: factory(`solo-${Date.now()}`, '', emitter),
   };
 
-  await startRepl(`${selectedKey} >`, async (input) => {
+  // Dynamic prompt: always shows the currently active agent name
+  await startRepl(() => `${agentKeyRef.current} >`, async (input) => {
     if (input.startsWith('/')) {
       const result = await handleSlashCommand(input, config, agentKeyRef, managerRef);
       if (result.exit) process.exit(0);

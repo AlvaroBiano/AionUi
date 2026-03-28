@@ -22,9 +22,11 @@ import { CliAgentManager } from './CliAgentManager';
 export function createCliAgentFactory(
   config: AionCliConfig,
   agentPerTask?: Record<string, string>,
+  /** Override the default agent key — used by solo mode when user selects a specific agent */
+  defaultAgentOverride?: string,
 ): AgentManagerFactory {
   return (conversationId, _presetContext, emitter) => {
-    const agentKey = resolveAgentKey(conversationId, config, agentPerTask);
+    const agentKey = resolveAgentKey(conversationId, config, agentPerTask, defaultAgentOverride);
     const agentConfig = resolveAgentConfig(config, agentKey);
     return buildManager(conversationId, agentConfig, emitter);
   };
@@ -59,13 +61,14 @@ function resolveAgentKey(
   conversationId: string,
   config: AionCliConfig,
   agentPerTask?: Record<string, string>,
+  defaultAgentOverride?: string,
 ): string {
   if (agentPerTask) {
     const parts = conversationId.split('_');
     const subTaskId = parts[parts.length - 1];
     if (subTaskId && agentPerTask[subTaskId]) return agentPerTask[subTaskId];
   }
-  return config.defaultAgent;
+  return defaultAgentOverride ?? config.defaultAgent;
 }
 
 function resolveAgentConfig(config: AionCliConfig, key: string): AgentConfig {

@@ -124,20 +124,35 @@ function autoDistributeAgents(config: AionCliConfig, count: number): string[] {
 
 export async function runTeam(options: TeamOptions = {}): Promise<void> {
   const config = loadConfig();
-  const concurrency = options.concurrency ?? config.team?.concurrency ?? 3;
+
+  // Guard: NaN concurrency from bad --concurrency flag
+  const rawConcurrency = options.concurrency;
+  const concurrency =
+    rawConcurrency != null && (!Number.isFinite(rawConcurrency) || rawConcurrency < 1)
+      ? (process.stderr.write(
+          `${'\x1b[33m'}⚠ Invalid concurrency "${rawConcurrency}", using 3\x1b[0m\n`,
+        ),
+        3)
+      : (rawConcurrency ?? config.team?.concurrency ?? 3);
+
   const timeoutMs = config.team?.timeoutMs ?? 5 * 60 * 1000;
 
-  const goal = options.goal ?? (await promptGoal());
+  // Guard: blank goal
+  const goalRaw = options.goal?.trim();
+  const goal = goalRaw || (await promptGoal());
 
   // Resolve per-task agent keys
   let agentKeys: string[];
   if (options.agents) {
-    agentKeys = options.agents.split(',').map((s) => s.trim());
+    agentKeys = options.agents.split(',').map((s) => s.trim()).filter(Boolean);
   } else {
     agentKeys = autoDistributeAgents(config, concurrency);
   }
 
-  const roles = inferRoles(goal, Math.max(concurrency, agentKeys.length || concurrency));
+  // Use agentKeys length OR concurrency — whichever is larger, but cap roles at agentKeys.length
+  // when --with is explicitly provided (don't invent extra roles)
+  const roleCount = options.agents ? Math.max(agentKeys.length, concurrency) : concurrency;
+  const roles = inferRoles(goal, roleCount);
   const subTasks: SubTask[] = roles.map((role) => ({
     id: randomUUID().slice(0, 8),
     label: role.label,

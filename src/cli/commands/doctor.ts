@@ -74,12 +74,13 @@ export async function runDoctor(): Promise<void> {
       const isDefault = name === config.defaultAgent ? fmt.green(' [default]') : '';
 
       if (agent.provider === 'claude-cli' || agent.provider === 'codex-cli') {
-        const check = checkBin(agent.bin!);
+        const bin = agent.bin ?? agent.provider.replace('-cli', '');
+        const check = checkBin(bin);
         const status = check.ok
           ? fmt.green(`✓ ${check.version}`)
-          : fmt.red('✗ not found at ' + agent.bin);
+          : fmt.red('✗ not found at ' + bin);
         process.stdout.write(
-          `  ${fmt.green('●')} ${fmt.cyan(name)}${isDefault}  ${fmt.dim(agent.bin!)}  ${status}\n`,
+          `  ${fmt.green('●')} ${fmt.cyan(name)}${isDefault}  ${fmt.dim(bin)}  ${status}\n`,
         );
       } else {
         const hasKey = !!agent.apiKey;

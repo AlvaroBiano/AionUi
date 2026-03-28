@@ -109,7 +109,7 @@ async function main(): Promise<void> {
     }
 
     case 'run': {
-      const task = positionals.slice(1).join(' ') || values.goal;
+      const task = positionals.slice(1).join(' ').trim() || values.goal?.trim();
       if (!task) {
         process.stderr.write(fmt.red('Usage: aion run <task>\n'));
         process.exit(1);
@@ -131,14 +131,21 @@ async function main(): Promise<void> {
       break;
     }
 
-    case undefined:
-    default: {
+    case undefined: {
       const { runSolo } = await import('./commands/solo');
       await runSolo({
         agent: values.agent,
         workspace: values.workspace,
       });
       break;
+    }
+
+    default: {
+      process.stderr.write(
+        fmt.red(`Unknown command: "${command}"\n`) +
+          fmt.dim(`Run ${fmt.cyan('aion --help')} to see available commands.\n`),
+      );
+      process.exit(1);
     }
   }
 }
