@@ -203,9 +203,8 @@ export async function runTeam(options: TeamOptions = {}): Promise<void> {
 
     process.stdout.write(
       `${fmt.green(fmt.bold('✓ Team complete'))}  ${fmt.dim(`(${results.length} agents · ${roles.map((r) => r.label).join(', ')})`
-      )}\n`,
+      )}\n\n`,
     );
-    process.stdout.write(fmt.dim(hr()) + '\n\n');
 
     for (const result of results) {
       const task = subTasks.find((t) => t.id === result.subTaskId);

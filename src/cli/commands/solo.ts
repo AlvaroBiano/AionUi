@@ -32,10 +32,12 @@ const VERSION: string =
 declare const __AION_VERSION__: string | undefined;
 
 const LOGO_LINES = [
-  '    _   ___ ___  _  _ ',
-  '   /_\\  |_ _/ _ \\| \\| |',
-  '  / _ \\  | | (_) | .` |',
-  ' /_/ \\_\\|___\\___/|_|\\_|',
+  ' ██╗  ██╗ ██████╗  ██████╗ ███╗   ██╗',
+  ' ██║  ██║██╔═══██╗██╔═══██╗████╗  ██║',
+  ' ███████║██║   ██║██║   ██║██╔██╗ ██║',
+  ' ██╔══██║██║   ██║██║   ██║██║╚██╗██║',
+  ' ██║  ██║╚██████╔╝╚██████╔╝██║ ╚████║',
+  ' ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝',
 ];
 
 // ── Emitter ───────────────────────────────────────────────────────────────────
@@ -82,62 +84,53 @@ function makeStdoutEmitter(
 
 function printOnboarding(): void {
   process.stdout.write('\n');
-  for (const line of LOGO_LINES) process.stdout.write(fmt.cyan(line) + '\n');
-  process.stdout.write(fmt.dim('  Multi-Model Agent Platform\n\n'));
+  for (const line of LOGO_LINES) process.stdout.write(fmt.bold(fmt.cyan(line)) + '\n');
+  process.stdout.write('\n');
+  process.stdout.write(`   ${fmt.dim('Multi-Model Agent Platform')}   ${fmt.cyan('v' + VERSION)}\n\n`);
   process.stdout.write(fmt.bold('No agents detected.\n\n'));
   process.stdout.write(
-    `  ${fmt.cyan('brew install anthropics/tap/claude-code')}   ${fmt.dim('# Claude Code CLI')}\n` +
-      `  ${fmt.cyan('npm install -g @openai/codex')}              ${fmt.dim('# Codex CLI')}\n\n` +
-      `  ${fmt.cyan('export ANTHROPIC_API_KEY=sk-ant-...')}       ${fmt.dim('# Anthropic API')}\n` +
-      `  ${fmt.cyan('export GEMINI_API_KEY=...')}                 ${fmt.dim('# Gemini API')}\n\n` +
+    `   ${fmt.cyan('brew install anthropic/tap/claude-code')}   ${fmt.dim('# Claude Code CLI')}\n` +
+      `   ${fmt.cyan('npm install -g @openai/codex')}              ${fmt.dim('# Codex CLI')}\n\n` +
+      `   ${fmt.cyan('export ANTHROPIC_API_KEY=sk-ant-...')}       ${fmt.dim('# Anthropic API')}\n` +
+      `   ${fmt.cyan('export GEMINI_API_KEY=...')}                 ${fmt.dim('# Gemini API')}\n\n` +
       `Run ${fmt.cyan('aion doctor')} to verify.\n\n`,
   );
 }
 
 /**
- * Boxed header with version and agent list.
+ * Logo + agent status header.
  * Active agent shown bold+cyan with a filled dot, others dim.
  */
 function printHeader(config: AionCliConfig, activeKey: string): void {
-  const ESC = '\x1b';
-  const RESET = `${ESC}[0m`;
-  const BOLD = `${ESC}[1m`;
-  const DIM = `${ESC}[2m`;
-  const CYAN = `${ESC}[36m`;
-
-  const title = `  AION  v${VERSION}  Multi-Model Platform  `;
-  const titleWidth = title.length;
-  const top = `  ${DIM}╭${'─'.repeat(titleWidth)}╮${RESET}`;
-  const mid = `  ${DIM}│${RESET}${BOLD}${CYAN}${title}${RESET}${DIM}│${RESET}`;
-  const bot = `  ${DIM}╰${'─'.repeat(titleWidth)}╯${RESET}`;
+  process.stdout.write('\n');
+  for (const line of LOGO_LINES) {
+    process.stdout.write(fmt.bold(fmt.cyan(line)) + '\n');
+  }
+  process.stdout.write('\n');
+  process.stdout.write(`   ${fmt.dim('Multi-Model Agent Platform')}   ${fmt.cyan('v' + VERSION)}\n\n`);
 
   const keys = Object.keys(config.agents);
   const agentList = keys
     .map((k) => {
       if (k === activeKey) {
-        return `${BOLD}${CYAN}${k}${RESET} ${CYAN}●${RESET}`;
+        return `${fmt.bold(fmt.cyan(k))} ${fmt.cyan('●')}`;
       }
-      return `${DIM}${k} ·${RESET}`;
+      return fmt.dim(`${k} ·`);
     })
     .join('  ');
 
-  process.stdout.write('\n' + top + '\n' + mid + '\n' + bot + '\n');
-  process.stdout.write(`\n  ${agentList}  ${DIM}/help${RESET}\n\n`);
+  process.stdout.write(fmt.dim(`   ${'─'.repeat(44)}`) + '\n');
+  process.stdout.write(`   ${agentList}   ${fmt.dim('/help')}\n\n`);
 }
 
 function printTips(): void {
-  const ESC = '\x1b';
-  const RESET = `${ESC}[0m`;
-  const DIM = `${ESC}[2m`;
-  const CYAN = `${ESC}[36m`;
-
   process.stdout.write(
-    `  ${DIM}╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴${RESET}\n` +
-    `  ${CYAN}?${RESET}  ${DIM}输入消息开始对话${RESET}\n` +
-    `  ${CYAN}/${RESET}  ${DIM}打开命令菜单  (Tab 补全)${RESET}\n` +
-    `  ${CYAN}⇄${RESET}  ${DIM}/team [目标]  启动多 Agent 协作${RESET}\n` +
-    `  ${CYAN}⊞${RESET}  ${DIM}/model        切换模型${RESET}\n` +
-    `  ${DIM}╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴${RESET}\n\n`,
+    `  ${fmt.dim('╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴')}\n` +
+    `  ${fmt.cyan('?')}  ${fmt.dim('输入消息开始对话')}\n` +
+    `  ${fmt.cyan('/')}  ${fmt.dim('打开命令菜单  (Tab 补全)')}\n` +
+    `  ${fmt.cyan('⇄')}  ${fmt.dim('/team [目标]  启动多 Agent 协作')}\n` +
+    `  ${fmt.cyan('⊞')}  ${fmt.dim('/model        切换模型')}\n` +
+    `  ${fmt.dim('╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴')}\n\n`,
   );
 }
 
@@ -203,7 +196,7 @@ async function handleSlashCommand(
                 agentKeyRef.current = selectedKey;
                 const factory = createCliAgentFactory(config, undefined, selectedKey);
                 managerRef.current = factory(`solo-${Date.now()}`, '', makeStdoutEmitter(getRl));
-                process.stdout.write(`\n→ ${fmt.bold(fmt.cyan(selectedKey))}  ${fmt.dim('(新会话已开始)')}\n\n`);
+                process.stdout.write(`\n${fmt.cyan('→')} ${fmt.bold(fmt.cyan(selectedKey))}  ${fmt.dim('已切换，新会话开始')}\n\n`);
               }
               resolve();
             });
@@ -243,13 +236,14 @@ async function handleSlashCommand(
       agentKeyRef.current = resolvedKey;
       const factory = createCliAgentFactory(config, undefined, resolvedKey);
       managerRef.current = factory(`solo-${Date.now()}`, '', makeStdoutEmitter(getRl));
-      process.stdout.write(`→ ${fmt.bold(fmt.cyan(resolvedKey))}  ${fmt.dim('(新会话已开始)')}\n\n`);
+      process.stdout.write(`\n${fmt.cyan('→')} ${fmt.bold(fmt.cyan(resolvedKey))}  ${fmt.dim('已切换，新会话开始')}\n\n`);
       return { handled: true };
     }
 
     case 'clear':
       process.stdout.write('\x1b[2J\x1b[H'); // erase screen + move cursor home
       printHeader(config, agentKeyRef.current);
+      printTips();
       return { handled: true };
 
     case 'team': {

@@ -31,7 +31,7 @@ export const fmt = {
 export const STATUS_ICONS = {
   pending: '○',
   running: '◐',
-  done: '●',
+  done: '✓',
   failed: '✗',
   cancelled: '⊘',
 } as const;

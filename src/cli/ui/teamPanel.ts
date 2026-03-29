@@ -72,6 +72,7 @@ export class TeamPanel {
   private goal = '';
   private spinnerFrame = 0;
   private readonly SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  private renderTimer: NodeJS.Timeout | null = null;
 
   setGoal(goal: string): void {
     this.goal = goal;
@@ -104,7 +105,7 @@ export class TeamPanel {
           // Strip markdown symbols so preview is clean plain text
           const cleaned = stripMarkdown(event.text).replace(/\n/g, ' ');
           const combined = (agent.preview + cleaned).replace(/\n/g, ' ');
-          agent.preview = Array.from(combined).slice(-80).join('');
+          agent.preview = Array.from(combined).slice(-200).join('');
         }
         break;
       }
@@ -131,8 +132,14 @@ export class TeamPanel {
         break;
       }
     }
-    this.spinnerFrame++;
-    this.render();
+    // Start throttled render timer (idempotent — only one timer runs at a time)
+    if (!this.renderTimer) {
+      this.renderTimer = setInterval(() => {
+        this.spinnerFrame++;
+        this.render();
+      }, 100);
+      this.renderTimer.unref();
+    }
   }
 
   render(): void {
@@ -194,6 +201,10 @@ export class TeamPanel {
   }
 
   clear(): void {
+    if (this.renderTimer) {
+      clearInterval(this.renderTimer);
+      this.renderTimer = null;
+    }
     if (this.lastLineCount > 0) {
       clearLines(this.lastLineCount);
       this.lastLineCount = 0;
