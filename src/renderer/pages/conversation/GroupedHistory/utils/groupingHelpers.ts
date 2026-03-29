@@ -202,13 +202,15 @@ export const groupConversationsByAgent = (
       .toSorted((a, b) => b.latestActivityTime - a.latestActivityTime);
 
     // Determine display mode
-    // General agents (non-permanent) always use flat mode — workspace info
-    // is only meaningful for assistants where the user explicitly picks a workspace.
+    // - flat: no custom workspaces
+    // - subtitle: exactly 1 workspace with no ungrouped conversations (assistants only —
+    //   general agents skip subtitle to avoid showing inherited dispatch workspace paths)
+    // - grouped: multiple workspaces, or 1 workspace + ungrouped conversations → folder view
     const customWsCount = workspaceMap.size;
     let displayMode: 'flat' | 'subtitle' | 'grouped';
-    if (!isPermanent || customWsCount === 0) {
+    if (customWsCount === 0) {
       displayMode = 'flat';
-    } else if (customWsCount === 1 && ungrouped.length === 0) {
+    } else if (customWsCount === 1 && ungrouped.length === 0 && isPermanent) {
       displayMode = 'subtitle';
     } else {
       displayMode = 'grouped';
