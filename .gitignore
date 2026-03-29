@@ -200,3 +200,16 @@ resources/bundled-bun
 dist-server/
 .omc/
 .superset/
+
+# Iteration design docs and process files (local only)
+iterations/
+
+# Claude team configs (local only)
+.claude/teams/
+
+# E2E test scripts (local only)
+tests/e2e/scripts/
+
+# Test files for dispatch (local iteration, not CI)
+tests/unit/dispatch/
+tests/integration/dispatch-*
