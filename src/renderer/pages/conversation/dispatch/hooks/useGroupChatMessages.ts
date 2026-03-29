@@ -6,7 +6,7 @@
 
 import { ipcBridge } from '@/common';
 import type { TMessage } from '@/common/chat/chatLib';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { GroupChatMessageData, GroupChatTimelineMessage } from '../types';
@@ -219,5 +219,24 @@ export function useGroupChatMessages(conversationId: string) {
     return unsub;
   }, [conversationId, t]);
 
-  return { messages, isLoading };
+  /** Optimistic insert of a user message (renders immediately before IPC roundtrip) */
+  const appendUserMessage = useCallback(
+    (msgId: string, content: string) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: msgId,
+          sourceSessionId: conversationId,
+          sourceRole: 'user',
+          displayName: t('dispatch.timeline.userDisplayName'),
+          content,
+          messageType: 'text',
+          timestamp: Date.now(),
+        },
+      ]);
+    },
+    [conversationId, t]
+  );
+
+  return { messages, isLoading, appendUserMessage };
 }

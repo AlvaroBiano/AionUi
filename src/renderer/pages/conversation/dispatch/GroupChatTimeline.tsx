@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import MarkdownView from '@renderer/components/Markdown';
 import { Spin } from '@arco-design/web-react';
 import { People } from '@icon-park/react';
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -74,7 +75,7 @@ const GroupChatTimeline: React.FC<GroupChatTimelineProps> = ({
     // System messages: center-aligned
     if (message.messageType === 'system') {
       return (
-        <div key={message.id} className='flex justify-center py-4px'>
+        <div key={message.id} className='flex justify-center m-t-10px max-w-full md:max-w-780px mx-auto px-8px'>
           <span className='text-12px text-t-secondary'>{message.content}</span>
         </div>
       );
@@ -83,7 +84,7 @@ const GroupChatTimeline: React.FC<GroupChatTimelineProps> = ({
     // Task status cards
     if (isTaskMessage(message.messageType)) {
       return (
-        <div key={message.id} className='py-4px px-16px'>
+        <div key={message.id} className='m-t-10px max-w-full md:max-w-780px mx-auto px-8px'>
           <ChildTaskCard
             message={message}
             onCancel={onCancelChild}
@@ -97,42 +98,37 @@ const GroupChatTimeline: React.FC<GroupChatTimelineProps> = ({
       );
     }
 
-    // User messages: right-aligned
+    // User messages: right-aligned, same style as normal chat
     if (message.sourceRole === 'user') {
       return (
-        <div key={message.id} className='flex justify-end py-4px px-16px'>
-          <div
-            className='rd-12px px-16px py-10px max-w-70% text-14px whitespace-pre-wrap'
-            style={{
-              backgroundColor: 'rgb(var(--primary-6))',
-              color: 'var(--color-bg-1)',
-            }}
-          >
-            {message.content}
+        <div key={message.id} className='flex justify-end m-t-10px max-w-full md:max-w-780px mx-auto px-8px'>
+          <div className='min-w-0 flex flex-col items-end'>
+            <div
+              className='min-w-0 bg-aou-2 p-8px [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px'
+              style={{ borderRadius: '8px 0 8px 8px' }}
+            >
+              <MarkdownView codeStyle={{ marginTop: 4, marginBlock: 4 }}>{message.content}</MarkdownView>
+            </div>
           </div>
         </div>
       );
     }
 
-    // Dispatcher messages: left-aligned with avatar
+    // Agent messages: left-aligned with avatar, same bubble style as normal chat
+    const avatar = message.avatar || dispatcherAvatar;
     return (
-      <div key={message.id} className='flex items-start gap-8px py-4px px-16px'>
-        <div className='flex-shrink-0 mt-4px'>
-          {message.avatar ? (
-            <span className='text-24px leading-none'>{message.avatar}</span>
-          ) : dispatcherAvatar ? (
-            <span className='text-24px leading-none'>{dispatcherAvatar}</span>
+      <div key={message.id} className='flex items-start gap-8px m-t-10px max-w-full md:max-w-780px mx-auto px-8px'>
+        <div className='flex-shrink-0 w-28px h-28px flex-center mt-2px'>
+          {avatar ? (
+            <span className='text-24px leading-none'>{avatar}</span>
           ) : (
             <People theme='outline' size='24' className='text-t-secondary' />
           )}
         </div>
-        <div className='flex flex-col gap-2px min-w-0 max-w-70%'>
-          <span className='text-12px text-t-secondary'>{message.displayName}</span>
-          <div
-            className='rd-12px px-16px py-10px text-14px whitespace-pre-wrap'
-            style={{ backgroundColor: 'var(--color-fill-2)' }}
-          >
-            {message.content}
+        <div className='min-w-0 flex-1 flex flex-col items-start'>
+          <span className='text-12px text-t-secondary mb-2px'>{message.displayName}</span>
+          <div className='min-w-0 w-full [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px'>
+            <MarkdownView codeStyle={{ marginTop: 4, marginBlock: 4 }}>{message.content}</MarkdownView>
           </div>
         </div>
       </div>

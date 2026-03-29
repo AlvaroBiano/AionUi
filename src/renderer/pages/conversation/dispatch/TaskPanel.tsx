@@ -193,10 +193,7 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
 
       {/* F-4.1: SendBox for direct user-to-child messaging */}
       {canSend && (
-        <div
-          className='px-16px py-8px border-t border-t-solid'
-          style={{ borderColor: 'var(--color-border)' }}
-        >
+        <div className='px-16px py-8px border-t border-t-solid' style={{ borderColor: 'var(--color-border)' }}>
           <Input.TextArea
             placeholder={t('dispatch.taskPanel.sendPlaceholder', { name: childInfo.teammateName || childInfo.title })}
             value={sendValue}

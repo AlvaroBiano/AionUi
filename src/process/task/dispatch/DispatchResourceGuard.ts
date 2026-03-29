@@ -83,11 +83,7 @@ export class DispatchResourceGuard {
     const children = this.tracker.getChildren(parentId);
     // Find idle children whose transcripts have been read, sorted oldest first
     const stale = children
-      .filter(
-        (c) =>
-          (c.status === 'idle' || c.status === 'finished') &&
-          transcriptReadSet.has(c.sessionId),
-      )
+      .filter((c) => (c.status === 'idle' || c.status === 'finished') && transcriptReadSet.has(c.sessionId))
       .toSorted((a, b) => a.lastActivityAt - b.lastActivityAt);
 
     let freed = 0;

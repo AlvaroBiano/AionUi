@@ -363,7 +363,7 @@ export class DispatchAgentManager extends BaseAgentManager<
         } else {
           mainWarn(
             '[DispatchAgentManager]',
-            `Model override not found: ${params.model.providerId}::${params.model.modelName}, fallback to default`,
+            `Model override not found: ${params.model.providerId}::${params.model.modelName}, fallback to default`
           );
         }
       } catch (err) {
@@ -389,7 +389,7 @@ export class DispatchAgentManager extends BaseAgentManager<
         mainLog('[DispatchAgentManager]', `Workspace override: ${resolved}`);
       } catch (err) {
         if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
-          throw new Error(`Workspace directory does not exist: ${params.workspace}`);
+          throw new Error(`Workspace directory does not exist: ${params.workspace}`, { cause: err });
         }
         throw err;
       }
@@ -867,9 +867,7 @@ export class DispatchAgentManager extends BaseAgentManager<
         .filter((p) => p.enabled !== false)
         .map((p) => ({
           providerId: p.id,
-          models: (Array.isArray(p.model) ? p.model : []).filter(
-            (m) => p.modelEnabled?.[m] !== false,
-          ),
+          models: (Array.isArray(p.model) ? p.model : []).filter((m) => p.modelEnabled?.[m] !== false),
         }))
         .filter((p) => p.models.length > 0);
     } catch (err) {

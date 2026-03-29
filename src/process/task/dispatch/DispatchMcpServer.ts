@@ -230,8 +230,7 @@ export class DispatchMcpServer {
             },
             model: {
               type: 'object',
-              description:
-                'Optional model override for this child agent. Omit to use the default dispatcher model.',
+              description: 'Optional model override for this child agent. Omit to use the default dispatcher model.',
               properties: {
                 provider_id: {
                   type: 'string',

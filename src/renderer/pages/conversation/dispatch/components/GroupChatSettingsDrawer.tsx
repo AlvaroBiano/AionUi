@@ -107,12 +107,7 @@ const GroupChatSettingsDrawer: React.FC<GroupChatSettingsDrawerProps> = ({
       <Alert type='info' content={t('dispatch.settings.coldSwapNotice')} className='mb-16px' />
       <Form layout='vertical'>
         <Form.Item label={t('dispatch.settings.nameLabel')}>
-          <Input
-            value={name}
-            onChange={setName}
-            placeholder={t('dispatch.settings.namePlaceholder')}
-            maxLength={50}
-          />
+          <Input value={name} onChange={setName} placeholder={t('dispatch.settings.namePlaceholder')} maxLength={50} />
         </Form.Item>
         <Form.Item label={t('dispatch.settings.leaderAgentLabel')}>
           <Select
@@ -147,9 +142,7 @@ const GroupChatSettingsDrawer: React.FC<GroupChatSettingsDrawerProps> = ({
             max={10}
             style={{ width: '100%' }}
           />
-          <div className='text-12px text-t-secondary mt-4px'>
-            {t('dispatch.settings.maxConcurrentHelp')}
-          </div>
+          <div className='text-12px text-t-secondary mt-4px'>{t('dispatch.settings.maxConcurrentHelp')}</div>
         </Form.Item>
       </Form>
     </Drawer>
