@@ -13,23 +13,30 @@
  */
 import type { OrchestratorEvent } from '@process/task/orchestrator/types';
 import { fmt, clearLines, hr } from './format';
+import { stripMarkdown } from './markdown';
 
-/** Calculate terminal display width — CJK and full-width chars occupy 2 columns. */
+/** Calculate terminal display width — CJK, full-width chars, and emoji occupy 2 columns. */
 function displayWidth(s: string): number {
   let w = 0;
   for (const ch of s) {
     const cp = ch.codePointAt(0) ?? 0;
     if (
-      (cp >= 0x1100 && cp <= 0x115f) ||
-      (cp >= 0x2e80 && cp <= 0x303e) ||
-      (cp >= 0x3041 && cp <= 0x33ff) ||
-      (cp >= 0xac00 && cp <= 0xd7a3) ||
-      (cp >= 0xf900 && cp <= 0xfaff) ||
-      (cp >= 0xfe10 && cp <= 0xfe19) ||
-      (cp >= 0xfe30 && cp <= 0xfe6f) ||
-      (cp >= 0xff01 && cp <= 0xff60) ||
-      (cp >= 0xffe0 && cp <= 0xffe6) ||
-      (cp >= 0x20000 && cp <= 0x2a6df)
+      cp > 0xffff || // surrogate pairs / supplementary (most emoji)
+      (cp >= 0x1f300 && cp <= 0x1faff) || // misc symbols, emoticons
+      (cp >= 0x2600 && cp <= 0x27bf) || // misc symbols
+      (cp >= 0x1100 && cp <= 0x115f) || // Hangul Jamo
+      (cp >= 0x2e80 && cp <= 0x303e) || // CJK radicals / Kangxi
+      (cp >= 0x3041 && cp <= 0x33ff) || // Hiragana, Katakana, CJK compat
+      (cp >= 0x3400 && cp <= 0x4dbf) || // CJK Extension A
+      (cp >= 0x4e00 && cp <= 0x9fff) || // CJK Unified
+      (cp >= 0xa000 && cp <= 0xa48f) || // Yi Syllables
+      (cp >= 0xac00 && cp <= 0xd7a3) || // Hangul Syllables
+      (cp >= 0xf900 && cp <= 0xfaff) || // CJK Compat Ideographs
+      (cp >= 0xfe10 && cp <= 0xfe19) || // Vertical forms
+      (cp >= 0xfe30 && cp <= 0xfe6f) || // CJK Compat Forms
+      (cp >= 0xff01 && cp <= 0xff60) || // Fullwidth Forms
+      (cp >= 0xffe0 && cp <= 0xffe6) || // Fullwidth Signs
+      (cp >= 0x20000 && cp <= 0x2a6df) // CJK Extension B
     ) {
       w += 2;
     } else {
@@ -44,7 +51,7 @@ function truncateToWidth(s: string, maxCols: number): string {
   let w = 0;
   let result = '';
   for (const ch of s) {
-    const cw = ch.codePointAt(0)! >= 0x1100 ? displayWidth(ch) : 1;
+    const cw = displayWidth(ch);
     if (w + cw > maxCols) break;
     result += ch;
     w += cw;
@@ -94,8 +101,9 @@ export class TeamPanel {
       case 'subtask:progress': {
         const agent = this.agents.get(event.subTaskId);
         if (agent) {
-          // Keep a rolling 80-char (Unicode-safe) preview of streaming output
-          const combined = (agent.preview + event.text).replace(/\n/g, ' ');
+          // Strip markdown symbols so preview is clean plain text
+          const cleaned = stripMarkdown(event.text).replace(/\n/g, ' ');
+          const combined = (agent.preview + cleaned).replace(/\n/g, ' ');
           agent.preview = Array.from(combined).slice(-80).join('');
         }
         break;

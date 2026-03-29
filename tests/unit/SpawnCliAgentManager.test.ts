@@ -58,7 +58,7 @@ describe('SpawnCliAgentManager — buildArgs', () => {
       });
 
       await mgr.sendMessage({ content: 'hello world' });
-      expect(spawnArgs).toEqual(['--print', 'hello world']);
+      expect(spawnArgs).toEqual(['--print', '--dangerously-skip-permissions', 'hello world']);
     });
 
     it('second turn: adds -c (continue) flag', async () => {
@@ -92,7 +92,7 @@ describe('SpawnCliAgentManager — buildArgs', () => {
       });
 
       await mgr.sendMessage({ content: 'task' });
-      expect(spawnArgs).toEqual(['--print', '--model', 'sonnet', 'task']);
+      expect(spawnArgs).toEqual(['--print', '--dangerously-skip-permissions', '--model', 'sonnet', 'task']);
     });
   });
 

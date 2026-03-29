@@ -123,9 +123,10 @@ export class SpawnCliAgentManager implements IAgentManager {
     const extra = this.config.extraArgs ?? [];
 
     if (this.config.flavor === 'claude') {
-      // claude --print [-c] [--extra...] "<prompt>"
+      // claude --print --dangerously-skip-permissions [-c] [--extra...] "<prompt>"
       return [
         '--print',
+        '--dangerously-skip-permissions',
         ...(this.isFirstTurn ? [] : ['-c']),
         ...extra,
         prompt,

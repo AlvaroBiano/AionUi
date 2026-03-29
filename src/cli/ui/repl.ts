@@ -61,7 +61,13 @@ export function startRepl(
 
   const ask = (): void => {
     if ((rl as unknown as { closed?: boolean }).closed) return;
-    rl.question(fmt.bold(fmt.cyan(`${getPrompt()} `)), async (line) => {
+    const ESC = '\x1b';
+    const RESET = `${ESC}[0m`;
+    const BOLD = `${ESC}[1m`;
+    const DIM = `${ESC}[2m`;
+    const CYAN = `${ESC}[36m`;
+    const promptStr = `${DIM}⟩${RESET} ${BOLD}${CYAN}${getPrompt()}${RESET} `;
+    rl.question(promptStr, async (line) => {
       const input = line.trim();
       let escapedInput: string | null = null;
       if (input) {

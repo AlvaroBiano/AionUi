@@ -33,6 +33,7 @@ import { loadConfig } from '../config/loader';
 import type { AionCliConfig } from '../config/types';
 import { TeamPanel } from '../ui/teamPanel';
 import { fmt, hr } from '../ui/format';
+import { renderMarkdown } from '../ui/markdown';
 
 export type TeamOptions = {
   goal?: string;
@@ -212,8 +213,8 @@ export async function runTeam(options: TeamOptions = {}): Promise<void> {
       const label = task?.label ?? result.subTaskId;
 
       process.stdout.write(fmt.dim(hr()) + '\n');
-      process.stdout.write(`${fmt.bold(fmt.cyan(`▸ ${label}`))}  ${fmt.dim(`[${key}]`)}\n`);
-      process.stdout.write(result.outputText.trim() + '\n\n');
+      process.stdout.write(`${fmt.bold(fmt.cyan(`▸ ${label}`))}  ${fmt.dim(`[${key}]`)}\n\n`);
+      process.stdout.write(renderMarkdown(result.outputText.trim()) + '\n\n');
     }
   } catch (err) {
     panel.clear();

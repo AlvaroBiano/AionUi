@@ -8,6 +8,8 @@ import type { AgentManagerFactory } from '@process/task/orchestrator/SubTaskSess
 import type { AionCliConfig, AgentConfig } from '../config/types';
 import { SpawnCliAgentManager } from './SpawnCliAgentManager';
 import { CliAgentManager } from './CliAgentManager';
+import { OpenAIAgentManager } from './OpenAIAgentManager';
+import { GeminiAgentManager } from './GeminiAgentManager';
 
 /**
  * Create an AgentManagerFactory for the Orchestrator.
@@ -51,6 +53,14 @@ function buildManager(
       { bin: config.bin!, flavor: 'codex', extraArgs: config.extraArgs },
       emitter,
     );
+  }
+
+  if (config.provider === 'openai') {
+    return new OpenAIAgentManager(conversationId, config, emitter);
+  }
+
+  if (config.provider === 'gemini') {
+    return new GeminiAgentManager(conversationId, config, emitter);
   }
 
   // Direct Anthropic SDK fallback

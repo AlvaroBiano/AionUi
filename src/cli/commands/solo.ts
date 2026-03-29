@@ -95,25 +95,49 @@ function printOnboarding(): void {
 }
 
 /**
- * Compact header: 2 lines max.
- * Shows all agent names inline — active one bold+cyan, others dim.
+ * Boxed header with version and agent list.
+ * Active agent shown bold+cyan with a filled dot, others dim.
  */
 function printHeader(config: AionCliConfig, activeKey: string): void {
+  const ESC = '\x1b';
+  const RESET = `${ESC}[0m`;
+  const BOLD = `${ESC}[1m`;
+  const DIM = `${ESC}[2m`;
+  const CYAN = `${ESC}[36m`;
+
+  const title = `  AION  v${VERSION}  Multi-Model Platform  `;
+  const titleWidth = title.length;
+  const top = `  ${DIM}╭${'─'.repeat(titleWidth)}╮${RESET}`;
+  const mid = `  ${DIM}│${RESET}${BOLD}${CYAN}${title}${RESET}${DIM}│${RESET}`;
+  const bot = `  ${DIM}╰${'─'.repeat(titleWidth)}╯${RESET}`;
+
   const keys = Object.keys(config.agents);
   const agentList = keys
-    .map((k) => (k === activeKey ? fmt.bold(fmt.cyan(k)) : fmt.dim(k)))
-    .join(fmt.dim('  ·  '));
+    .map((k) => {
+      if (k === activeKey) {
+        return `${BOLD}${CYAN}${k}${RESET} ${CYAN}●${RESET}`;
+      }
+      return `${DIM}${k} ·${RESET}`;
+    })
+    .join('  ');
 
-  process.stdout.write(
-    `\n${fmt.dim(`Aion v${VERSION}`)}  ${fmt.dim('·')}  ${agentList}  ${fmt.dim('·  /help for commands')}\n\n`,
-  );
+  process.stdout.write('\n' + top + '\n' + mid + '\n' + bot + '\n');
+  process.stdout.write(`\n  ${agentList}  ${DIM}/help${RESET}\n\n`);
 }
 
 function printTips(): void {
+  const ESC = '\x1b';
+  const RESET = `${ESC}[0m`;
+  const DIM = `${ESC}[2m`;
+  const CYAN = `${ESC}[36m`;
+
   process.stdout.write(
-    fmt.dim('  输入消息开始对话  ·  / 打开命令菜单  ·  Tab 键补全命令\n') +
-      fmt.dim('  /team [目标]  多 Agent 协作  ·  /model 切换模型  ·  /help 查看所有命令\n') +
-      '\n',
+    `  ${DIM}╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴${RESET}\n` +
+    `  ${CYAN}?${RESET}  ${DIM}输入消息开始对话${RESET}\n` +
+    `  ${CYAN}/${RESET}  ${DIM}打开命令菜单  (Tab 补全)${RESET}\n` +
+    `  ${CYAN}⇄${RESET}  ${DIM}/team [目标]  启动多 Agent 协作${RESET}\n` +
+    `  ${CYAN}⊞${RESET}  ${DIM}/model        切换模型${RESET}\n` +
+    `  ${DIM}╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴${RESET}\n\n`,
   );
 }
 
