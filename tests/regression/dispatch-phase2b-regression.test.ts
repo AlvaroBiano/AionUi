@@ -59,6 +59,11 @@ vi.mock('@/common', () => ({
           providerHandlers['updateGroupChatSettings'] = handler;
         },
       },
+      forkToDispatch: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['forkToDispatch'] = handler;
+        },
+      },
     },
     conversation: {
       listChanged: { emit: vi.fn() },

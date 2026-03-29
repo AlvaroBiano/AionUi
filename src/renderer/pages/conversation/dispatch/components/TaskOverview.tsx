@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, Tag } from '@arco-design/web-react';
+import { Button, Tag, Tooltip } from '@arco-design/web-react';
 import { Down, People, Up } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useMemo } from 'react';
@@ -125,6 +125,13 @@ const TaskOverview: React.FC<TaskOverviewProps> = ({
                   <Tag size='small' color='gray' className='flex-shrink-0 ml-4px text-11px'>
                     {child.modelName}
                   </Tag>
+                )}
+                {child.workspace && (
+                  <Tooltip content={child.workspace} position='top'>
+                    <Tag size='small' color='cyan' className='flex-shrink-0 ml-4px text-11px max-w-80px truncate'>
+                      {child.workspace.split('/').pop() || child.workspace}
+                    </Tag>
+                  </Tooltip>
                 )}
                 <span className='text-11px text-t-secondary flex-shrink-0'>
                   {formatActivityTime(child.lastActivityAt)}

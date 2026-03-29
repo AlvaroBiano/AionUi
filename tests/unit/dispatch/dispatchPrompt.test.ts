@@ -113,3 +113,80 @@ describe('dispatchPrompt Phase 5', () => {
     });
   });
 });
+
+// ==================== Phase 6 Tests ====================
+
+describe('dispatchPrompt Phase 6', () => {
+  // ==================== F-6.1: Workspace section ====================
+
+  describe('DP-P6-001: workspace section included when provided', () => {
+    it('includes Workspace header and path', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot', {
+        workspace: '/home/user/project',
+      });
+      expect(prompt).toContain('## Workspace');
+      expect(prompt).toContain('/home/user/project');
+    });
+
+    it('mentions workspace override for child tasks', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot', {
+        workspace: '/home/user/project',
+      });
+      expect(prompt).toContain('workspace');
+      expect(prompt).toMatch(/child.*task|start_task/i);
+    });
+  });
+
+  describe('DP-P6-002: workspace section omitted when not provided', () => {
+    it('omits Workspace header when workspace is undefined', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot');
+      expect(prompt).not.toContain('## Workspace');
+    });
+
+    it('omits Workspace header when options object has no workspace', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot', {});
+      expect(prompt).not.toContain('## Workspace');
+    });
+
+    it('omits Workspace header when workspace is empty string', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot', { workspace: '' });
+      expect(prompt).not.toContain('## Workspace');
+    });
+  });
+
+  // ==================== F-6.2: Dynamic concurrent limit in prompt ====================
+
+  describe('DP-P6-003: maxConcurrentChildren reflected in constraints', () => {
+    it('uses provided maxConcurrentChildren value in constraint text', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot', {
+        maxConcurrentChildren: 7,
+      });
+      expect(prompt).toContain('7 concurrent child tasks');
+    });
+
+    it('uses DEFAULT_CONCURRENT_CHILDREN when maxConcurrentChildren not provided', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot');
+      // DEFAULT_CONCURRENT_CHILDREN is 3
+      expect(prompt).toContain('3 concurrent child tasks');
+    });
+
+    it('uses DEFAULT_CONCURRENT_CHILDREN when maxConcurrentChildren is undefined in options', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot', {
+        maxConcurrentChildren: undefined,
+      });
+      expect(prompt).toContain('3 concurrent child tasks');
+    });
+  });
+
+  describe('DP-P6-004: workspace and concurrent limit together', () => {
+    it('includes both workspace and custom concurrent limit', () => {
+      const prompt = buildDispatchSystemPrompt('TestBot', {
+        workspace: '/opt/myproject',
+        maxConcurrentChildren: 5,
+      });
+      expect(prompt).toContain('## Workspace');
+      expect(prompt).toContain('/opt/myproject');
+      expect(prompt).toContain('5 concurrent child tasks');
+    });
+  });
+});

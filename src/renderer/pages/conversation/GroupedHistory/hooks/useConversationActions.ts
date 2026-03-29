@@ -242,6 +242,32 @@ export const useConversationActions = ({
     [t]
   );
 
+  const [forkingId, setForkingId] = useState<string | null>(null);
+  const handleForkToDispatch = useCallback(
+    async (conversation: TChatConversation) => {
+      if (forkingId) return; // prevent double-click
+      setForkingId(conversation.id);
+      try {
+        const result = await ipcBridge.dispatch.forkToDispatch.invoke({
+          sourceConversationId: conversation.id,
+        });
+        if (result.success && result.data?.conversationId) {
+          Message.success(t('dispatch.forkSuccess'));
+          emitter.emit('chat.history.refresh');
+          void navigate(`/conversation/${result.data.conversationId}`);
+        } else {
+          Message.error(result.msg || t('dispatch.forkFailed'));
+        }
+      } catch (error) {
+        console.error('Failed to fork to dispatch:', error);
+        Message.error(t('dispatch.forkFailed'));
+      } finally {
+        setForkingId(null);
+      }
+    },
+    [forkingId, navigate, t]
+  );
+
   const handleMenuVisibleChange = useCallback((conversationId: string, visible: boolean) => {
     setDropdownVisibleId(visible ? conversationId : null);
   }, []);
@@ -263,6 +289,7 @@ export const useConversationActions = ({
     handleRenameConfirm,
     handleRenameCancel,
     handleTogglePin,
+    handleForkToDispatch,
     handleMenuVisibleChange,
     handleOpenMenu,
   };

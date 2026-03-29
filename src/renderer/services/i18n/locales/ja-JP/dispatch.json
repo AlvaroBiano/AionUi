@@ -110,8 +110,13 @@
     "saveSuccess": "設定を保存しました",
     "saveFailed": "設定の保存に失敗しました",
     "leaderAgentDeleted": "このエージェントは削除されました",
-    "coldSwapNotice": "変更はオーケストレーターへの次のメッセージ送信時に有効になります。"
+    "coldSwapNotice": "変更はオーケストレーターへの次のメッセージ送信時に有効になります。",
+    "maxConcurrentLabel": "最大同時タスク数",
+    "maxConcurrentHelp": "値を大きくすると API クォータの消費が増えます。推奨：3-5。"
   },
+  "forkToDispatch": "ディスパッチにフォーク",
+  "forkSuccess": "インポートされたコンテキストでディスパッチセッションを作成しました",
+  "forkFailed": "ディスパッチセッションの作成に失敗しました",
   "overview": {
     "title": "タスク概要",
     "collapse": "折りたたむ",

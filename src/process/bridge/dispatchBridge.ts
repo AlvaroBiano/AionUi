@@ -160,6 +160,7 @@ export function initDispatchBridge(
         pendingNotifications?: string[];
         leaderAgentId?: string;
         seedMessages?: string;
+        maxConcurrentChildren?: number;
       };
 
       // Get child conversations from the database
@@ -177,6 +178,7 @@ export function initDispatchBridge(
             dispatchTitle?: string;
             teammateConfig?: { name: string; avatar?: string };
             childModelName?: string;
+            workspace?: string;
           };
           return {
             sessionId: conv.id,
@@ -187,6 +189,7 @@ export function initDispatchBridge(
             createdAt: conv.createTime,
             lastActivityAt: conv.modifyTime,
             modelName: childExtra.childModelName,
+            workspace: childExtra.workspace,
           };
         });
 
@@ -199,6 +202,7 @@ export function initDispatchBridge(
           pendingNotificationCount: extra.pendingNotifications?.length ?? 0,
           leaderAgentId: extra.leaderAgentId,
           seedMessages: extra.seedMessages,
+          maxConcurrentChildren: extra.maxConcurrentChildren,
         },
       };
     } catch (error) {
@@ -390,6 +394,17 @@ export function initDispatchBridge(
         extra.seedMessages = params.seedMessages || undefined;
       }
 
+      // F-6.2: Update max concurrent children (with server-side clamping)
+      if (params.maxConcurrentChildren !== undefined) {
+        const clamped = Math.max(1, Math.min(10, params.maxConcurrentChildren));
+        extra.maxConcurrentChildren = clamped;
+        // Hot-apply to running dispatcher
+        const liveTask = _workerTaskManager.getTask(params.conversationId);
+        if (liveTask && liveTask.type === 'dispatch' && 'setMaxConcurrent' in liveTask) {
+          (liveTask as { setMaxConcurrent: (n: number) => void }).setMaxConcurrent(clamped);
+        }
+      }
+
       // Persist
       await conversationService.updateConversation(params.conversationId, {
         name: conversation.name,
@@ -406,6 +421,137 @@ export function initDispatchBridge(
       return { success: true };
     } catch (error) {
       mainWarn('[DispatchBridge:updateSettings]', 'ERROR: ' + String(error));
+      return { success: false, msg: String(error) };
+    }
+  });
+
+  // --- dispatch.fork-from-conversation (F-6.3) ---
+  ipcBridge.dispatch.forkToDispatch.provider(async (params) => {
+    mainLog('[DispatchBridge:forkToDispatch]', 'received', params);
+    try {
+      const sourceConversation = await conversationService.getConversation(params.sourceConversationId);
+      if (!sourceConversation) {
+        return { success: false, msg: 'Source conversation not found' };
+      }
+      if (sourceConversation.type === 'dispatch') {
+        return { success: false, msg: 'Cannot fork a dispatch conversation' };
+      }
+
+      // Read last N messages from source conversation
+      const maxMessages = params.maxMessages ?? 20;
+      const maxChars = 8000;
+      let messages: Array<{ position?: string; content: unknown }> = [];
+      if (conversationRepo) {
+        const result = await conversationRepo.getMessages(params.sourceConversationId, 0, maxMessages);
+        messages = result.data || [];
+      }
+
+      // Extract text-only messages with runtime type guards
+      const textMessages = messages
+        .filter((msg) => {
+          const content = msg.content;
+          return (
+            typeof content === 'object' &&
+            content !== null &&
+            'content' in content &&
+            typeof (content as Record<string, unknown>).content === 'string' &&
+            ((content as Record<string, unknown>).content as string).trim().length > 0
+          );
+        })
+        .map((msg) => {
+          const role = msg.position === 'right' ? '[user]' : '[assistant]';
+          const text = (msg.content as Record<string, unknown>).content as string;
+          return `${role} ${text}`;
+        });
+
+      // Apply character truncation (drop oldest first)
+      let seedContext = '';
+      if (textMessages.length > 0) {
+        const sourceTitle = sourceConversation.name || 'Untitled';
+        const header = `[Imported Context from conversation "${sourceTitle}"]\nThe user was working on the following topic. Use this context to inform your dispatch decisions.\n\n--- Conversation Summary (last ${textMessages.length} messages) ---\n`;
+        const footer = '\n--- End of imported context ---';
+
+        // Build context, dropping oldest messages if over char limit
+        let body = textMessages.join('\n');
+        let startIdx = 0;
+        while (header.length + body.length + footer.length > maxChars && startIdx < textMessages.length - 1) {
+          startIdx++;
+          body = textMessages.slice(startIdx).join('\n');
+        }
+
+        seedContext = header + body + footer;
+      }
+
+      // Read source workspace and model
+      const sourceExtra = sourceConversation.extra as { workspace?: string } | undefined;
+      const sourceWorkspace = sourceExtra?.workspace;
+
+      // Resolve model (same logic as createGroupChat)
+      const providers = ((await ProcessConfig.get('model.config')) || []) as Array<{
+        id: string;
+        platform: string;
+        name: string;
+        baseUrl: string;
+        apiKey: string;
+        model: string[];
+      }>;
+
+      let defaultModel: TProviderWithModel;
+      const sourceModel = (sourceConversation as unknown as { model?: TProviderWithModel }).model;
+      if (sourceModel && typeof sourceModel === 'object' && 'id' in sourceModel) {
+        const modelRef = sourceModel as { id: string; useModel?: string };
+        const provider = providers.find((p) => p.id === modelRef.id);
+        defaultModel = provider
+          ? { ...provider, useModel: modelRef.useModel || '' }
+          : ({ id: modelRef.id, useModel: modelRef.useModel || '' } as TProviderWithModel);
+      } else {
+        const geminiDefaultModel = await ProcessConfig.get('gemini.defaultModel');
+        const modelRef =
+          typeof geminiDefaultModel === 'object' && geminiDefaultModel !== null
+            ? (geminiDefaultModel as { id: string; useModel: string })
+            : { id: 'gemini', useModel: String(geminiDefaultModel || 'gemini-2.0-flash') };
+        const provider = providers.find((p) => p.id === modelRef.id);
+        defaultModel = provider
+          ? { ...provider, useModel: modelRef.useModel }
+          : ({ id: modelRef.id, useModel: modelRef.useModel } as TProviderWithModel);
+      }
+
+      const envDirs = await ProcessEnv.get('aionui.dir');
+      const workspace = sourceWorkspace || envDirs?.workDir || '';
+      const displayName = `Fork: ${sourceConversation.name || 'Untitled'}`;
+
+      const id = uuid();
+      await conversationService.createConversation({
+        id,
+        type: 'dispatch',
+        name: displayName,
+        model: defaultModel,
+        extra: {
+          workspace,
+          dispatchSessionType: 'dispatcher',
+          groupChatName: displayName,
+          seedMessages: seedContext || undefined,
+        },
+      });
+
+      // Eager startup
+      try {
+        await _workerTaskManager.getOrBuildTask(id);
+        mainLog('[DispatchBridge:forkToDispatch]', 'Orchestrator agent started for ' + id);
+      } catch (err) {
+        mainWarn('[DispatchBridge:forkToDispatch]', 'Orchestrator warm-start failed', err);
+      }
+
+      ipcBridge.conversation.listChanged.emit({
+        conversationId: id,
+        action: 'created',
+        source: 'dispatch',
+      });
+
+      mainLog('[DispatchBridge:forkToDispatch]', 'success, conversationId=' + id);
+      return { success: true, data: { conversationId: id } };
+    } catch (error) {
+      mainWarn('[DispatchBridge:forkToDispatch]', 'ERROR: ' + String(error));
       return { success: false, msg: String(error) };
     }
   });

@@ -11,8 +11,14 @@ import type { AgentStatus } from '../agentTypes';
 /** Dispatch session role type, maps to CC's agent/dispatch_child/scheduled */
 export type DispatchSessionType = 'dispatcher' | 'dispatch_child' | 'normal';
 
-/** Maximum concurrent child tasks per dispatcher */
-export const MAX_CONCURRENT_CHILDREN = 3;
+/** Default concurrent child tasks per dispatcher */
+export const DEFAULT_CONCURRENT_CHILDREN = 3;
+/** @deprecated Use DEFAULT_CONCURRENT_CHILDREN. Kept for backward compatibility. */
+export const MAX_CONCURRENT_CHILDREN = DEFAULT_CONCURRENT_CHILDREN;
+/** Minimum configurable concurrent children */
+export const MIN_CONCURRENT_CHILDREN = 1;
+/** Maximum configurable concurrent children */
+export const MAX_CONCURRENT_CHILDREN_LIMIT = 10;
 
 /** Temporary teammate config (unsaved assistant) */
 export type TemporaryTeammateConfig = {
@@ -46,6 +52,8 @@ export type StartChildTaskParams = {
     providerId: string;
     modelName: string;
   };
+  /** F-6.1: Optional working directory override for child agent */
+  workspace?: string;
 };
 
 /** Child task info (for listing/querying) */
@@ -57,6 +65,8 @@ export type ChildTaskInfo = {
   teammateName?: string;
   createdAt: number;
   lastActivityAt: number;
+  /** F-6.1: Working directory for this child */
+  workspace?: string;
 };
 
 /** Options for reading child task transcript */

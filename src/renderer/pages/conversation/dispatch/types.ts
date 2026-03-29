@@ -48,6 +48,8 @@ export type ChildTaskInfoVO = {
   lastActivityAt: number;
   /** F-4.2: Model name if child uses a non-default model */
   modelName?: string;
+  /** F-6.1: Working directory for this child */
+  workspace?: string;
 };
 
 /** Group chat info returned by get-group-chat-info */
@@ -60,6 +62,8 @@ export type GroupChatInfoVO = {
   leaderAgentId?: string;
   /** F-4.3: Current seed messages */
   seedMessages?: string;
+  /** F-6.2: Max concurrent children limit */
+  maxConcurrentChildren?: number;
 };
 
 /** Props for the main GroupChatView component */
@@ -175,6 +179,8 @@ export type GroupChatSettingsDrawerProps = {
     groupChatName?: string;
     leaderAgentId?: string;
     seedMessages?: string;
+    /** F-6.2: Max concurrent children */
+    maxConcurrentChildren?: number;
   };
   /** Callback after successful save */
   onSaved: () => void;

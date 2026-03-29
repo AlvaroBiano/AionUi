@@ -61,6 +61,8 @@ export type ConversationRowProps = {
   onDelete: (conversationId: string) => void;
   onExport: (conversation: TChatConversation) => void;
   onTogglePin: (conversation: TChatConversation) => void;
+  /** F-6.3: Fork conversation to a dispatch session */
+  onForkToDispatch: (conversation: TChatConversation) => void;
   getJobStatus: (conversationId: string) => 'none' | 'active' | 'paused' | 'error' | 'unread';
 };
 

@@ -45,6 +45,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     onDelete,
     onExport,
     onTogglePin,
+    onForkToDispatch,
     getJobStatus,
   } = props;
   const { t } = useTranslation();
@@ -209,6 +210,10 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
                       onExport(conversation);
                       return;
                     }
+                    if (key === 'forkToDispatch') {
+                      onForkToDispatch(conversation);
+                      return;
+                    }
                     if (key === 'delete') {
                       onDelete(conversation.id);
                     }
@@ -232,6 +237,14 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
                       <span>{t('conversation.history.export')}</span>
                     </div>
                   </Menu.Item>
+                  {!isDispatchConversation && (
+                    <Menu.Item key='forkToDispatch'>
+                      <div className='flex items-center gap-8px'>
+                        <People theme='outline' size='14' />
+                        <span>{t('dispatch.forkToDispatch')}</span>
+                      </div>
+                    </Menu.Item>
+                  )}
                   <Menu.Item key='delete'>
                     <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
                       <DeleteOne theme='outline' size='14' />

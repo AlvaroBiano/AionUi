@@ -18,7 +18,7 @@
 const TOOL_SCHEMAS = [
   {
     name: 'start_task',
-    description: 'Start a new child task. Creates an independent agent session. Returns session_id. Max 3 concurrent.',
+    description: 'Start a new child task. Creates an independent agent session. Returns session_id. Maximum concurrent tasks per session constraints.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -41,6 +41,10 @@ const TOOL_SCHEMAS = [
             model_name: { type: 'string', description: 'Model name' },
           },
           required: ['provider_id', 'model_name'],
+        },
+        workspace: {
+          type: 'string',
+          description: 'Optional working directory for the child agent. Must be an existing directory. Omit to inherit parent workspace.',
         },
       },
       required: ['prompt', 'title'],

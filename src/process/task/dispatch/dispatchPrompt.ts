@@ -6,6 +6,8 @@
 
 // src/process/task/dispatch/dispatchPrompt.ts
 
+import { DEFAULT_CONCURRENT_CHILDREN } from './dispatchTypes';
+
 /**
  * Dispatch orchestrator system prompt.
  * Adapted from CC's Dwt template, removing mobile/VM/file-sharing concerns
@@ -20,6 +22,10 @@ export function buildDispatchSystemPrompt(
     customInstructions?: string;
     /** F-4.2: Available models for child task model selection */
     availableModels?: Array<{ providerId: string; models: string[] }>;
+    /** F-6.1: Current workspace directory */
+    workspace?: string;
+    /** F-6.2: Configured max concurrent children */
+    maxConcurrentChildren?: number;
   }
 ): string {
   let prompt = `You are "${dispatcherName}", a dispatch orchestrator in a group chat.
@@ -59,7 +65,7 @@ You communicate directly with the user — your messages are rendered in the gro
 - Do NOT echo back the raw transcript; synthesize and summarize the results
 
 ## Constraints
-- Maximum 3 concurrent child tasks. If at limit, wait for one to finish before starting another.
+- Maximum ${options?.maxConcurrentChildren ?? DEFAULT_CONCURRENT_CHILDREN} concurrent child tasks. If at limit, wait for one to finish before starting another.
 - Each child agent works independently and cannot see other agents' work.
 - You are the only coordinator — do not ask child agents to communicate with each other.
 - When all tasks are dispatched, provide a concise summary to the user about what was started.
@@ -78,6 +84,16 @@ When you identify that a task needs a specialized role, create a teammate config
 \`\`\`
 Pass it as the "teammate" parameter in start_task. The child agent will adopt this persona.
 `;
+
+  if (options?.workspace) {
+    prompt += `
+## Workspace
+Your current workspace is: ${options.workspace}
+You can override the workspace for child tasks by passing a "workspace" parameter to start_task.
+Use this when the task targets a specific subdirectory or a different project.
+For most tasks, omit workspace to let children inherit your workspace.
+`;
+  }
 
   if (options?.leaderProfile) {
     prompt += `

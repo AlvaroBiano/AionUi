@@ -162,7 +162,8 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
     groupChatName: extra.groupChatName,
     leaderAgentId: info?.leaderAgentId,
     seedMessages: info?.seedMessages,
-  }), [extra.groupChatName, info?.leaderAgentId, info?.seedMessages]);
+    maxConcurrentChildren: info?.maxConcurrentChildren,
+  }), [extra.groupChatName, info?.leaderAgentId, info?.seedMessages, info?.maxConcurrentChildren]);
 
   const headerExtra = useMemo(() => (
     <div className='flex items-center gap-8px'>

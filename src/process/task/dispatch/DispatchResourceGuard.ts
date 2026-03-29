@@ -8,7 +8,7 @@
 
 import type { IWorkerTaskManager } from '../IWorkerTaskManager';
 import type { DispatchSessionTracker } from './DispatchSessionTracker';
-import { MAX_CONCURRENT_CHILDREN } from './dispatchTypes';
+import { DEFAULT_CONCURRENT_CHILDREN, MIN_CONCURRENT_CHILDREN, MAX_CONCURRENT_CHILDREN_LIMIT } from './dispatchTypes';
 import { mainLog } from '@process/utils/mainLogger';
 
 /**
@@ -16,10 +16,22 @@ import { mainLog } from '@process/utils/mainLogger';
  * Handles concurrency limits, child release, and cascade kill.
  */
 export class DispatchResourceGuard {
+  /** F-6.2: Dynamic max concurrent children, configurable per session */
+  private maxConcurrent: number = DEFAULT_CONCURRENT_CHILDREN;
+
   constructor(
     private readonly taskManager: IWorkerTaskManager,
     private readonly tracker: DispatchSessionTracker
   ) {}
+
+  /**
+   * F-6.2: Update the maximum concurrent children limit.
+   * Clamped to [MIN_CONCURRENT_CHILDREN, MAX_CONCURRENT_CHILDREN_LIMIT].
+   */
+  setMaxConcurrent(limit: number): void {
+    this.maxConcurrent = Math.max(MIN_CONCURRENT_CHILDREN, Math.min(MAX_CONCURRENT_CHILDREN_LIMIT, limit));
+    mainLog('[DispatchResourceGuard]', `Max concurrent set to ${this.maxConcurrent}`);
+  }
 
   /**
    * Check concurrency limit before creating a new child task.
@@ -29,7 +41,7 @@ export class DispatchResourceGuard {
   checkConcurrencyLimit(parentId: string, transcriptReadSet?: Set<string>): string | undefined {
     let activeCount = this.tracker.countActiveChildren(parentId);
 
-    if (activeCount >= MAX_CONCURRENT_CHILDREN) {
+    if (activeCount >= this.maxConcurrent) {
       // F-5.2: Try to free slots by cleaning up stale idle children
       if (transcriptReadSet) {
         const freed = this.cleanupStaleChildren(parentId, transcriptReadSet);
@@ -38,9 +50,9 @@ export class DispatchResourceGuard {
         }
       }
 
-      if (activeCount >= MAX_CONCURRENT_CHILDREN) {
+      if (activeCount >= this.maxConcurrent) {
         return (
-          `Maximum concurrent tasks reached (${activeCount}/${MAX_CONCURRENT_CHILDREN}). ` +
+          `Maximum concurrent tasks reached (${activeCount}/${this.maxConcurrent}). ` +
           `Wait for existing tasks to complete or read their transcripts.`
         );
       }
@@ -86,7 +98,7 @@ export class DispatchResourceGuard {
       transcriptReadSet.delete(child.sessionId);
       freed++;
       // Only free enough to get below the limit
-      if (this.tracker.countActiveChildren(parentId) < MAX_CONCURRENT_CHILDREN) {
+      if (this.tracker.countActiveChildren(parentId) < this.maxConcurrent) {
         break;
       }
     }

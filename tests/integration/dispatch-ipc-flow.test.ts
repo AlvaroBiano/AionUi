@@ -59,6 +59,11 @@ vi.mock('@/common', () => ({
           providerHandlers['updateGroupChatSettings'] = handler;
         },
       },
+      forkToDispatch: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['forkToDispatch'] = handler;
+        },
+      },
     },
     conversation: {
       listChanged: { emit: vi.fn() },
@@ -136,6 +141,7 @@ function makeConversationService(overrides?: Record<string, ReturnType<typeof vi
     createConversation: vi.fn(async () => {}),
     getConversation: vi.fn(async () => null),
     listAllConversations: vi.fn(async () => []),
+    updateConversation: vi.fn(async () => {}),
     ...overrides,
   };
 }
@@ -690,6 +696,396 @@ describe('Dispatch IPC Flow — Phase 2b Integration', () => {
 
       expect(result.success).toBe(false);
       expect(result.msg).toContain('DB write failed');
+    });
+  });
+
+  // ========== Phase 6 IPC Tests ==========
+
+  // INT-IPC-010: F-6.2 updateGroupChatSettings stores maxConcurrentChildren
+  describe('INT-IPC-010: updateGroupChatSettings with maxConcurrentChildren (F-6.2)', () => {
+    it('persists maxConcurrentChildren in conversation extra', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'dispatch-mc-1',
+        type: 'dispatch',
+        name: 'Concurrent Test',
+        extra: { groupChatName: 'Concurrent Test' },
+      });
+
+      const result = (await providerHandlers['updateGroupChatSettings']({
+        conversationId: 'dispatch-mc-1',
+        maxConcurrentChildren: 7,
+      })) as { success: boolean };
+
+      expect(result.success).toBe(true);
+      expect(conversationService.updateConversation).toHaveBeenCalledWith(
+        'dispatch-mc-1',
+        expect.objectContaining({
+          extra: expect.objectContaining({
+            maxConcurrentChildren: 7,
+          }),
+        }),
+      );
+    });
+
+    it('can set maxConcurrentChildren alongside other settings', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'dispatch-mc-2',
+        type: 'dispatch',
+        name: 'Multi Update',
+        extra: {},
+      });
+
+      const result = (await providerHandlers['updateGroupChatSettings']({
+        conversationId: 'dispatch-mc-2',
+        groupChatName: 'Updated Name',
+        maxConcurrentChildren: 5,
+        seedMessages: 'New seed',
+      })) as { success: boolean };
+
+      expect(result.success).toBe(true);
+      expect(conversationService.updateConversation).toHaveBeenCalledWith(
+        'dispatch-mc-2',
+        expect.objectContaining({
+          name: 'Updated Name',
+          extra: expect.objectContaining({
+            groupChatName: 'Updated Name',
+            maxConcurrentChildren: 5,
+            seedMessages: 'New seed',
+          }),
+        }),
+      );
+    });
+  });
+
+  // INT-IPC-011: F-6.2 getGroupChatInfo returns maxConcurrentChildren
+  describe('INT-IPC-011: getGroupChatInfo returns maxConcurrentChildren (F-6.2)', () => {
+    it('includes maxConcurrentChildren in response data', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'dispatch-mc-3',
+        type: 'dispatch',
+        name: 'Limit Chat',
+        extra: { groupChatName: 'Limit Chat', maxConcurrentChildren: 8 },
+      });
+      conversationService.listAllConversations.mockResolvedValue([]);
+
+      const result = (await providerHandlers['getGroupChatInfo']({
+        conversationId: 'dispatch-mc-3',
+      })) as { success: boolean; data: { maxConcurrentChildren: number } };
+
+      expect(result.success).toBe(true);
+      expect(result.data.maxConcurrentChildren).toBe(8);
+    });
+
+    it('returns undefined maxConcurrentChildren when not set', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'dispatch-mc-4',
+        type: 'dispatch',
+        name: 'No Limit',
+        extra: { groupChatName: 'No Limit' },
+      });
+      conversationService.listAllConversations.mockResolvedValue([]);
+
+      const result = (await providerHandlers['getGroupChatInfo']({
+        conversationId: 'dispatch-mc-4',
+      })) as { success: boolean; data: { maxConcurrentChildren?: number } };
+
+      expect(result.success).toBe(true);
+      expect(result.data.maxConcurrentChildren).toBeUndefined();
+    });
+  });
+
+  // INT-IPC-012: F-6.3 forkToDispatch — source conversation read and dispatch creation
+  describe('INT-IPC-012: forkToDispatch handler (F-6.3)', () => {
+    it('creates dispatch conversation from source with seed context', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-1',
+        type: 'gemini',
+        name: 'My Research',
+        extra: { workspace: '/home/user/research' },
+        model: { id: 'custom-provider-1', useModel: 'gpt-4o' },
+      });
+      conversationRepo.getMessages.mockResolvedValue({
+        data: [
+          { position: 'right', content: { content: 'What is TypeScript?' } },
+          { position: 'left', content: { content: 'TypeScript is a typed superset of JavaScript.' } },
+        ],
+      });
+
+      const result = (await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-1',
+      })) as { success: boolean; data: { conversationId: string } };
+
+      expect(result.success).toBe(true);
+      expect(result.data.conversationId).toBe('int-uuid-001');
+
+      // Verify conversation was created with seed context
+      expect(conversationService.createConversation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'dispatch',
+          name: expect.stringContaining('Fork:'),
+          extra: expect.objectContaining({
+            workspace: '/home/user/research',
+            dispatchSessionType: 'dispatcher',
+            seedMessages: expect.stringContaining('Imported Context'),
+          }),
+        }),
+      );
+    });
+
+    it('extracts text messages and formats as [user]/[assistant]', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-2',
+        type: 'gemini',
+        name: 'Code Review',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({
+        data: [
+          { position: 'right', content: { content: 'Review this function' } },
+          { position: 'left', content: { content: 'The function looks good' } },
+        ],
+      });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-2',
+      });
+
+      const createCall = conversationService.createConversation.mock.calls[0][0];
+      const seedMessages = createCall.extra.seedMessages as string;
+      expect(seedMessages).toContain('[user] Review this function');
+      expect(seedMessages).toContain('[assistant] The function looks good');
+    });
+
+    it('includes source conversation title in seed context header', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-3',
+        type: 'gemini',
+        name: 'Architecture Discussion',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({
+        data: [{ position: 'right', content: { content: 'Hello' } }],
+      });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-3',
+      });
+
+      const createCall = conversationService.createConversation.mock.calls[0][0];
+      const seedMessages = createCall.extra.seedMessages as string;
+      expect(seedMessages).toContain('Architecture Discussion');
+    });
+
+    it('returns error when source conversation not found', async () => {
+      conversationService.getConversation.mockResolvedValue(null);
+
+      const result = (await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'nonexistent',
+      })) as { success: boolean; msg: string };
+
+      expect(result.success).toBe(false);
+      expect(result.msg).toContain('Source conversation not found');
+    });
+
+    it('returns error when source is a dispatch conversation', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'dispatch-source',
+        type: 'dispatch',
+        name: 'Existing Dispatch',
+        extra: {},
+      });
+
+      const result = (await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'dispatch-source',
+      })) as { success: boolean; msg: string };
+
+      expect(result.success).toBe(false);
+      expect(result.msg).toContain('Cannot fork a dispatch conversation');
+    });
+
+    it('respects maxMessages parameter', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-4',
+        type: 'gemini',
+        name: 'Long Chat',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({
+        data: [
+          { position: 'right', content: { content: 'Message 1' } },
+          { position: 'left', content: { content: 'Response 1' } },
+        ],
+      });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-4',
+        maxMessages: 5,
+      });
+
+      // Verify getMessages was called with the custom limit
+      expect(conversationRepo.getMessages).toHaveBeenCalledWith('source-conv-4', 0, 5);
+    });
+
+    it('defaults maxMessages to 20', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-5',
+        type: 'gemini',
+        name: 'Default Limit',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({ data: [] });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-5',
+      });
+
+      expect(conversationRepo.getMessages).toHaveBeenCalledWith('source-conv-5', 0, 20);
+    });
+
+    it('skips messages with empty content', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-6',
+        type: 'gemini',
+        name: 'Sparse Chat',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({
+        data: [
+          { position: 'right', content: { content: '' } },
+          { position: 'right', content: { content: '  ' } },
+          { position: 'left', content: { content: 'Valid response' } },
+        ],
+      });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-6',
+      });
+
+      const createCall = conversationService.createConversation.mock.calls[0][0];
+      const seedMessages = createCall.extra.seedMessages as string;
+      // Only the valid message should appear
+      expect(seedMessages).toContain('Valid response');
+      expect(seedMessages).toContain('last 1 messages');
+    });
+
+    it('creates dispatch with no seedMessages when source has no text messages', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-7',
+        type: 'gemini',
+        name: 'Empty Chat',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({ data: [] });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-7',
+      });
+
+      const createCall = conversationService.createConversation.mock.calls[0][0];
+      expect(createCall.extra.seedMessages).toBeUndefined();
+    });
+
+    it('triggers orchestrator warm-start after creation', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-8',
+        type: 'gemini',
+        name: 'Warm Start Fork',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({ data: [] });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-8',
+      });
+
+      expect(workerTaskManager.getOrBuildTask).toHaveBeenCalledWith('int-uuid-001');
+    });
+
+    it('emits listChanged after successful fork', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-9',
+        type: 'gemini',
+        name: 'Emit Test',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({ data: [] });
+
+      const { ipcBridge: mockIpcBridge } = await import('@/common');
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-9',
+      });
+
+      expect(mockIpcBridge.conversation.listChanged.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'int-uuid-001',
+          action: 'created',
+          source: 'dispatch',
+        }),
+      );
+    });
+
+    it('applies char cap by dropping oldest messages when context exceeds 8000 chars', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-10',
+        type: 'gemini',
+        name: 'Large Chat',
+        extra: {},
+      });
+      // Create messages that exceed the 8000 char cap
+      const longMessage = 'x'.repeat(4000);
+      conversationRepo.getMessages.mockResolvedValue({
+        data: [
+          { position: 'right', content: { content: longMessage } },
+          { position: 'left', content: { content: longMessage } },
+          { position: 'right', content: { content: 'Recent short message' } },
+        ],
+      });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-10',
+      });
+
+      const createCall = conversationService.createConversation.mock.calls[0][0];
+      const seedMessages = createCall.extra.seedMessages as string;
+      // The total should be under 8000 chars
+      expect(seedMessages.length).toBeLessThanOrEqual(8000);
+      // Recent message should be preserved (oldest dropped first)
+      expect(seedMessages).toContain('Recent short message');
+    });
+
+    it('inherits source workspace when available', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-11',
+        type: 'gemini',
+        name: 'Workspace Fork',
+        extra: { workspace: '/projects/my-app' },
+      });
+      conversationRepo.getMessages.mockResolvedValue({ data: [] });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-11',
+      });
+
+      const createCall = conversationService.createConversation.mock.calls[0][0];
+      expect(createCall.extra.workspace).toBe('/projects/my-app');
+    });
+
+    it('falls back to default workspace when source has none', async () => {
+      conversationService.getConversation.mockResolvedValue({
+        id: 'source-conv-12',
+        type: 'gemini',
+        name: 'No Workspace',
+        extra: {},
+      });
+      conversationRepo.getMessages.mockResolvedValue({ data: [] });
+
+      await providerHandlers['forkToDispatch']({
+        sourceConversationId: 'source-conv-12',
+      });
+
+      const createCall = conversationService.createConversation.mock.calls[0][0];
+      expect(createCall.extra.workspace).toBe('/default/workspace');
     });
   });
 });

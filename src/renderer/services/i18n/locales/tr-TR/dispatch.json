@@ -110,8 +110,13 @@
     "saveSuccess": "Ayarlar kaydedildi",
     "saveFailed": "Ayarlar kaydedilemedi",
     "leaderAgentDeleted": "Bu ajan silindi",
-    "coldSwapNotice": "Değişiklikler orkestratöre gönderilen bir sonraki mesajda geçerli olur."
+    "coldSwapNotice": "Değişiklikler orkestratöre gönderilen bir sonraki mesajda geçerli olur.",
+    "maxConcurrentLabel": "Maksimum Eşzamanlı Görev",
+    "maxConcurrentHelp": "Daha yüksek değerler daha fazla API kotası kullanır. Önerilen: 3-5."
   },
+  "forkToDispatch": "Dağıtıma Çatalla",
+  "forkSuccess": "İçe aktarılan bağlamla dağıtım oturumu oluşturuldu",
+  "forkFailed": "Dağıtım oturumu oluşturulamadı",
   "overview": {
     "title": "Görev Genel Bakışı",
     "collapse": "Daralt",

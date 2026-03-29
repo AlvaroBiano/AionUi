@@ -934,11 +934,15 @@ export const dispatch = {
         lastActivityAt: number;
         /** F-4.2: Model name if child uses a non-default model */
         modelName?: string;
+        /** F-6.1: Working directory for this child */
+        workspace?: string;
       }>;
       pendingNotificationCount: number;
       /** F-4.3: Current settings for GroupChatSettingsDrawer */
       leaderAgentId?: string;
       seedMessages?: string;
+      /** F-6.2: Max concurrent children limit */
+      maxConcurrentChildren?: number;
     }>,
     { conversationId: string }
   >('dispatch.get-group-chat-info'),
@@ -989,6 +993,15 @@ export const dispatch = {
     }
   >('dispatch.notify-parent'),
 
+  /** F-6.3: Fork a regular conversation into a new dispatch session with imported context */
+  forkToDispatch: bridge.buildProvider<
+    IBridgeResponse<{ conversationId: string }>,
+    {
+      sourceConversationId: string;
+      maxMessages?: number;
+    }
+  >('dispatch.fork-from-conversation'),
+
   /** F-4.3: Update group chat settings (name, leader agent, seed messages) */
   updateGroupChatSettings: bridge.buildProvider<
     IBridgeResponse,
@@ -997,6 +1010,8 @@ export const dispatch = {
       groupChatName?: string;
       leaderAgentId?: string;
       seedMessages?: string;
+      /** F-6.2: Max concurrent children */
+      maxConcurrentChildren?: number;
     }
   >('dispatch.update-group-chat-settings'),
 };

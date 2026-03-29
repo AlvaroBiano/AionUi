@@ -170,6 +170,7 @@ describe('GroupChatSettingsDrawer (F-4.3)', () => {
         groupChatName: 'Test Group',
         leaderAgentId: undefined,
         seedMessages: 'Initial instructions',
+        maxConcurrentChildren: 3,
       });
     });
   });
@@ -278,6 +279,7 @@ describe('GroupChatSettingsDrawer (F-4.3)', () => {
         groupChatName: undefined,
         leaderAgentId: undefined,
         seedMessages: undefined,
+        maxConcurrentChildren: 3,
       });
     });
   });

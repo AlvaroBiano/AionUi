@@ -6,6 +6,8 @@
 
 // src/process/task/dispatch/DispatchAgentManager.ts
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { ipcBridge } from '@/common';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 import type { TMessage, IMessageText } from '@/common/chat/chatLib';
@@ -37,7 +39,7 @@ import type {
   SendMessageToChildParams,
   ListSessionsParams,
 } from './dispatchTypes';
-import { MAX_CONCURRENT_CHILDREN } from './dispatchTypes';
+import { DEFAULT_CONCURRENT_CHILDREN } from './dispatchTypes';
 
 type DispatchAgentData = {
   workspace: string;
@@ -143,6 +145,7 @@ export class DispatchAgentManager extends BaseAgentManager<
     // Phase 2b: Read leader profile and seed messages from conversation extra
     let leaderProfile: string | undefined;
     let customInstructions: string | undefined;
+    let maxConcurrentChildren: number | undefined;
     if (this.conversationRepo) {
       try {
         const conv = await this.conversationRepo.getConversation(this.conversation_id);
@@ -150,13 +153,20 @@ export class DispatchAgentManager extends BaseAgentManager<
           const extra = conv.extra as {
             leaderPresetRules?: string;
             seedMessages?: string;
+            maxConcurrentChildren?: number;
           };
           leaderProfile = extra.leaderPresetRules;
           customInstructions = extra.seedMessages;
+          maxConcurrentChildren = extra.maxConcurrentChildren;
         }
       } catch (err) {
         mainWarn('[DispatchAgentManager]', 'Failed to read extra for leader/seed', err);
       }
+    }
+
+    // F-6.2: Apply configurable concurrent limit from conversation extra
+    if (typeof maxConcurrentChildren === 'number') {
+      this.resourceGuard.setMaxConcurrent(maxConcurrentChildren);
     }
 
     // F-4.2: Build available model list for orchestrator prompt
@@ -166,6 +176,8 @@ export class DispatchAgentManager extends BaseAgentManager<
       leaderProfile,
       customInstructions,
       availableModels,
+      workspace: this.workspace,
+      maxConcurrentChildren: maxConcurrentChildren ?? DEFAULT_CONCURRENT_CHILDREN,
     });
     const combinedRules = systemPrompt;
 
@@ -359,6 +371,30 @@ export class DispatchAgentManager extends BaseAgentManager<
       }
     }
 
+    // F-6.1: Workspace resolution and validation
+    let childWorkspace = this.workspace;
+    if (params.workspace) {
+      const resolved = path.resolve(params.workspace);
+      const parentResolved = path.resolve(this.workspace);
+      // Security: workspace must be within parent workspace to prevent path traversal
+      if (!resolved.startsWith(parentResolved + path.sep) && resolved !== parentResolved) {
+        throw new Error(`Workspace must be within parent workspace: ${this.workspace}`);
+      }
+      try {
+        const stat = await fs.promises.stat(resolved);
+        if (!stat.isDirectory()) {
+          throw new Error(`Workspace is not a directory: ${params.workspace}`);
+        }
+        childWorkspace = resolved;
+        mainLog('[DispatchAgentManager]', `Workspace override: ${resolved}`);
+      } catch (err) {
+        if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error(`Workspace directory does not exist: ${params.workspace}`);
+        }
+        throw err;
+      }
+    }
+
     // Create child conversation in DB.
     const childId = uuid(16);
     const childConversation: TChatConversation = {
@@ -369,7 +405,7 @@ export class DispatchAgentManager extends BaseAgentManager<
       modifyTime: Date.now(),
       model: childModel,
       extra: {
-        workspace: this.workspace,
+        workspace: childWorkspace,
         dispatchSessionType: 'dispatch_child' as const,
         parentSessionId: this.conversation_id,
         dispatchTitle: params.title,
@@ -389,6 +425,7 @@ export class DispatchAgentManager extends BaseAgentManager<
       teammateName: params.teammate?.name,
       createdAt: Date.now(),
       lastActivityAt: Date.now(),
+      workspace: childWorkspace,
     };
     this.tracker.registerChild(this.conversation_id, childInfo);
 
@@ -648,7 +685,10 @@ export class DispatchAgentManager extends BaseAgentManager<
       return 'idle';
     };
 
-    const lines = shown.map((c) => `  - ${c.sessionId} "${c.title}" (${statusLabel(c.status)}, is_child: true)`);
+    const lines = shown.map((c) => {
+      const workspaceLabel = c.workspace ? `, workspace: ${c.workspace}` : '';
+      return `  - ${c.sessionId} "${c.title}" (${statusLabel(c.status)}, is_child: true${workspaceLabel})`;
+    });
 
     const header =
       children.length > shown.length
@@ -899,5 +939,12 @@ export class DispatchAgentManager extends BaseAgentManager<
    */
   getNotifier(): DispatchNotifier {
     return this.notifier;
+  }
+
+  /**
+   * F-6.2: Update the concurrent task limit at runtime.
+   */
+  setMaxConcurrent(limit: number): void {
+    this.resourceGuard.setMaxConcurrent(limit);
   }
 }

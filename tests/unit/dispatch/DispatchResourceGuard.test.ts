@@ -18,7 +18,12 @@ vi.mock('@process/utils/mainLogger', () => ({
 
 import { DispatchResourceGuard } from '../../../src/process/task/dispatch/DispatchResourceGuard';
 import { DispatchSessionTracker } from '../../../src/process/task/dispatch/DispatchSessionTracker';
-import { MAX_CONCURRENT_CHILDREN } from '../../../src/process/task/dispatch/dispatchTypes';
+import {
+  MAX_CONCURRENT_CHILDREN,
+  DEFAULT_CONCURRENT_CHILDREN,
+  MIN_CONCURRENT_CHILDREN,
+  MAX_CONCURRENT_CHILDREN_LIMIT,
+} from '../../../src/process/task/dispatch/dispatchTypes';
 import type { IWorkerTaskManager } from '../../../src/process/task/IWorkerTaskManager';
 
 function makeTaskManager(overrides: Partial<IWorkerTaskManager> = {}): IWorkerTaskManager {
@@ -295,6 +300,220 @@ describe('DispatchResourceGuard Phase 5', () => {
 
       // Tracker should be cleaned up
       expect(tracker.getChildren('parent-1')).toHaveLength(0);
+    });
+  });
+});
+
+// ==================== Phase 6: F-6.2 setMaxConcurrent ====================
+
+describe('DispatchResourceGuard Phase 6 — F-6.2 setMaxConcurrent', () => {
+  let guard: DispatchResourceGuard;
+  let tracker: DispatchSessionTracker;
+  let taskManager: IWorkerTaskManager;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    tracker = new DispatchSessionTracker();
+    taskManager = makeTaskManager();
+    guard = new DispatchResourceGuard(taskManager, tracker);
+  });
+
+  describe('RG-P6-001: default maxConcurrent is DEFAULT_CONCURRENT_CHILDREN', () => {
+    it('uses DEFAULT_CONCURRENT_CHILDREN when setMaxConcurrent is not called', () => {
+      // Register exactly DEFAULT_CONCURRENT_CHILDREN running children
+      for (let i = 0; i < DEFAULT_CONCURRENT_CHILDREN; i++) {
+        tracker.registerChild('parent-1', {
+          sessionId: `child-${i}`,
+          title: `Task ${i}`,
+          status: 'running',
+          createdAt: Date.now(),
+          lastActivityAt: Date.now(),
+        });
+      }
+
+      // At default limit, should be rejected
+      const result = guard.checkConcurrencyLimit('parent-1');
+      expect(result).toContain('Maximum concurrent tasks reached');
+      expect(result).toContain(`${DEFAULT_CONCURRENT_CHILDREN}`);
+    });
+  });
+
+  describe('RG-P6-002: setMaxConcurrent raises the limit', () => {
+    it('allows more children after raising the limit', () => {
+      guard.setMaxConcurrent(5);
+
+      // Register DEFAULT_CONCURRENT_CHILDREN running children (3)
+      for (let i = 0; i < DEFAULT_CONCURRENT_CHILDREN; i++) {
+        tracker.registerChild('parent-1', {
+          sessionId: `child-${i}`,
+          title: `Task ${i}`,
+          status: 'running',
+          createdAt: Date.now(),
+          lastActivityAt: Date.now(),
+        });
+      }
+
+      // 3 running < 5 limit, should be allowed
+      expect(guard.checkConcurrencyLimit('parent-1')).toBeUndefined();
+    });
+
+    it('rejects when new higher limit is reached', () => {
+      guard.setMaxConcurrent(5);
+
+      for (let i = 0; i < 5; i++) {
+        tracker.registerChild('parent-1', {
+          sessionId: `child-${i}`,
+          title: `Task ${i}`,
+          status: 'running',
+          createdAt: Date.now(),
+          lastActivityAt: Date.now(),
+        });
+      }
+
+      const result = guard.checkConcurrencyLimit('parent-1');
+      expect(result).toContain('Maximum concurrent tasks reached');
+      expect(result).toContain('5/5');
+    });
+  });
+
+  describe('RG-P6-003: setMaxConcurrent lowers the limit', () => {
+    it('rejects at the lower limit', () => {
+      guard.setMaxConcurrent(1);
+
+      tracker.registerChild('parent-1', {
+        sessionId: 'child-0',
+        title: 'Task 0',
+        status: 'running',
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+      });
+
+      const result = guard.checkConcurrencyLimit('parent-1');
+      expect(result).toContain('Maximum concurrent tasks reached');
+      expect(result).toContain('1/1');
+    });
+  });
+
+  describe('RG-P6-004: setMaxConcurrent clamps to MIN_CONCURRENT_CHILDREN', () => {
+    it('clamps values below MIN to MIN_CONCURRENT_CHILDREN', () => {
+      guard.setMaxConcurrent(0);
+
+      // With MIN_CONCURRENT_CHILDREN=1, one running child should hit the limit
+      tracker.registerChild('parent-1', {
+        sessionId: 'child-0',
+        title: 'Task 0',
+        status: 'running',
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+      });
+
+      const result = guard.checkConcurrencyLimit('parent-1');
+      expect(result).toContain(`${MIN_CONCURRENT_CHILDREN}/${MIN_CONCURRENT_CHILDREN}`);
+    });
+
+    it('clamps negative values to MIN_CONCURRENT_CHILDREN', () => {
+      guard.setMaxConcurrent(-5);
+
+      tracker.registerChild('parent-1', {
+        sessionId: 'child-0',
+        title: 'Task 0',
+        status: 'running',
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+      });
+
+      const result = guard.checkConcurrencyLimit('parent-1');
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('RG-P6-005: setMaxConcurrent clamps to MAX_CONCURRENT_CHILDREN_LIMIT', () => {
+    it('clamps values above MAX to MAX_CONCURRENT_CHILDREN_LIMIT', () => {
+      guard.setMaxConcurrent(100);
+
+      // Register MAX_CONCURRENT_CHILDREN_LIMIT running children
+      for (let i = 0; i < MAX_CONCURRENT_CHILDREN_LIMIT; i++) {
+        tracker.registerChild('parent-1', {
+          sessionId: `child-${i}`,
+          title: `Task ${i}`,
+          status: 'running',
+          createdAt: Date.now(),
+          lastActivityAt: Date.now(),
+        });
+      }
+
+      // At the clamped limit, should be rejected
+      const result = guard.checkConcurrencyLimit('parent-1');
+      expect(result).toContain(`${MAX_CONCURRENT_CHILDREN_LIMIT}/${MAX_CONCURRENT_CHILDREN_LIMIT}`);
+    });
+  });
+
+  describe('RG-P6-006: setMaxConcurrent accepts valid boundary values', () => {
+    it('accepts MIN_CONCURRENT_CHILDREN exactly', () => {
+      guard.setMaxConcurrent(MIN_CONCURRENT_CHILDREN);
+
+      // 0 running, should allow
+      expect(guard.checkConcurrencyLimit('parent-1')).toBeUndefined();
+
+      // 1 running at limit=1 should reject
+      tracker.registerChild('parent-1', {
+        sessionId: 'child-0',
+        title: 'Task 0',
+        status: 'running',
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+      });
+      expect(guard.checkConcurrencyLimit('parent-1')).toBeDefined();
+    });
+
+    it('accepts MAX_CONCURRENT_CHILDREN_LIMIT exactly', () => {
+      guard.setMaxConcurrent(MAX_CONCURRENT_CHILDREN_LIMIT);
+
+      // Register MAX_CONCURRENT_CHILDREN_LIMIT - 1 children, should allow
+      for (let i = 0; i < MAX_CONCURRENT_CHILDREN_LIMIT - 1; i++) {
+        tracker.registerChild('parent-1', {
+          sessionId: `child-${i}`,
+          title: `Task ${i}`,
+          status: 'running',
+          createdAt: Date.now(),
+          lastActivityAt: Date.now(),
+        });
+      }
+      expect(guard.checkConcurrencyLimit('parent-1')).toBeUndefined();
+    });
+  });
+
+  describe('RG-P6-007: setMaxConcurrent interacts with lazy cleanup', () => {
+    it('lazy cleanup respects the updated limit', () => {
+      guard.setMaxConcurrent(2);
+
+      // Register 2 running children (at new limit)
+      tracker.registerChild('parent-1', {
+        sessionId: 'child-0',
+        title: 'Task 0',
+        status: 'running',
+        createdAt: Date.now(),
+        lastActivityAt: Date.now() - 5000,
+      });
+      tracker.registerChild('parent-1', {
+        sessionId: 'child-1',
+        title: 'Task 1',
+        status: 'running',
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+      });
+
+      // At limit, should reject without cleanup set
+      expect(guard.checkConcurrencyLimit('parent-1')).toBeDefined();
+
+      // Mark child-0 as idle and transcript-read
+      tracker.updateChildStatus('child-0', 'idle');
+      const readSet = new Set(['child-0']);
+
+      // Now with cleanup, should free child-0 and allow (1 running < 2 limit)
+      // But countActiveChildren only counts running/pending, so child-0 idle means
+      // only 1 active. checkConcurrencyLimit will pass before cleanup is needed.
+      expect(guard.checkConcurrencyLimit('parent-1', readSet)).toBeUndefined();
     });
   });
 });

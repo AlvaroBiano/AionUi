@@ -110,8 +110,13 @@
     "saveSuccess": "Settings saved",
     "saveFailed": "Failed to save settings",
     "leaderAgentDeleted": "This agent has been deleted",
-    "coldSwapNotice": "Changes take effect on the next message sent to the orchestrator."
+    "coldSwapNotice": "Changes take effect on the next message sent to the orchestrator.",
+    "maxConcurrentLabel": "Max Concurrent Tasks",
+    "maxConcurrentHelp": "Higher values use more API quota. Recommended: 3-5."
   },
+  "forkToDispatch": "Fork to Dispatch",
+  "forkSuccess": "Dispatch session created with imported context",
+  "forkFailed": "Failed to create dispatch session",
   "overview": {
     "title": "Task Overview",
     "collapse": "Collapse",

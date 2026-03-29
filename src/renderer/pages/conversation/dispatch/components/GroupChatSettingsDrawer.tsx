@@ -5,7 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
-import { Alert, Button, Drawer, Form, Input, Message, Select } from '@arco-design/web-react';
+import { Alert, Button, Drawer, Form, Input, InputNumber, Message, Select } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -28,6 +28,7 @@ const GroupChatSettingsDrawer: React.FC<GroupChatSettingsDrawerProps> = ({
   const [name, setName] = useState(currentSettings.groupChatName || '');
   const [leaderAgentId, setLeaderAgentId] = useState(currentSettings.leaderAgentId || '');
   const [seedMessages, setSeedMessages] = useState(currentSettings.seedMessages || '');
+  const [maxConcurrent, setMaxConcurrent] = useState(currentSettings.maxConcurrentChildren ?? 3);
   const [saving, setSaving] = useState(false);
   const [agents, setAgents] = useState<AgentOption[]>([]);
 
@@ -56,6 +57,7 @@ const GroupChatSettingsDrawer: React.FC<GroupChatSettingsDrawerProps> = ({
       setName(currentSettings.groupChatName || '');
       setLeaderAgentId(currentSettings.leaderAgentId || '');
       setSeedMessages(currentSettings.seedMessages || '');
+      setMaxConcurrent(currentSettings.maxConcurrentChildren ?? 3);
     }
   }, [visible, currentSettings]);
 
@@ -67,6 +69,7 @@ const GroupChatSettingsDrawer: React.FC<GroupChatSettingsDrawerProps> = ({
         groupChatName: name || undefined,
         leaderAgentId: leaderAgentId || undefined,
         seedMessages: seedMessages || undefined,
+        maxConcurrentChildren: maxConcurrent,
       });
       if (result.success) {
         Message.success(t('dispatch.settings.saveSuccess'));
@@ -84,7 +87,7 @@ const GroupChatSettingsDrawer: React.FC<GroupChatSettingsDrawerProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [conversationId, name, leaderAgentId, seedMessages, onSaved, onClose, t]);
+  }, [conversationId, name, leaderAgentId, seedMessages, maxConcurrent, onSaved, onClose, t]);
 
   return (
     <Drawer
@@ -135,6 +138,18 @@ const GroupChatSettingsDrawer: React.FC<GroupChatSettingsDrawerProps> = ({
             maxLength={2000}
             showWordLimit
           />
+        </Form.Item>
+        <Form.Item label={t('dispatch.settings.maxConcurrentLabel')}>
+          <InputNumber
+            value={maxConcurrent}
+            onChange={(val) => setMaxConcurrent(typeof val === 'number' ? val : 3)}
+            min={1}
+            max={10}
+            style={{ width: '100%' }}
+          />
+          <div className='text-12px text-t-secondary mt-4px'>
+            {t('dispatch.settings.maxConcurrentHelp')}
+          </div>
         </Form.Item>
       </Form>
     </Drawer>

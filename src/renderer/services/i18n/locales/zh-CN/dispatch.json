@@ -110,8 +110,13 @@
     "saveSuccess": "设置已保存",
     "saveFailed": "保存设置失败",
     "leaderAgentDeleted": "该 Agent 已被删除",
-    "coldSwapNotice": "更改将在下一条发送给协调者的消息时生效。"
+    "coldSwapNotice": "更改将在下一条发送给协调者的消息时生效。",
+    "maxConcurrentLabel": "最大并发任务数",
+    "maxConcurrentHelp": "较高的值会消耗更多 API 配额。建议：3-5。"
   },
+  "forkToDispatch": "派生为调度",
+  "forkSuccess": "已创建包含导入上下文的调度会话",
+  "forkFailed": "创建调度会话失败",
   "overview": {
     "title": "任务概览",
     "collapse": "折叠",

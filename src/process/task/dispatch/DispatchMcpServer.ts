@@ -76,6 +76,11 @@ export class DispatchMcpServer {
           };
         }
 
+        // F-6.1: Parse workspace override if provided
+        if (typeof args.workspace === 'string' && args.workspace.trim()) {
+          params.workspace = args.workspace.trim();
+        }
+
         // F-4.2: Parse model override if provided
         if (args.model && typeof args.model === 'object') {
           const m = args.model as Record<string, unknown>;
@@ -199,7 +204,7 @@ export class DispatchMcpServer {
         name: 'start_task',
         description:
           'Start a new child task. Creates an independent agent session that executes the given prompt. ' +
-          'Returns a session_id for tracking. Maximum 3 concurrent tasks.',
+          'Returns a session_id for tracking. Maximum concurrent tasks per session constraints.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -238,6 +243,11 @@ export class DispatchMcpServer {
                 },
               },
               required: ['provider_id', 'model_name'],
+            },
+            workspace: {
+              type: 'string',
+              description:
+                'Optional working directory for the child agent. Must be an existing directory. Omit to inherit parent workspace.',
             },
           },
           required: ['prompt', 'title'],
