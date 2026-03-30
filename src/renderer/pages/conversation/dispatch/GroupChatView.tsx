@@ -15,14 +15,16 @@ import { MessageListProvider, useAddOrUpdateMessage, useMessageLstCache } from '
 import MessageList from '@/renderer/pages/conversation/Messages/MessageList';
 import HOC from '@/renderer/utils/ui/HOC';
 import { Alert, Button, Drawer, Tag, Tooltip } from '@arco-design/web-react';
-import { Close, Info, Pound, SettingTwo } from '@icon-park/react';
+import { Close, Info, Pound, SettingTwo, Shield } from '@icon-park/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CronJobManager } from '@/renderer/pages/cron';
 import { emitter } from '@/renderer/utils/emitter';
 import { useAgentRegistry } from '@/renderer/hooks/useAgentRegistry';
 import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
+import { iconColors } from '@/renderer/styles/colors';
 
+import AgentModeSelector from '@/renderer/components/agent/AgentModeSelector';
 import ChatLayout from '../components/ChatLayout';
 import ChatSider from '../components/ChatSider';
 import ConversationChatConfirm from '../components/ConversationChatConfirm';
@@ -77,6 +79,9 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
     leaderAgentId?: string;
     leaderName?: string;
     leaderAvatar?: string;
+    adminAgentType?: string;
+    backend?: string;
+    sessionMode?: string;
   };
 
   // ── Two distinct identities ──
@@ -86,6 +91,9 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
   const leaderAgentId = extra.leaderAgentId;
   const leaderAgentName = resolveAdminAgentName(extra, conversation.name, agentRegistry);
   const leaderAgentAvatar = resolveAdminAgentAvatar(extra);
+  // Backend type for mode selector (ACP path stores it, Gemini path uses 'gemini')
+  const leaderBackend = extra.backend || extra.adminAgentType || 'gemini';
+  const initialSessionMode = extra.sessionMode;
 
   // ── Message list: load from DB + subscribe to live stream ──
   useMessageLstCache(conversation.id);
@@ -274,6 +282,15 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
                     defaultMultiLine={true}
                     lockMultiLine={true}
                     className='z-10'
+                    tools={
+                      <AgentModeSelector
+                        backend={leaderBackend}
+                        conversationId={conversation.id}
+                        compact
+                        initialMode={initialSessionMode}
+                        compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+                      />
+                    }
                   />
                 </div>
               </ConversationChatConfirm>

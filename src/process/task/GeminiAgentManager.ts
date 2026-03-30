@@ -68,6 +68,8 @@ export class GeminiAgentManager extends BaseAgentManager<
   presetRules?: string;
   contextContent?: string;
   enabledSkills?: string[];
+  /** External MCP servers injected by caller (e.g. dispatch tools) */
+  private externalMcpServers?: Record<string, UiMcpServerConfig>;
   private bootstrap: Promise<void>;
 
   /** Fingerprint of MCP config used by the current worker, for change detection */
@@ -126,6 +128,8 @@ export class GeminiAgentManager extends BaseAgentManager<
       yoloMode?: boolean;
       /** Persisted session mode for resume support / 持久化的会话模式，用于恢复 */
       sessionMode?: string;
+      /** External MCP servers injected by caller (e.g. dispatch tools) — merged with user-configured servers */
+      externalMcpServers?: Record<string, UiMcpServerConfig>;
     },
     model: TProviderWithModel
   ) {
@@ -136,6 +140,7 @@ export class GeminiAgentManager extends BaseAgentManager<
     this.contextFileName = data.contextFileName;
     this.presetRules = data.presetRules;
     this.enabledSkills = data.enabledSkills;
+    this.externalMcpServers = data.externalMcpServers;
     this.forceYoloMode = data.yoloMode;
     this.currentMode = data.sessionMode || 'default';
     this.webSearchEngine = data.webSearchEngine;
@@ -194,13 +199,23 @@ export class GeminiAgentManager extends BaseAgentManager<
         }
         const effectiveYoloMode = this.forceYoloMode ?? this.currentMode === 'yolo';
 
+        // Merge external MCP servers (e.g. dispatch tools) with user-configured servers
+        const mergedMcpServers = this.externalMcpServers
+          ? { ...mcpServers, ...this.externalMcpServers }
+          : mcpServers;
+
+        if (this.externalMcpServers) {
+          console.log('[GeminiAgentManager] External MCP servers injected:', JSON.stringify(Object.keys(this.externalMcpServers)));
+          console.log('[GeminiAgentManager] Merged MCP servers:', JSON.stringify(Object.keys(mergedMcpServers)));
+        }
+
         return this.start({
           ...config,
           GOOGLE_CLOUD_PROJECT: projectId,
           workspace: this.workspace,
           model: this.model,
           webSearchEngine: this.webSearchEngine,
-          mcpServers,
+          mcpServers: mergedMcpServers,
           contextFileName: this.contextFileName,
           // presetRules are no longer injected here — they are in GEMINI.md
           // Keep for backward compatibility with existing conversations

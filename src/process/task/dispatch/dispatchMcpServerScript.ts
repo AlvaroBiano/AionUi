@@ -15,6 +15,13 @@
 // IMPORTANT: TOOL_SCHEMAS must stay in sync with DispatchMcpServer.getToolSchemas().
 // When adding or modifying dispatch tools, update BOTH locations.
 
+// Immediate startup log — must be BEFORE any async work
+import * as _startupFs from 'node:fs';
+_startupFs.appendFileSync(
+  '/tmp/mcp-script-startup.log',
+  `[${new Date().toISOString()}] MCP script started. PID=${process.pid} argv=${JSON.stringify(process.argv)} env.AIONUI_DISPATCH_SOCKET=${process.env.AIONUI_DISPATCH_SOCKET ?? 'undefined'}\n`,
+);
+
 const TOOL_SCHEMAS = [
   {
     name: 'start_task',

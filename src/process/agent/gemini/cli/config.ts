@@ -381,6 +381,13 @@ export async function loadCliConfig({
 
   config.setFallbackModelHandler(fallbackModelHandler);
 
+  // Diagnostic: log MCP state after Config construction
+  const mcpMgr = config.getMcpClientManager();
+  console.log(`[loadCliConfig] Config created. MCP client manager: ${mcpMgr ? 'present' : 'null'}, MCP servers in config: ${JSON.stringify(Object.keys(config.getMcpServers?.() ?? {}))}`);
+  if (mcpMgr) {
+    console.log(`[loadCliConfig] MCP discovery state after Config init: ${mcpMgr.getDiscoveryState()}`);
+  }
+
   return config;
 }
 

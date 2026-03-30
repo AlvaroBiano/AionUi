@@ -11,7 +11,6 @@ import path from 'node:path';
 import { ipcBridge } from '@/common';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 import type { TMessage, IMessageText, IMessageToolGroup } from '@/common/chat/chatLib';
-import { transformMessage } from '@/common/chat/chatLib';
 import type { TProviderWithModel, TChatConversation } from '@/common/config/storage';
 import { uuid } from '@/common/utils';
 import type { IConversationRepository } from '@process/services/database/IConversationRepository';
@@ -26,15 +25,11 @@ import type { IAgentManager } from '../IAgentManager';
 import type { AgentType } from '../agentTypes';
 import { DispatchMcpServer } from './DispatchMcpServer';
 import type { DispatchToolHandler } from './DispatchMcpServer';
-import { DispatchIpcSocketServer } from './DispatchIpcSocket';
-import { toAcpSessionMcpServer } from './mcpFormatConvert';
+import { DispatchHttpMcpServer } from './DispatchHttpMcpServer';
 import { DispatchSessionTracker } from './DispatchSessionTracker';
 import { DispatchNotifier } from './DispatchNotifier';
 import { DispatchResourceGuard } from './DispatchResourceGuard';
 import { buildDispatchSystemPrompt } from './dispatchPrompt';
-import { scanProjectContext } from './projectContextScanner';
-import { loadMemory, saveMemory } from './memoryManager';
-import type { MemoryEntry } from './memoryManager';
 import { createWorktree, cleanupWorktree } from './worktreeManager';
 import { checkPermission } from './permissionPolicy';
 import type {
@@ -59,19 +54,17 @@ type DispatchAgentData = {
   dispatcherName?: string;
   /** Admin worker engine type. Defaults to 'gemini'. */
   adminAgentType?: AgentType;
-  /** Gap-3: When true, dispatcher raw text is internal; only send_user_message reaches UI. */
-  channelIsolation?: boolean;
 };
 
 /**
  * Dispatch agent manager that orchestrates multi-agent collaboration.
  *
  * Supports multiple admin agent types via composition:
- * - 'gemini': Forks gemini.js worker (existing behavior via BaseAgentManager)
- * - 'acp' (CC/Claude/Codex/etc.): Creates internal AcpAgentManager with dispatch MCP tools
+ * - 'gemini': Creates inner GeminiAgentManager with dispatch MCP tools
+ * - 'acp' (CC/Claude/Codex/etc.): Creates inner AcpAgentManager with dispatch MCP tools
  *
- * MCP tool calls from the admin agent's CLI are received via Unix domain socket,
- * which works regardless of how the CLI spawns the MCP server script (spawn/fork).
+ * Dispatch tools are exposed via an HTTP MCP server (`aionui-team`) running in the
+ * main process. Agent CLIs connect to it via HTTP MCP transport — no child process needed.
  */
 export class DispatchAgentManager extends BaseAgentManager<
   {
@@ -94,22 +87,18 @@ export class DispatchAgentManager extends BaseAgentManager<
   private resourceGuard!: DispatchResourceGuard;
   private readonly mcpServer: DispatchMcpServer;
   private readonly temporaryTeammates = new Map<string, TemporaryTeammateConfig>();
-  /** Gap-3: Channel isolation — when true, raw text is suppressed; only send_user_message reaches UI */
-  private readonly channelIsolation: boolean;
 
-  /** Unix domain socket for MCP tool call IPC (works with all admin agent types) */
-  private ipcSocket: DispatchIpcSocketServer | null = null;
+  /** HTTP MCP server for dispatch tools (runs in main process, no child process) */
+  private httpMcpServer: DispatchHttpMcpServer | null = null;
 
   /**
-   * Inner AcpAgentManager for non-gemini admin types.
-   * When adminWorkerType is 'acp' (CC/Claude/Codex/etc.), we don't fork a gemini worker.
-   * Instead, we compose an AcpAgentManager that handles the actual agent lifecycle.
-   * Uses a looser type because AcpAgentManager.sendMessage returns a richer type than IAgentManager.
+   * Inner agent manager (GeminiAgentManager or AcpAgentManager) that handles
+   * the actual conversation lifecycle. DispatchAgentManager delegates all
+   * IAgentManager operations (sendMessage, confirm, getMode, etc.) to it.
+   * This is the key insight: a dispatch leader is just a normal conversation
+   * with extra MCP tools. The inner manager handles everything else.
    */
-  private innerAcpManager: (IAgentManager & { sendMessage(data: unknown): Promise<unknown> }) | null = null;
-
-  /** Tool call phase state machine for message filtering */
-  private isToolCallPhase = false;
+  private innerManager: (IAgentManager & { sendMessage(data: unknown): Promise<unknown> }) | null = null;
 
   /** F-5.2: Track children whose transcripts have been read (for lazy cleanup) */
   private readonly transcriptReadChildren = new Set<string>();
@@ -134,16 +123,13 @@ export class DispatchAgentManager extends BaseAgentManager<
 
   constructor(data: DispatchAgentData) {
     const adminWorkerType: AgentType = data.adminAgentType || 'gemini';
-    // For non-gemini admin types, disable fork — we use an inner manager instead
-    const isGeminiAdmin = adminWorkerType === 'gemini';
-    // type='dispatch' (public), workerType resolved from adminAgentType (defaults to 'gemini')
-    super('dispatch', { ...data, model: data.model }, new IpcAgentEventEmitter(), isGeminiAdmin, adminWorkerType);
+    // Never fork — the inner manager (GeminiAgentManager or AcpAgentManager) handles its own lifecycle
+    super('dispatch', { ...data, model: data.model }, new IpcAgentEventEmitter(), false, adminWorkerType);
     this.adminWorkerType = adminWorkerType;
     this.workspace = data.workspace;
     this.conversation_id = data.conversation_id;
     this.model = data.model;
     this.dispatcherName = data.dispatcherName ?? 'Dispatcher';
-    this.channelIsolation = data.channelIsolation ?? false;
     this.initData = data;
 
     this.tracker = new DispatchSessionTracker();
@@ -157,12 +143,7 @@ export class DispatchAgentManager extends BaseAgentManager<
       listChildren: this.listChildren.bind(this),
       sendMessageToChild: this.sendMessageToChild.bind(this),
       listSessions: this.listSessions.bind(this),
-      // G2 additions:
       stopChild: this.stopChild.bind(this),
-      askUser: this.handleAskUser.bind(this),
-      // G4.7: Cross-session memory
-      saveMemory: this.handleSaveMemory.bind(this),
-      // Gap-3: Channel isolation
       sendUserMessage: this.handleSendUserMessage.bind(this),
     };
     this.mcpServer = new DispatchMcpServer(toolHandler);
@@ -213,118 +194,69 @@ export class DispatchAgentManager extends BaseAgentManager<
    * Initialize worker with dispatch config.
    */
   private async createBootstrap(): Promise<void> {
-    // Phase 2b: Read leader profile and seed messages from conversation extra
-    let leaderProfile: string | undefined;
+    // Read conversation extra for configurable settings
     let customInstructions: string | undefined;
     let maxConcurrentChildren: number | undefined;
-    let teamConfigPrompt: string | undefined;
     if (this.conversationRepo) {
       try {
         const conv = await this.conversationRepo.getConversation(this.conversation_id);
         if (conv) {
           const extra = conv.extra as {
-            leaderPresetRules?: string;
             seedMessages?: string;
             maxConcurrentChildren?: number;
-            teamConfig?: string;
           };
-          leaderProfile = extra.leaderPresetRules;
           customInstructions = extra.seedMessages;
           maxConcurrentChildren = extra.maxConcurrentChildren;
-          teamConfigPrompt = extra.teamConfig;
         }
       } catch (err) {
-        mainWarn('[DispatchAgentManager]', 'Failed to read extra for leader/seed', err);
+        mainWarn('[DispatchAgentManager]', 'Failed to read conversation extra', err);
       }
     }
 
-    // F-6.2: Apply configurable concurrent limit from conversation extra
+    // Apply configurable concurrent limit
     if (typeof maxConcurrentChildren === 'number') {
       this.resourceGuard.setMaxConcurrent(maxConcurrentChildren);
     }
 
-    // F-4.2: Build available model list for orchestrator prompt
-    const availableModels = await this.getAvailableModels();
-
-    // G4.1: Scan project context (non-blocking, cached)
-    let projectContextSummary: string | undefined;
-    try {
-      const cachedContext = (await this.conversationRepo?.getConversation(this.conversation_id))?.extra as
-        | { projectContext?: string }
-        | undefined;
-
-      if (cachedContext?.projectContext) {
-        projectContextSummary = cachedContext.projectContext;
-        mainLog('[DispatchAgentManager]', 'Using cached project context');
-      } else {
-        const projectContext = await scanProjectContext(this.workspace, { maxChars: 4000 });
-        projectContextSummary = projectContext.summary || undefined;
-        // Store in conversation extra for cache
-        if (projectContextSummary && this.conversationRepo) {
-          const conv = await this.conversationRepo.getConversation(this.conversation_id);
-          if (conv) {
-            const updatedExtra = { ...(conv.extra as Record<string, unknown>), projectContext: projectContextSummary };
-            await this.conversationRepo.updateConversation(this.conversation_id, {
-              extra: updatedExtra as typeof conv.extra,
-            });
-          }
-        }
-      }
-    } catch (err) {
-      mainWarn('[DispatchAgentManager]', 'Project context scan failed', err);
-    }
-
-    // G4.7: Load cross-session memory
-    let memoryContent: string | undefined;
-    try {
-      const raw = await loadMemory(this.workspace);
-      memoryContent = raw.trim() || undefined;
-      if (memoryContent) {
-        mainLog('[DispatchAgentManager]', 'Loaded cross-session memory');
-      }
-    } catch (err) {
-      mainWarn('[DispatchAgentManager]', 'Failed to load memory', err);
-    }
-
-    const systemPrompt = buildDispatchSystemPrompt(this.dispatcherName, {
-      leaderProfile,
-      customInstructions,
-      availableModels,
+    // Gemini CLI registers MCP tools with a qualified name prefix: "aionui-team__start_task"
+    // ACP agents (Claude/Codex) use bare tool names from the MCP schema
+    const toolPrefix = this.adminWorkerType === 'gemini' ? 'aionui-team__' : '';
+    const combinedRules = buildDispatchSystemPrompt(this.dispatcherName, {
       workspace: this.workspace,
       maxConcurrentChildren: maxConcurrentChildren ?? DEFAULT_CONCURRENT_CHILDREN,
-      projectContext: projectContextSummary,
-      teamConfig: teamConfigPrompt,
-      memory: memoryContent,
-      channelIsolation: this.channelIsolation,
+      customInstructions,
+      toolPrefix,
     });
-    const combinedRules = systemPrompt;
 
-    // Start Unix domain socket server for MCP tool call IPC
-    this.ipcSocket = new DispatchIpcSocketServer(
-      this.conversation_id,
-      async (tool, args) => {
-        return this.mcpServer.handleToolCall(tool, args);
-      },
-    );
-    await this.ipcSocket.start();
-
-    // Build MCP server config with socket path for the admin agent CLI
-    const mcpConfig = this.mcpServer.getMcpServerConfig(this.ipcSocket.socketPath);
+    // Start HTTP MCP server for dispatch tools (runs in main process, no child process)
+    this.httpMcpServer = new DispatchHttpMcpServer(this.conversation_id, this.mcpServer);
+    await this.httpMcpServer.start();
+    mainLog('[DispatchAgentManager]', `HTTP MCP server started: ${this.httpMcpServer.url}`);
 
     if (this.adminWorkerType === 'gemini') {
-      // Gemini path: fork gemini.js worker with dispatch config
-      await this.start({
-        workspace: this.workspace,
-        model: this.model,
-        presetRules: combinedRules,
-        yoloMode: true, // Dispatch agents auto-approve tool calls
-        mcpServers: {
-          'aionui-dispatch': mcpConfig,
+      // Gemini path: create a real GeminiAgentManager — same as a normal conversation,
+      // just with dispatch MCP tools injected. It handles everything: messages, confirmations,
+      // mode switching, tool approval, streaming.
+      const { GeminiAgentManager } = await import('../GeminiAgentManager');
+      const sessionMode = this.initData.yoloMode ? 'yolo' : 'default';
+      const geminiMcpConfig = this.httpMcpServer.getGeminiMcpConfig();
+      mainLog('[DispatchAgentManager]', `Gemini MCP config: ${JSON.stringify(geminiMcpConfig)}`);
+      const geminiManager = new GeminiAgentManager(
+        {
+          workspace: this.workspace,
+          conversation_id: this.conversation_id,
+          presetRules: combinedRules,
+          yoloMode: this.initData.yoloMode,
+          sessionMode,
+          externalMcpServers: { 'aionui-team': geminiMcpConfig },
         },
-      });
+        this.model,
+      );
+      this.innerManager = geminiManager as unknown as typeof this.innerManager;
+      mainLog('[DispatchAgentManager]', 'Gemini admin booted via inner GeminiAgentManager');
     } else {
       // ACP path (CC/Claude/Codex/etc.): create inner AcpAgentManager
-      await this.bootAcpAdmin(combinedRules, mcpConfig);
+      await this.bootAcpAdmin(combinedRules);
     }
 
     // Restore parent-child mappings from DB (handles app restart)
@@ -370,88 +302,47 @@ export class DispatchAgentManager extends BaseAgentManager<
    * Boot an ACP-based admin agent (CC, Claude, Codex, etc.).
    * Creates an inner AcpAgentManager with dispatch MCP tools injected.
    */
-  private async bootAcpAdmin(
-    systemPrompt: string,
-    mcpConfig: { command: string; args: string[]; env: Record<string, string> },
-  ): Promise<void> {
-    if (!this.conversationRepo) {
-      throw new Error('conversationRepo not set');
+  private async bootAcpAdmin(systemPrompt: string): Promise<void> {
+    if (!this.conversationRepo || !this.httpMcpServer) {
+      throw new Error('conversationRepo or httpMcpServer not set');
     }
 
     // Read the conversation to get ACP-specific config
     const conv = await this.conversationRepo.getConversation(this.conversation_id);
     const extra = (conv?.extra ?? {}) as Record<string, unknown>;
 
-    // Convert dispatch MCP config to ACP session format
-    const acpMcpServer = toAcpSessionMcpServer('aionui-dispatch', mcpConfig);
+    // Get HTTP MCP config for ACP agents (no child process needed)
+    const acpMcpServer = this.httpMcpServer.getAcpMcpConfig();
 
     // Resolve ACP backend from adminAgentType or conversation extra
     // Cast is safe: adminWorkerType is validated at createGroupChat time
     const backend = ((extra.backend as string) || this.adminWorkerType) as import('@/common/types/acpTypes').AcpBackendAll;
 
     // Build AcpAgentManager data
+    const isYolo = this.initData.yoloMode === true;
     const acpData = {
       workspace: this.workspace,
       backend,
       conversation_id: this.conversation_id,
       presetContext: systemPrompt,
-      yoloMode: true,
+      yoloMode: isYolo,
       externalMcpServers: [acpMcpServer],
       cliPath: extra.cliPath as string | undefined,
       customWorkspace: !!this.workspace,
       // Preserve session resume fields
       acpSessionId: extra.acpSessionId as string | undefined,
       acpSessionUpdatedAt: extra.acpSessionUpdatedAt as number | undefined,
-      sessionMode: (extra.sessionMode as string) || 'plan',
+      sessionMode: isYolo ? 'yolo' : ((extra.sessionMode as string) || 'plan'),
       currentModelId: extra.currentModelId as string | undefined,
     };
 
     // Dynamically import AcpAgentManager to avoid circular dependency
     const { default: AcpAgentManager } = await import('../AcpAgentManager');
-    const acpManager = new AcpAgentManager(acpData) as unknown as typeof this.innerAcpManager;
-    this.innerAcpManager = acpManager;
-
-    // Subscribe to ACP response stream to forward events
-    this.subscribeAcpResponseStream();
+    const acpManager = new AcpAgentManager(acpData) as unknown as typeof this.innerManager;
+    this.innerManager = acpManager;
 
     mainLog('[DispatchAgentManager]', `ACP admin booted: backend=${backend}`);
   }
-
-  /**
-   * Subscribe to the ACP response stream and forward events for this conversation.
-   * Re-emits ACP events on the dispatch response channel (geminiConversation.responseStream)
-   * so the GroupChatView can render them uniformly.
-   */
-  private subscribeAcpResponseStream(): void {
-    const unsubscribe = ipcBridge.acpConversation.responseStream.on((msg: IResponseMessage) => {
-      if (msg.conversation_id !== this.conversation_id) return;
-
-      // Status tracking
-      if (msg.type === 'start') {
-        this.status = 'running';
-      }
-      if (msg.type === 'finish') {
-        this.status = 'finished';
-      }
-
-      // NOTE: Do NOT persist messages here — AcpAgentManager already handles
-      // its own DB persistence via addOrUpdateMessage() in its response pipeline.
-
-      // Gap-3: When channel isolation is on, suppress raw text output from dispatcher.
-      if (this.channelIsolation && msg.type === 'content') {
-        return;
-      }
-
-      // Re-emit on the dispatch stream so GroupChatView picks it up
-      ipcBridge.geminiConversation.responseStream.emit(msg);
-    });
-
-    // Store unsubscribe function for cleanup
-    this._acpStreamUnsubscribe = unsubscribe;
-  }
-
-  /** Cleanup function for ACP response stream subscription */
-  private _acpStreamUnsubscribe: (() => void) | null = null;
 
   /**
    * Override sendMessage to inject pending notifications before user message.
@@ -478,11 +369,11 @@ export class DispatchAgentManager extends BaseAgentManager<
       throw e;
     });
 
-    // Determine which manager handles the actual message send
-    const sendToAdmin = this.innerAcpManager
-      ? (msg: { input: string; msg_id: string }) => this.innerAcpManager!.sendMessage(msg)
-      : (msg: { input: string; msg_id: string }) => super.sendMessage(msg);
-    mainLog('[DispatchAgentManager]', `sendMessage: using ${this.innerAcpManager ? 'ACP' : 'Gemini'} admin`);
+    if (!this.innerManager) {
+      throw new Error('Inner manager not initialized. Bootstrap may have failed.');
+    }
+    const sendToAdmin = (msg: { input: string; msg_id: string }) => this.innerManager!.sendMessage(msg);
+    mainLog('[DispatchAgentManager]', `sendMessage: using ${this.adminWorkerType} admin`);
 
     // Check for pending notifications (cold parent wakeup)
     if (!data.isSystemNotification && this.notifier) {
@@ -505,72 +396,42 @@ export class DispatchAgentManager extends BaseAgentManager<
   }
 
   /**
-   * Initialize event listeners for worker messages.
-   * Only active for Gemini admin (fork-based). ACP admin uses subscribeAcpResponseStream().
+   * No-op init override. The inner manager (GeminiAgentManager or AcpAgentManager)
+   * handles its own worker lifecycle and message processing. DispatchAgentManager
+   * never forks a worker directly.
    */
   protected init(): void {
-    super.init();
+    // Intentionally empty — inner manager handles everything
+  }
 
-    // Resolve adminWorkerType from ForkTask's data because init() is called inside
-    // ForkTask's constructor (via super()), BEFORE DispatchAgentManager's own constructor
-    // finishes setting this.adminWorkerType.
-    const initData = (this.data as unknown as { data: DispatchAgentData }).data;
-    const workerType: AgentType = initData.adminAgentType || 'gemini';
-    const conversationId = initData.conversation_id;
+  // ==================== Permission Mode & Confirmation ====================
+  // All delegated to innerManager — dispatch leader is just a normal conversation.
 
-    // Only listen to worker messages when using fork (Gemini admin)
-    mainLog('[DispatchAgentManager]', `init: listening on '${workerType}.message' for conversation ${conversationId}`);
-    this.on(`${workerType}.message`, (data: Record<string, unknown>) => {
-      mainLog('[DispatchAgentManager]', `worker message received: type=${data.type}, conv=${conversationId}`);
-      // Status tracking
-      if (data.type === 'start') {
-        this.status = 'running';
-      }
-      if (data.type === 'finish') {
-        this.status = 'finished';
-        this.isToolCallPhase = false;
-      }
+  getMode(): { mode: string; initialized: boolean } {
+    if (this.innerManager && 'getMode' in this.innerManager) {
+      return (this.innerManager as { getMode(): { mode: string; initialized: boolean } }).getMode();
+    }
+    return { mode: 'default', initialized: false };
+  }
 
-      // Tool call phase state machine for message filtering
-      if (data.type === 'tool_group') {
-        this.isToolCallPhase = true;
-      }
-      if (data.type === 'content' && this.isToolCallPhase) {
-        this.isToolCallPhase = false;
-      }
+  async setMode(mode: string): Promise<{ success: boolean; msg?: string; data?: { mode: string } }> {
+    if (this.innerManager && 'setMode' in this.innerManager) {
+      return (this.innerManager as { setMode(m: string): Promise<{ success: boolean; msg?: string; data?: { mode: string } }> }).setMode(mode);
+    }
+    return { success: false, msg: 'Inner manager not initialized' };
+  }
 
-      // MCP tool calls are now handled via Unix domain socket (DispatchIpcSocket).
-      // Skip any legacy tool_call messages from the worker IPC path.
-      if (data.type === 'tool_call') {
-        return;
-      }
+  confirm(id: string, callId: string, data: unknown): void {
+    if (this.innerManager) {
+      this.innerManager.confirm(id, callId, data);
+    }
+  }
 
-      // Build proper IResponseMessage
-      const responseMsg: IResponseMessage = {
-        type: String(data.type ?? ''),
-        data: data.data ?? data,
-        msg_id: String((data.data as Record<string, unknown>)?.msg_id ?? data.msg_id ?? uuid()),
-        conversation_id: this.conversation_id,
-      };
-
-      // Persist non-transient messages
-      const skipTransformTypes = ['thought', 'finished', 'start', 'finish', 'tool_call'];
-      if (!skipTransformTypes.includes(responseMsg.type)) {
-        const tMessage = transformMessage(responseMsg);
-        if (tMessage) {
-          addOrUpdateMessage(this.conversation_id, tMessage);
-        }
-      }
-
-      // Gap-3: When channel isolation is on, suppress raw text output from dispatcher.
-      // Only send_user_message tool calls should reach the UI.
-      if (initData.channelIsolation && responseMsg.type === 'content') {
-        return;
-      }
-
-      // Emit to group chat stream
-      ipcBridge.geminiConversation.responseStream.emit(responseMsg);
-    });
+  getConfirmations() {
+    if (this.innerManager) {
+      return this.innerManager.getConfirmations();
+    }
+    return [];
   }
 
   // ==================== Tool Handler Implementations ====================
@@ -1177,48 +1038,6 @@ export class DispatchAgentManager extends BaseAgentManager<
   }
 
   /**
-   * G2.4: Handle ask_user from the admin agent.
-   * Relays the question to the group chat event stream.
-   * Non-blocking: returns immediately, admin answers asynchronously.
-   */
-  private async handleAskUser(params: { question: string; context?: string; options?: string[] }): Promise<string> {
-    const optionsText = params.options ? `\nSuggested answers: ${params.options.join(', ')}` : '';
-    const contextText = params.context ? `\nContext: ${params.context}` : '';
-
-    // Emit as a group chat event for user awareness
-    this.emitGroupChatEvent({
-      sourceSessionId: this.conversation_id,
-      sourceRole: 'dispatcher',
-      displayName: this.dispatcherName,
-      content: `Question for user: ${params.question}${contextText}${optionsText}`,
-      messageType: 'system',
-      timestamp: Date.now(),
-    });
-
-    // Hot injection: if admin task is running, inject as system notification
-    if (this.taskManager && this.notifier) {
-      const parentTask = this.taskManager.getTask(this.conversation_id);
-      if (parentTask?.status === 'running') {
-        try {
-          await parentTask.sendMessage({
-            input: `[System Notification] [User Question]: ${params.question}${contextText}${optionsText}\nPlease relay this to the user and send the answer back via send_message.`,
-            msg_id: uuid(),
-            isSystemNotification: true,
-          });
-        } catch (err) {
-          mainWarn('[DispatchAgentManager]', 'Failed to inject ask_user notification', err);
-        }
-      }
-    }
-
-    return (
-      'Question submitted to user via group chat. ' +
-      'Continue with your best judgment. ' +
-      'If the user responds, it will arrive via a follow-up message.'
-    );
-  }
-
-  /**
    * G4.7: Handle save_memory from the admin agent.
    * Persists a memory entry to the workspace memory directory.
    */
@@ -1237,17 +1056,6 @@ export class DispatchAgentManager extends BaseAgentManager<
     return 'Message sent to user.';
   }
 
-  private async handleSaveMemory(entry: { type: string; title: string; content: string }): Promise<string> {
-    const memoryEntry: MemoryEntry = {
-      id: uuid(8),
-      type: entry.type as MemoryEntry['type'],
-      title: entry.title,
-      content: entry.content,
-      createdAt: Date.now(),
-    };
-    await saveMemory(this.workspace, memoryEntry);
-    return `Memory saved: "${entry.title}"`;
-  }
 
   /**
    * G2.2: Monitor child tool calls for permission violations.
@@ -1335,24 +1143,6 @@ export class DispatchAgentManager extends BaseAgentManager<
     }
   }
 
-  /**
-   * F-4.2: Get available models for orchestrator prompt injection.
-   */
-  private async getAvailableModels(): Promise<Array<{ providerId: string; models: string[] }>> {
-    try {
-      const providers = ((await ProcessConfig.get('model.config')) || []) as IProvider[];
-      return providers
-        .filter((p) => p.enabled !== false)
-        .map((p) => ({
-          providerId: p.id,
-          models: (Array.isArray(p.model) ? p.model : []).filter((m) => p.modelEnabled?.[m] !== false),
-        }))
-        .filter((p) => p.models.length > 0);
-    } catch (err) {
-      mainWarn('[DispatchAgentManager]', 'Failed to read model config for prompt', err);
-      return [];
-    }
-  }
 
   private emitGroupChatEvent(message: GroupChatMessage): void {
     const msgId = uuid();
@@ -1390,33 +1180,19 @@ export class DispatchAgentManager extends BaseAgentManager<
     } as IResponseMessage);
   }
 
-  /**
-   * Override kill to also kill the inner ACP manager.
-   */
   kill(): void {
-    if (this.innerAcpManager) {
-      this.innerAcpManager.kill();
+    if (this.innerManager) {
+      this.innerManager.kill();
     }
-    this.cleanupAcpSubscription();
     this.cleanupResponseStreamSubscription();
-    super.kill();
+    // Don't call super.kill() — we never forked a worker
   }
 
-  /**
-   * Override stop to also stop the inner ACP manager.
-   */
   stop(): Promise<void> {
-    if (this.innerAcpManager) {
-      return this.innerAcpManager.stop();
+    if (this.innerManager) {
+      return this.innerManager.stop();
     }
-    return super.stop();
-  }
-
-  private cleanupAcpSubscription(): void {
-    if (this._acpStreamUnsubscribe) {
-      this._acpStreamUnsubscribe();
-      this._acpStreamUnsubscribe = null;
-    }
+    return Promise.resolve();
   }
 
   private cleanupResponseStreamSubscription(): void {
@@ -1431,11 +1207,10 @@ export class DispatchAgentManager extends BaseAgentManager<
    */
   dispose(): void {
     this.mcpServer.dispose();
-    if (this.ipcSocket) {
-      this.ipcSocket.dispose();
-      this.ipcSocket = null;
+    if (this.httpMcpServer) {
+      this.httpMcpServer.dispose();
+      this.httpMcpServer = null;
     }
-    this.cleanupAcpSubscription();
     this.cleanupResponseStreamSubscription();
     if (this.resourceGuard) {
       this.resourceGuard.cascadeKill(this.conversation_id, this.workspace);

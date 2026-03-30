@@ -459,21 +459,50 @@ export class GeminiAgent {
    * MCP function declarations are included in the first API request.
    */
   private async waitForMcpDiscovery(): Promise<void> {
-    if (!this.mcpServers || Object.keys(this.mcpServers).length === 0) return;
+    if (!this.mcpServers || Object.keys(this.mcpServers).length === 0) {
+      console.log('[GeminiAgent] No MCP servers configured, skipping discovery wait');
+      return;
+    }
 
     const mcpManager = this.config.getMcpClientManager();
-    if (!mcpManager) return;
+    if (!mcpManager) {
+      console.log('[GeminiAgent] No MCP client manager available');
+      return;
+    }
 
-    const state = mcpManager.getDiscoveryState();
-    if (state === 'completed' || state === 'not_started') return;
+    const initialState = mcpManager.getDiscoveryState();
+    console.log(`[GeminiAgent] MCP discovery initial state: ${initialState}, mcpServers: ${JSON.stringify(Object.keys(this.mcpServers))}`);
 
-    console.log('[GeminiAgent] Waiting for MCP tool discovery to complete...');
+    if (initialState === 'completed') return;
+
+    // With interactive: true, Config.initialize() fires MCP init as a non-awaited
+    // promise. The state may still be 'not_started' because the async init hasn't
+    // been picked up by the event loop yet. We must wait for it to transition.
     const startTime = Date.now();
-    const timeout = 15_000; // 15 seconds max
+    const timeout = 30_000; // 30 seconds max (MCP server startup can be slow)
 
+    // Wait for state to leave 'not_started' (async init kicking off)
+    if (initialState === 'not_started') {
+      console.log('[GeminiAgent] MCP discovery not started yet (interactive mode fire-and-forget), waiting for init...');
+      while (mcpManager.getDiscoveryState() === 'not_started') {
+        if (Date.now() - startTime > 5_000) {
+          console.warn('[GeminiAgent] MCP discovery still not_started after 5s — MCP init may have been skipped');
+          // Log diagnostic info
+          const servers = mcpManager.getMcpServers?.();
+          console.warn(`[GeminiAgent] MCP servers in manager: ${JSON.stringify(servers ? Object.keys(servers) : 'getMcpServers unavailable')}`);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      console.log(`[GeminiAgent] MCP discovery state transitioned to: ${mcpManager.getDiscoveryState()} after ${Date.now() - startTime}ms`);
+    }
+
+    // Now wait for completion
+    console.log('[GeminiAgent] Waiting for MCP tool discovery to complete...');
     while (mcpManager.getDiscoveryState() !== 'completed') {
       if (Date.now() - startTime > timeout) {
-        console.warn('[GeminiAgent] MCP discovery timeout after 15s, proceeding without MCP tools');
+        console.warn(`[GeminiAgent] MCP discovery timeout after ${timeout / 1000}s, proceeding without MCP tools`);
+        console.warn(`[GeminiAgent] Final MCP state: ${mcpManager.getDiscoveryState()}`);
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -481,7 +510,12 @@ export class GeminiAgent {
 
     // Re-sync tools to include discovered MCP function declarations
     await this.geminiClient.setTools();
-    console.log(`[GeminiAgent] MCP discovery completed in ${Date.now() - startTime}ms, tools synced`);
+    const elapsed = Date.now() - startTime;
+    console.log(`[GeminiAgent] MCP discovery completed in ${elapsed}ms, tools synced`);
+
+    // Log discovered tools count
+    const serverCount = mcpManager.getMcpServerCount?.();
+    console.log(`[GeminiAgent] MCP servers connected: ${serverCount ?? 'unknown'}`);
   }
 
   // 初始化调度工具
