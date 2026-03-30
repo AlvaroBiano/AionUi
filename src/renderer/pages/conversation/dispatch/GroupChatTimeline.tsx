@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ChildTaskCard from './ChildTaskCard';
+import ProgressCard, { parseProgressBlock } from './components/ProgressCard';
 import type { GroupChatTimelineMessage, GroupChatTimelineProps } from './types';
 
 const isTaskMessage = (messageType: string): boolean => {
@@ -116,6 +117,10 @@ const GroupChatTimeline: React.FC<GroupChatTimelineProps> = ({
 
     // Agent messages: left-aligned with avatar, same bubble style as normal chat
     const avatar = message.avatar || dispatcherAvatar;
+
+    // G4.5: Detect progress blocks in agent messages and render ProgressCard
+    const progressData = message.content ? parseProgressBlock(message.content) : null;
+
     return (
       <div key={message.id} className='flex items-start gap-8px m-t-10px max-w-full md:max-w-780px mx-auto px-8px'>
         <div className='flex-shrink-0 w-28px h-28px flex-center mt-2px'>
@@ -128,7 +133,11 @@ const GroupChatTimeline: React.FC<GroupChatTimelineProps> = ({
         <div className='min-w-0 flex-1 flex flex-col items-start'>
           <span className='text-12px text-t-secondary mb-2px'>{message.displayName}</span>
           <div className='min-w-0 w-full [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px'>
-            <MarkdownView codeStyle={{ marginTop: 4, marginBlock: 4 }}>{message.content}</MarkdownView>
+            {progressData ? (
+              <ProgressCard data={progressData} />
+            ) : (
+              <MarkdownView codeStyle={{ marginTop: 4, marginBlock: 4 }}>{message.content}</MarkdownView>
+            )}
           </div>
         </div>
       </div>

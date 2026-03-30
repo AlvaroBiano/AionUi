@@ -64,6 +64,31 @@ vi.mock('@/common', () => ({
           providerHandlers['forkToDispatch'] = handler;
         },
       },
+      addMember: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['addMember'] = handler;
+        },
+      },
+      updateChildModel: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['updateChildModel'] = handler;
+        },
+      },
+      rescanProjectContext: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['rescanProjectContext'] = handler;
+        },
+      },
+      listTeamConfigs: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['listTeamConfigs'] = handler;
+        },
+      },
+      getGroupCostSummary: {
+        provider: (handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+          providerHandlers['getGroupCostSummary'] = handler;
+        },
+      },
     },
     conversation: {
       listChanged: { emit: vi.fn() },
@@ -151,34 +176,40 @@ describe('Dispatch Phase 2b Regression', () => {
     initDispatchBridge(workerTaskManager as any, conversationService as any, conversationRepo as any);
   });
 
-  // REG-2B-001: model override with unknown provider falls back gracefully
-  describe('REG-2B-001: model override with unknown provider fallback', () => {
-    it('uses bare provider reference when full config is not found', async () => {
-      // model.config returns empty array — no matching provider
-      (ProcessConfig.get as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  // REG-2B-001: G3.1 removed modelOverride from createGroupChat; verify default model is used
+  describe('REG-2B-001: default model used (modelOverride removed in G3.1)', () => {
+    it('uses default gemini model when no provider override is available', async () => {
+      // model.config returns empty array, gemini.defaultModel returns null (default fallback)
+      (ProcessConfig.get as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => {
+        if (key === 'model.config') return [];
+        if (key === 'acp.customAgents') return [];
+        return null;
+      });
 
       const result = (await providerHandlers['createGroupChat']({
-        name: 'Unknown Provider Test',
-        modelOverride: { providerId: 'nonexistent-provider', useModel: 'model-x' },
+        name: 'Default Model Test',
       })) as Record<string, unknown>;
 
       expect(result.success).toBe(true);
       expect(conversationService.createConversation).toHaveBeenCalledWith(
         expect.objectContaining({
           model: expect.objectContaining({
-            id: 'nonexistent-provider',
-            useModel: 'model-x',
+            id: 'gemini',
+            useModel: 'gemini-2.0-flash',
           }),
         })
       );
     });
 
-    it('does not throw or return error when provider is unknown', async () => {
-      (ProcessConfig.get as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    it('creates successfully with minimal params', async () => {
+      (ProcessConfig.get as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => {
+        if (key === 'model.config') return [];
+        if (key === 'acp.customAgents') return [];
+        return null;
+      });
 
       const result = (await providerHandlers['createGroupChat']({
-        name: 'Fallback Test',
-        modelOverride: { providerId: 'missing', useModel: 'any-model' },
+        name: 'Minimal Test',
       })) as Record<string, unknown>;
 
       expect(result.success).toBe(true);

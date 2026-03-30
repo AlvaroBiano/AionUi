@@ -7,22 +7,25 @@
 import { ipcBridge } from '@/common';
 import { uuid } from '@/common/utils';
 import SendBox from '@/renderer/components/chat/sendbox';
-import { Alert, Button, Message, Tag } from '@arco-design/web-react';
-import { Close, Info, Setting } from '@icon-park/react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Drawer, Message, Tag } from '@arco-design/web-react';
+import { Close, Info } from '@icon-park/react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { emitter } from '@/renderer/utils/emitter';
 
 import ChatLayout from '../components/ChatLayout';
-import GroupChatSettingsDrawer from './components/GroupChatSettingsDrawer';
-import GroupMemberSider, { MemberSiderToggleButton } from './components/GroupMemberSider';
-import SaveTeammateModal from './components/SaveTeammateModal';
-import TaskOverview from './components/TaskOverview';
+import ChatSider from '../components/ChatSider';
+import AddMemberModal from './components/AddMemberModal';
+import CostPanel from './components/CostPanel';
+import MemberBar from './components/MemberBar';
+import MemberProfileDrawer from './components/MemberProfileDrawer';
+import TeammateTabBar from './components/TeammateTabBar';
+import TeammateTabView from './components/TeammateTabView';
 import GroupChatTimeline from './GroupChatTimeline';
-import TaskPanel from './TaskPanel';
 import { useGroupChatInfo } from './hooks/useGroupChatInfo';
 import { useGroupChatMessages } from './hooks/useGroupChatMessages';
-import type { GroupChatMemberVO, GroupChatViewProps } from './types';
+import { useGroupChatTabs } from './hooks/useGroupChatTabs';
+import type { GroupChatViewProps } from './types';
 
 const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
   const { t } = useTranslation();
@@ -33,27 +36,16 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
     retry: retryInfo,
     refresh: refreshInfo,
   } = useGroupChatInfo(conversation.id, {
-    autoRefreshInterval: 10_000,
+    autoRefreshInterval: 5_000,
   });
   const [sendBoxContent, setSendBoxContent] = useState('');
   const [sending, setSending] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [selectedChildTaskId, setSelectedChildTaskId] = useState<string | null>(null);
-  const [overviewCollapsed, setOverviewCollapsed] = useState(false);
-  const [settingsVisible, setSettingsVisible] = useState(false);
-  // S3: Member sider state
-  const [memberSiderCollapsed, setMemberSiderCollapsed] = useState(false);
-  const [saveModalTarget, setSaveModalTarget] = useState<{
-    childSessionId: string;
-    name?: string;
-    avatar?: string;
-  } | null>(null);
 
   const extra = conversation.extra as {
     groupChatName?: string;
     teammateConfig?: { avatar?: string };
     leaderAgentId?: string;
-    seedMessages?: string;
   };
 
   const dispatcherName = info?.dispatcherName || extra.groupChatName || conversation.name;
@@ -66,6 +58,21 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
 
   const pendingCount = info?.pendingNotificationCount ?? 0;
   const showBanner = pendingCount > 0 && !bannerDismissed;
+
+  // G3.3: Tab state (replaces memberSider + taskPanel state)
+  const { members, tabs, activeTabKey, onTabChange, onTabClose } = useGroupChatTabs(conversation.id, info, {
+    name: dispatcherName,
+    avatar: dispatcherAvatar,
+  });
+
+  // G3.5: Member profile drawer
+  const [profileTarget, setProfileTarget] = useState<string | null>(null);
+
+  // G3.6: Add member modal
+  const [addMemberVisible, setAddMemberVisible] = useState(false);
+
+  // Settings drawer
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   // F-2.5: Cancel child task handler
   const handleCancelChild = useCallback(
@@ -86,81 +93,6 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
       }
     },
     [conversation.id, refreshInfo, t]
-  );
-
-  // Phase 2b: TaskPanel toggle logic
-  const handleViewDetail = useCallback((childTaskId: string) => {
-    setSelectedChildTaskId((prev) => (prev === childTaskId ? null : childTaskId));
-  }, []);
-
-  const selectedChildInfo = useMemo(() => {
-    if (!selectedChildTaskId || !info?.children) return undefined;
-    return info.children.find((c) => c.sessionId === selectedChildTaskId);
-  }, [selectedChildTaskId, info?.children]);
-
-  // F-3.1: Track saved teammate names for ChildTaskCard display
-  const [savedTeammateNames, setSavedTeammateNames] = useState<Set<string>>(new Set());
-
-  // Build a lookup of childTaskId -> child info for save modal
-  const childInfoMap = useMemo(() => {
-    const map = new Map<string, { sessionId: string; teammateName?: string; teammateAvatar?: string }>();
-    if (info?.children) {
-      for (const child of info.children) {
-        map.set(child.sessionId, child);
-      }
-    }
-    return map;
-  }, [info?.children]);
-
-  // S3: Derive GroupChatMemberVO[] from children
-  const members = useMemo<GroupChatMemberVO[]>(() => {
-    if (!info?.children) return [];
-    return info.children.map((child) => ({
-      sessionId: child.sessionId,
-      name: child.teammateName || child.title,
-      avatar: child.teammateAvatar,
-      status: child.status,
-      isLeader: false,
-      isPermanent: child.isPermanent ?? false,
-      modelName: child.modelName,
-      workspace: child.workspace,
-      presetRules: child.presetRules,
-      lastActivityAt: child.lastActivityAt,
-      createdAt: child.createdAt,
-    }));
-  }, [info?.children]);
-
-  // S3: Auto-collapse member sider when TaskPanel opens on narrow viewports
-  useEffect(() => {
-    if (selectedChildTaskId && typeof window !== 'undefined' && window.innerWidth < 900) {
-      setMemberSiderCollapsed(true);
-    }
-  }, [selectedChildTaskId]);
-
-  // F-3.1: Handle save teammate from ChildTaskCard
-  const handleSaveTeammate = useCallback(
-    (childTaskId: string) => {
-      const childData = childInfoMap.get(childTaskId);
-      if (childData) {
-        setSaveModalTarget({
-          childSessionId: childData.sessionId,
-          name: childData.teammateName,
-          avatar: childData.teammateAvatar,
-        });
-      }
-    },
-    [childInfoMap]
-  );
-
-  const handleTeammateSaved = useCallback(
-    (_assistantId: string) => {
-      // Mark the teammate name as saved
-      if (saveModalTarget?.name) {
-        setSavedTeammateNames((prev) => new Set(prev).add(saveModalTarget.name!));
-      }
-      setSaveModalTarget(null);
-    },
-    [saveModalTarget]
   );
 
   const handleSend = useCallback(
@@ -188,46 +120,24 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
     [conversation.id, refreshInfo, appendUserMessage]
   );
 
-  // F-4.3: Current settings for GroupChatSettingsDrawer
-  const currentSettings = useMemo(
-    () => ({
-      groupChatName: extra.groupChatName,
-      leaderAgentId: info?.leaderAgentId,
-      seedMessages: info?.seedMessages,
-      maxConcurrentChildren: info?.maxConcurrentChildren,
-    }),
-    [extra.groupChatName, info?.leaderAgentId, info?.seedMessages, info?.maxConcurrentChildren]
-  );
-
   const headerExtra = useMemo(
     () => (
       <div className='flex items-center gap-8px'>
         {activeChildCount > 0 && (
           <Tag color='arcoblue'>{t('dispatch.header.taskCount', { count: activeChildCount })}</Tag>
         )}
-        <MemberSiderToggleButton
-          collapsed={memberSiderCollapsed}
-          onToggle={() => setMemberSiderCollapsed((prev) => !prev)}
-        />
-        <Button
-          type='text'
-          size='small'
-          icon={<Setting theme='outline' size='16' />}
-          onClick={() => setSettingsVisible(true)}
-          aria-label={t('dispatch.settings.title')}
-        />
       </div>
     ),
-    [activeChildCount, memberSiderCollapsed, t]
+    [activeChildCount, t]
   );
 
   // CF-3: Error state for group chat info fetch failure
   if (infoError) {
     return (
       <ChatLayout
-        workspaceEnabled={false}
+        workspaceEnabled={true}
         agentName={conversation.name}
-        sider={null}
+        sider={<ChatSider conversation={conversation} />}
         conversationId={conversation.id}
         title={conversation.name}
       >
@@ -243,31 +153,35 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
 
   return (
     <ChatLayout
-      workspaceEnabled={false}
+      workspaceEnabled={true}
       agentName={dispatcherName}
       agentLogo={dispatcherAvatar}
       agentLogoIsEmoji={Boolean(dispatcherAvatar)}
       headerExtra={headerExtra}
-      sider={null}
+      sider={<ChatSider conversation={conversation} />}
       conversationId={conversation.id}
       title={conversation.name}
     >
-      <div className='flex-1 flex flex-row min-h-0'>
-        {/* Left: Timeline + SendBox */}
-        <div className='flex-1 flex flex-col min-h-0 min-w-0'>
-          {/* F-3.2: Task Overview */}
-          {info?.children && info.children.length > 0 && (
-            <TaskOverview
-              dispatcherName={dispatcherName}
-              dispatcherAvatar={dispatcherAvatar}
-              children={info.children}
-              selectedChildTaskId={selectedChildTaskId}
-              onSelectChild={handleViewDetail}
-              collapsed={overviewCollapsed}
-              onToggleCollapse={() => setOverviewCollapsed((prev) => !prev)}
-            />
-          )}
+      {/* G3.3: MemberBar */}
+      <MemberBar
+        members={members}
+        onMemberClick={(id) => setProfileTarget(id)}
+        onAddMemberClick={() => setAddMemberVisible(true)}
+      />
 
+      {/* G3.3: TeammateTabBar */}
+      <TeammateTabBar
+        tabs={tabs}
+        activeTabKey={activeTabKey}
+        onTabChange={onTabChange}
+        onTabClose={onTabClose}
+        onSettingsClick={() => setSettingsVisible(true)}
+      />
+
+      {/* Active tab content */}
+      <div className='flex-1 flex flex-col min-h-0'>
+        {/* Group chat tab: timeline + sendbox (CSS display:none to preserve scroll) */}
+        <div style={{ display: activeTabKey === 'group-chat' ? 'flex' : 'none' }} className='flex-1 flex-col min-h-0'>
           {showBanner && (
             <div
               className='mx-16px mt-8px px-16px py-12px rd-8px flex items-center justify-between'
@@ -296,10 +210,6 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
             dispatcherAvatar={dispatcherAvatar}
             onCancelChild={handleCancelChild}
             conversationId={conversation.id}
-            onViewDetail={handleViewDetail}
-            selectedChildTaskId={selectedChildTaskId}
-            onSaveTeammate={handleSaveTeammate}
-            savedTeammateNames={savedTeammateNames}
           />
 
           <div className='max-w-800px w-full mx-auto mb-16px px-20px'>
@@ -316,58 +226,58 @@ const GroupChatView: React.FC<GroupChatViewProps> = ({ conversation }) => {
           </div>
         </div>
 
-        {/* Middle: Member Sider (S3) */}
-        <GroupMemberSider
-          members={members}
-          dispatcher={{ name: dispatcherName, avatar: dispatcherAvatar }}
-          leaderAgentId={info?.leaderAgentId}
-          selectedMemberId={selectedChildTaskId}
-          onSelectMember={handleViewDetail}
-          onEditConfig={(sessionId) => {
-            handleSaveTeammate(sessionId);
-          }}
-          collapsed={memberSiderCollapsed}
-          onToggleCollapse={() => setMemberSiderCollapsed((prev) => !prev)}
-          onDispatcherClick={() => setSettingsVisible(true)}
-        />
-
-        {/* Right: TaskPanel (conditional) */}
-        {selectedChildTaskId && selectedChildInfo && (
-          <TaskPanel
-            childTaskId={selectedChildTaskId}
-            childInfo={selectedChildInfo}
-            conversationId={conversation.id}
-            onClose={() => setSelectedChildTaskId(null)}
-            onCancel={handleCancelChild}
-            onTeammateSaved={(name) => {
-              setSavedTeammateNames((prev) => new Set(prev).add(name));
-            }}
-          />
-        )}
+        {/* G3.4: Teammate tabs (read-only conversation view) */}
+        {tabs
+          .filter((tab) => tab.key !== 'group-chat')
+          .map((tab) => (
+            <div
+              key={tab.key}
+              style={{ display: activeTabKey === tab.key ? 'flex' : 'none' }}
+              className='flex-1 flex-col min-h-0'
+            >
+              <TeammateTabView childSessionId={tab.key} conversationId={conversation.id} />
+            </div>
+          ))}
       </div>
 
-      {/* F-3.1: Save Teammate Modal */}
-      {saveModalTarget && (
-        <SaveTeammateModal
-          visible={Boolean(saveModalTarget)}
-          childSessionId={saveModalTarget.childSessionId}
-          initialName={saveModalTarget.name}
-          initialAvatar={saveModalTarget.avatar}
-          onClose={() => setSaveModalTarget(null)}
-          onSaved={handleTeammateSaved}
-        />
-      )}
-
-      {/* F-4.3: Group Chat Settings Drawer */}
-      <GroupChatSettingsDrawer
-        visible={settingsVisible}
-        onClose={() => setSettingsVisible(false)}
+      {/* G3.5: Member Profile Drawer */}
+      <MemberProfileDrawer
+        visible={Boolean(profileTarget)}
+        memberId={profileTarget}
+        members={members}
+        childrenInfo={info?.children || []}
         conversationId={conversation.id}
-        currentSettings={currentSettings}
-        onSaved={() => {
-          refreshInfo();
+        onClose={() => setProfileTarget(null)}
+        onModelChange={() => refreshInfo()}
+        onRemoveMember={(_memberId) => {
+          // TODO: Implement actual remove member IPC in G4
+          setProfileTarget(null);
         }}
       />
+
+      {/* G3.6: Add Member Modal */}
+      <AddMemberModal
+        visible={addMemberVisible}
+        onClose={() => setAddMemberVisible(false)}
+        conversationId={conversation.id}
+        existingMemberIds={members.map((m) => m.agentId).filter((id): id is string => Boolean(id))}
+        onMemberAdded={() => {
+          refreshInfo();
+          setAddMemberVisible(false);
+        }}
+      />
+
+      {/* Settings Drawer */}
+      <Drawer
+        visible={settingsVisible}
+        width={400}
+        placement='right'
+        title={t('dispatch.settings.title')}
+        onCancel={() => setSettingsVisible(false)}
+        footer={null}
+      >
+        <CostPanel conversationId={conversation.id} />
+      </Drawer>
     </ChatLayout>
   );
 };

@@ -297,6 +297,19 @@ export interface AcpBackendConfig {
    */
   models?: string[];
 
+  /** G4.3: Default model for this assistant. Format: "provider_id::model_name".
+   *  When used in dispatch, auto-fills the model parameter of start_task. */
+  defaultModel?: string;
+
+  /** G4.3: Tool permission allowlist. If set, child agents using this assistant
+   *  config will have their tools restricted to this list.
+   *  Omit for unrestricted. Safe tools (Read, Grep, Glob) always allowed. */
+  allowedTools?: string[];
+
+  /** G4.7: Custom memory directory for this assistant. If set, memories are
+   *  stored here instead of the workspace default. */
+  memoryDir?: string;
+
   /** 是否为内置助手（不可编辑/删除）/ Whether this is a built-in assistant (cannot be edited/deleted) */
   isBuiltin?: boolean;
 

@@ -259,6 +259,57 @@ export type GroupChatSettingsDrawerProps = {
   onSaved: () => void;
 };
 
+/** G3.3: Member type classification */
+export type MemberType = 'admin' | 'permanent' | 'temporary';
+
+/** G3.3: Unified member info for MemberBar */
+export type GroupChatMemberBarItem = {
+  /** Unique ID: admin uses conversation_id, children use sessionId */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Avatar emoji or URL */
+  avatar?: string;
+  /** Member type */
+  memberType: MemberType;
+  /** Status indicator */
+  status: 'online' | 'working' | 'idle' | 'error';
+  /** Agent registry ID (for profile lookup) */
+  agentId?: string;
+};
+
+/** G3.3: Tab item for TeammateTabBar */
+export type TeammateTab = {
+  /** Tab key: 'group-chat' for main tab, childSessionId for teammates */
+  key: string;
+  /** Tab label */
+  label: string;
+  /** Status indicator */
+  status: 'working' | 'idle' | 'error' | 'released';
+  /** Avatar */
+  avatar?: string;
+  /** Has unread content (red dot) */
+  hasUnread: boolean;
+  /** Whether closable (completed tabs can be closed) */
+  closable: boolean;
+};
+
+/** G3.3: Props for MemberBar */
+export type MemberBarProps = {
+  members: GroupChatMemberBarItem[];
+  onMemberClick: (memberId: string) => void;
+  onAddMemberClick: () => void;
+};
+
+/** G3.3: Props for TeammateTabBar */
+export type TeammateTabBarProps = {
+  tabs: TeammateTab[];
+  activeTabKey: string;
+  onTabChange: (key: string) => void;
+  onTabClose: (key: string) => void;
+  onSettingsClick?: () => void;
+};
+
 /** Backend GroupChatMessage shape (matches dispatchTypes.ts without importing from process layer) */
 export type GroupChatMessageData = {
   sourceSessionId: string;
