@@ -41,6 +41,15 @@ const ChatSider: React.FC<{
         messageApi={messageApi}
       ></ChatWorkspace>
     );
+  } else if (conversation?.type === 'dispatch' && conversation.extra?.workspace) {
+    workspaceNode = (
+      <ChatWorkspace
+        conversation_id={conversation.id}
+        workspace={conversation.extra.workspace}
+        eventPrefix='dispatch'
+        messageApi={messageApi}
+      ></ChatWorkspace>
+    );
   }
 
   if (!workspaceNode) {
