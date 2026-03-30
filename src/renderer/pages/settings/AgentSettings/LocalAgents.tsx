@@ -6,21 +6,25 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ipcBridge } from '@/common';
-import { Button, Link, Modal, Typography, Message } from '@arco-design/web-react';
+import { Button, Link, Message, Modal, Typography } from '@arco-design/web-react';
+import { Plus } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from '@icon-park/react';
 import useSWR, { mutate } from 'swr';
 import { ConfigStorage } from '@/common/config/storage';
-import { acpConversation } from '@/common/adapter/ipcBridge';
 import type { AcpBackendConfig } from '@/common/types/acpTypes';
+import { acpConversation } from '@/common/adapter/ipcBridge';
 import AgentCard from './AgentCard';
 import InlineAgentEditor from './InlineAgentEditor';
 
 const LocalAgents: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [message, messageContext] = Message.useMessage({ maxCount: 10 });
+  const [message, messageContext] = Message.useMessage();
+
+  const [customAgents, setCustomAgents] = useState<AcpBackendConfig[]>([]);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<AcpBackendConfig | null>(null);
 
   // Detected agents (filter out custom and remote)
   const { data: detectedAgents } = useSWR('acp.agents.available.settings', async () => {
@@ -31,11 +35,20 @@ const LocalAgents: React.FC = () => {
     return [];
   });
 
-  // Custom agents
-  const [customAgents, setCustomAgents] = useState<AcpBackendConfig[]>([]);
-  const [editingAgentId, setEditingAgentId] = useState<string | 'new' | null>(null);
-  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-  const [agentToDelete, setAgentToDelete] = useState<AcpBackendConfig | null>(null);
+  const loadCustomAgents = useCallback(async () => {
+    try {
+      const agents = await ConfigStorage.get('acp.customAgents');
+      if (agents && Array.isArray(agents)) {
+        setCustomAgents(agents.filter((a) => !a.isPreset));
+      }
+    } catch {
+      // Config not yet initialized
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCustomAgents();
+  }, [loadCustomAgents]);
 
   const refreshAgentDetection = useCallback(async () => {
     try {
@@ -47,87 +60,71 @@ const LocalAgents: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const agents = await ConfigStorage.get('acp.customAgents');
-        if (agents && Array.isArray(agents) && agents.length > 0) {
-          setCustomAgents(agents.filter((a) => !a.isPreset));
-          return;
-        }
-        // Migrate legacy single-agent format
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const legacyAgent = await (ConfigStorage as any).get('acp.customAgent');
-        if (legacyAgent && typeof legacyAgent === 'object' && legacyAgent.defaultCliPath) {
-          const migratedAgent: AcpBackendConfig = {
-            ...legacyAgent,
-            id: legacyAgent.id && legacyAgent.id !== 'custom' ? legacyAgent.id : `migrated-${Date.now()}`,
-          };
-          const migratedAgents = [migratedAgent];
-          await ConfigStorage.set('acp.customAgents', migratedAgents);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (ConfigStorage as any).remove('acp.customAgent');
-          setCustomAgents(migratedAgents);
-          await refreshAgentDetection();
-        }
-      } catch (error) {
-        console.error('Failed to load custom agents config:', error);
-      }
-    };
-    void loadConfig();
-  }, [refreshAgentDetection]);
-
+  /**
+   * Save a custom agent while preserving preset agents in the config array.
+   * Always reads the full config before writing to prevent data loss.
+   */
   const handleSaveAgent = useCallback(
     async (agentData: AcpBackendConfig) => {
       try {
+        const allAgents: AcpBackendConfig[] = (await ConfigStorage.get('acp.customAgents')) || [];
+
         let updatedAgents: AcpBackendConfig[];
-        if (editingAgentId && editingAgentId !== 'new') {
-          updatedAgents = customAgents.map((agent) => (agent.id === editingAgentId ? agentData : agent));
+        if (editingAgent) {
+          updatedAgents = allAgents.map((agent) => (agent.id === editingAgent.id ? agentData : agent));
         } else {
-          updatedAgents = [...customAgents, agentData];
+          updatedAgents = [...allAgents, agentData];
         }
+
         await ConfigStorage.set('acp.customAgents', updatedAgents);
-        setCustomAgents(updatedAgents);
-        setEditingAgentId(null);
-        message.success(t('settings.customAcpAgentSaved') || 'Custom agent saved');
+        setCustomAgents(updatedAgents.filter((a) => !a.isPreset));
+        setShowEditor(false);
+        setEditingAgent(null);
+        message.success(t('settings.customAcpAgentSaved', { defaultValue: 'Custom agent saved' }));
         await refreshAgentDetection();
-      } catch (error) {
-        console.error('Failed to save custom agent config:', error);
-        message.error(t('settings.customAcpAgentSaveFailed') || 'Failed to save custom agent');
+      } catch {
+        message.error(t('settings.customAcpAgentSaveFailed', { defaultValue: 'Failed to save custom agent' }));
       }
     },
-    [customAgents, editingAgentId, message, t, refreshAgentDetection]
+    [editingAgent, message, t, refreshAgentDetection]
   );
 
-  const handleDeleteAgent = useCallback(async () => {
-    if (!agentToDelete) return;
-    try {
-      const updatedAgents = customAgents.filter((agent) => agent.id !== agentToDelete.id);
-      await ConfigStorage.set('acp.customAgents', updatedAgents);
-      setCustomAgents(updatedAgents);
-      setDeleteConfirmVisible(false);
-      setAgentToDelete(null);
-      if (editingAgentId === agentToDelete.id) setEditingAgentId(null);
-      message.success(t('settings.customAcpAgentDeleted') || 'Custom agent deleted');
-      await refreshAgentDetection();
-    } catch (error) {
-      console.error('Failed to delete custom agent config:', error);
-      message.error(t('settings.customAcpAgentDeleteFailed') || 'Failed to delete custom agent');
-    }
-  }, [agentToDelete, customAgents, editingAgentId, message, t, refreshAgentDetection]);
+  const handleDeleteAgent = useCallback(
+    async (agent: AcpBackendConfig) => {
+      Modal.confirm({
+        title: t('settings.deleteCustomAgent', { defaultValue: 'Delete Custom Agent' }),
+        content: agent.name,
+        okButtonProps: { status: 'danger' },
+        onOk: async () => {
+          try {
+            const allAgents: AcpBackendConfig[] = (await ConfigStorage.get('acp.customAgents')) || [];
+            const updatedAgents = allAgents.filter((a) => a.id !== agent.id);
+            await ConfigStorage.set('acp.customAgents', updatedAgents);
+            setCustomAgents(updatedAgents.filter((a) => !a.isPreset));
+            message.success(t('common.success', { defaultValue: 'Deleted' }));
+            await refreshAgentDetection();
+          } catch {
+            message.error(t('common.failed', { defaultValue: 'Failed' }));
+          }
+        },
+      });
+    },
+    [message, t, refreshAgentDetection]
+  );
 
   const handleToggleAgent = useCallback(
     async (agent: AcpBackendConfig, enabled: boolean) => {
       try {
-        const updatedAgents = customAgents.map((a) => (a.id === agent.id ? { ...a, enabled } : a));
+        const allAgents: AcpBackendConfig[] = (await ConfigStorage.get('acp.customAgents')) || [];
+        const updatedAgents = allAgents.map((a) => (a.id === agent.id ? { ...a, enabled } : a));
         await ConfigStorage.set('acp.customAgents', updatedAgents);
-        setCustomAgents(updatedAgents);
+        setCustomAgents(updatedAgents.filter((a) => !a.isPreset));
         await refreshAgentDetection();
-      } catch (error) {
-        console.error('Failed to toggle custom agent:', error);
+      } catch {
+        message.error(t('common.failed', { defaultValue: 'Failed' }));
       }
     },
-    [customAgents, refreshAgentDetection]
+    [message, t, refreshAgentDetection]
   );
 
   // Gemini CLI first among detected agents
@@ -147,14 +144,6 @@ const LocalAgents: React.FC = () => {
             {t('settings.agentManagement.localAgentsSetupLink')}
           </Link>
         </span>
-        <Button
-          type='outline'
-          size='small'
-          icon={<Plus theme='outline' size='14' />}
-          onClick={() => setEditingAgentId('new')}
-        >
-          {t('settings.agentManagement.addCustomAgent')}
-        </Button>
       </div>
 
       {/* Detected Agents section */}
@@ -183,57 +172,53 @@ const LocalAgents: React.FC = () => {
       </div>
 
       {/* Custom Agents section */}
-      <div className='px-16px mt-12px'>
-        <Typography.Text className='text-12px font-medium text-t-secondary mb-4px block'>
-          {t('settings.agentManagement.custom')}
-        </Typography.Text>
-      </div>
-
-      {/* New agent editor */}
-      {editingAgentId === 'new' && (
-        <InlineAgentEditor onSave={handleSaveAgent} onCancel={() => setEditingAgentId(null)} />
-      )}
-
-      <div className='flex flex-col gap-4px'>
-        {customAgents.map((agent) => (
-          <React.Fragment key={agent.id}>
-            <AgentCard
-              type='custom'
-              agent={agent}
-              onEdit={() => setEditingAgentId(editingAgentId === agent.id ? null : agent.id)}
-              onDelete={() => {
-                setAgentToDelete(agent);
-                setDeleteConfirmVisible(true);
-              }}
-              onToggle={(enabled) => handleToggleAgent(agent, enabled)}
-            />
-            {editingAgentId === agent.id && (
-              <InlineAgentEditor agent={agent} onSave={handleSaveAgent} onCancel={() => setEditingAgentId(null)} />
-            )}
-          </React.Fragment>
-        ))}
-        {customAgents.length === 0 && editingAgentId !== 'new' && (
-          <Typography.Text type='secondary' className='block py-16px text-center text-12px'>
-            {t('settings.agentManagement.customEmpty')}
+      <div className='px-16px mt-16px'>
+        <div className='flex items-center justify-between'>
+          <Typography.Text className='text-12px font-medium text-t-secondary'>
+            {t('settings.agentManagement.customAgents', { defaultValue: 'Custom Agents' })}
           </Typography.Text>
-        )}
+          {!showEditor && (
+            <Button
+              type='text'
+              size='small'
+              icon={<Plus theme='outline' size={14} />}
+              onClick={() => {
+                setEditingAgent(null);
+                setShowEditor(true);
+              }}
+            >
+              {t('settings.addCustomAgentTitle', { defaultValue: 'Add' })}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Delete confirmation modal */}
-      <Modal
-        title={t('settings.deleteCustomAgent') || 'Delete Custom Agent'}
-        visible={deleteConfirmVisible}
-        onCancel={() => setDeleteConfirmVisible(false)}
-        onOk={handleDeleteAgent}
-        okButtonProps={{ status: 'danger' }}
-        okText={t('common.confirm') || 'Confirm'}
-        cancelText={t('common.cancel') || 'Cancel'}
-      >
-        <p>
-          {t('settings.deleteCustomAgentConfirm') || 'Are you sure you want to delete this custom agent?'}
-          {agentToDelete && <strong className='block mt-2'>{agentToDelete.name}</strong>}
-        </p>
-      </Modal>
+      <div className='flex flex-col gap-4px px-0'>
+        {customAgents.map((agent) => (
+          <AgentCard
+            key={agent.id}
+            type='custom'
+            agent={agent}
+            onEdit={() => {
+              setEditingAgent(agent);
+              setShowEditor(true);
+            }}
+            onDelete={() => void handleDeleteAgent(agent)}
+            onToggle={(enabled) => void handleToggleAgent(agent, enabled)}
+          />
+        ))}
+      </div>
+
+      {showEditor && (
+        <InlineAgentEditor
+          agent={editingAgent}
+          onSave={handleSaveAgent}
+          onCancel={() => {
+            setShowEditor(false);
+            setEditingAgent(null);
+          }}
+        />
+      )}
     </div>
   );
 };
