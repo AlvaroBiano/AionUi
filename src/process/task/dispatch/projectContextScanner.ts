@@ -168,6 +168,11 @@ export async function scanProjectContext(
   workspace: string,
   options?: { maxChars?: number; signal?: AbortSignal }
 ): Promise<ProjectContext> {
+  // Guard: empty or missing workspace — return empty context
+  if (!workspace || !path.isAbsolute(workspace)) {
+    return { summary: '', scannedFiles: [], scannedAt: Date.now() };
+  }
+
   const maxChars = options?.maxChars ?? DEFAULT_MAX_CHARS;
   const scannedFiles: string[] = [];
   const sections: string[] = [];

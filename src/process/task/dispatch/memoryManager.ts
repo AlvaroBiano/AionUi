@@ -81,7 +81,10 @@ export async function loadMemory(workspace: string, assistantMemoryDir?: string)
     parts.push(`### Global Memory\n${globalContent.trim()}`);
   }
 
-  // 2. Workspace memory
+  // 2. Workspace memory (skip if workspace is empty or relative)
+  if (!workspace || !path.isAbsolute(workspace)) {
+    return parts.join('\n\n');
+  }
   const workspaceContent = await readMemoryIndex(getWorkspaceMemoryDir(workspace));
   if (workspaceContent.trim()) {
     parts.push(`### Workspace Memory\n${workspaceContent.trim()}`);
@@ -106,6 +109,10 @@ export async function loadMemory(workspace: string, assistantMemoryDir?: string)
  * mutex for concurrent write safety.
  */
 export async function saveMemory(workspace: string, entry: MemoryEntry): Promise<void> {
+  if (!workspace || !path.isAbsolute(workspace)) {
+    mainWarn('[memoryManager]', 'Cannot save memory: workspace is empty or relative');
+    return;
+  }
   return withMutex(workspace, async () => {
     const memoryDir = getWorkspaceMemoryDir(workspace);
 
