@@ -9,8 +9,6 @@
  *
  * Command tree:
  *   aion                              Interactive single-agent mode (default)
- *   aion team [--goal <goal>]         Multi-agent team mode (Orchestrator)
- *   aion team --agents claude,gemini  Multi-MODEL team (Aion differentiator)
  *   aion run <task>                   One-shot task
  *   aion config                       Show config and setup guide
  *   aion doctor                       Check agent availability and connectivity
@@ -29,7 +27,6 @@ ${fmt.bold('aion')} — Multi-Model Agent Platform  ${fmt.dim(`v${VERSION}`)}
 
 ${fmt.bold('Usage:')}
   aion                                   Interactive chat (all slash commands available)
-  aion team [--goal <text>]              Multi-agent team  ${fmt.dim('(3 parallel agents)')}
   aion run <task>                        One-shot task  ${fmt.dim('(single agent, no REPL)')}
   aion doctor                            Check installed agents & connectivity
   aion config                            Show config and file location
@@ -39,28 +36,14 @@ ${fmt.bold('Solo mode options:')}
   ${fmt.cyan('-c, --continue')}            Resume the most recent session
   ${fmt.cyan('-w, --workspace <dir>')}     Working directory
 
-${fmt.bold('Team mode options:')}
-  ${fmt.cyan('-g, --goal <text>')}         Goal for the team
-  ${fmt.cyan('    --with <k1,k2,k3>')}     Agent per role  ${fmt.dim('(default: auto-distributed)')}
-  ${fmt.cyan('    --concurrency <n>')}      Number of parallel agents  ${fmt.dim('(default: 3)')}
-
 ${fmt.bold('Other:')}
   ${fmt.cyan('-v, --version')}             Print version
   ${fmt.cyan('-h, --help')}               Show this help
 
 ${fmt.bold('Slash commands (in solo mode):')}
-  ${fmt.cyan('/team [goal]')}              Launch a multi-agent team
   ${fmt.cyan('/model <name>')}             Switch active agent mid-session
   ${fmt.cyan('/agents')}                  List configured agents
   ${fmt.cyan('/help')}                    Show all slash commands
-
-${fmt.bold('Multi-model teams (Aion differentiator):')}
-  When multiple agents are configured, Aion distributes them automatically:
-  ${fmt.cyan('aion team --goal "Design a feature"')}
-  ${fmt.dim('#  UX Designer[claude] · Architect[gemini] · Critic[claude]  — run in parallel')}
-
-  Override manually:
-  ${fmt.cyan('aion team --goal "Build an API" --with claude,gemini,claude')}
 
 ${fmt.bold('Setup:')}
   ${fmt.cyan('brew install anthropics/tap/claude-code')}  ${fmt.dim('# Claude Code CLI')}
@@ -76,10 +59,6 @@ async function main(): Promise<void> {
     options: {
       agent: { type: 'string', short: 'a' },
       continue: { type: 'boolean', short: 'c' },
-      goal: { type: 'string', short: 'g' },
-      agents: { type: 'string' },     // legacy alias
-      with: { type: 'string' },       // preferred: --with claude,gemini,claude
-      concurrency: { type: 'string' },
       workspace: { type: 'string', short: 'w' },
       version: { type: 'boolean', short: 'v' },
       help: { type: 'boolean', short: 'h' },
@@ -99,23 +78,6 @@ async function main(): Promise<void> {
   const command = positionals[0];
 
   switch (command) {
-    case 'team': {
-      const { runTeam } = await import('./commands/team');
-      const controller = new AbortController();
-      process.on('SIGINT', () => { controller.abort(); });
-      await runTeam(
-        {
-          goal: values.goal,
-          // --with takes precedence; --agents kept for backwards compat
-          agents: values.with ?? values.agents,
-          concurrency: values.concurrency ? parseInt(values.concurrency, 10) : undefined,
-        },
-        undefined,
-        controller.signal,
-      );
-      break;
-    }
-
     case 'run': {
       const task = positionals.slice(1).join(' ').trim() || values.goal?.trim();
       if (!task) {

@@ -59,12 +59,6 @@ function buildCommands(agentKeys: string[]): Cmd[] {
       description: 'List all configured agents with their provider and status — use /model <name> to switch',
     },
     {
-      name: '/team [goal]',
-      hint: 'Multi-agent mode',
-      description: 'Dispatch parallel agents with inferred roles (UX/Architect/Reviewer etc.) — enter a goal to begin',
-      inject: '/team ',
-    },
-    {
       name: '/clear',
       hint: 'Clear screen',
       description: 'Clear the terminal screen while keeping session context and conversation history intact',
@@ -72,7 +66,7 @@ function buildCommands(agentKeys: string[]): Cmd[] {
     {
       name: '/help',
       hint: 'Show help',
-      description: 'View all available commands and shortcuts, including team mode and model switching reference',
+      description: 'View all available commands and shortcuts, including model switching reference',
     },
     {
       name: '/exit',

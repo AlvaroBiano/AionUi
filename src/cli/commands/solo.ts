@@ -272,26 +272,9 @@ async function handleSlashCommand(
       printTips();
       return { handled: true };
 
-    case 'team': {
-      const { runTeam } = await import('./team');
-      const abortController = new AbortController();
-      const teamEscListener = (_str: string, key: { name?: string }) => {
-        if (key?.name === 'escape') abortController.abort();
-      };
-      process.stdin.on('keypress', teamEscListener);
-      suppressEscRef.current = true; // prevent solo onEsc from also firing during team
-      try {
-        await runTeam({ goal: arg || undefined, activeAgent: agentKeyRef.current }, getRl() ?? undefined, abortController.signal);
-      } catch (err) {
-        if (err instanceof Error && !err.message.includes('interrupted')) {
-          process.stderr.write(fmt.red(`\n✗ ${err.message}\n\n`));
-        }
-      } finally {
-        suppressEscRef.current = false;
-        process.stdin.off('keypress', teamEscListener);
-      }
+    case 'team':
+      process.stderr.write(fmt.dim('The /team command has been removed. Use Group Room in the GUI instead.\n'));
       return { handled: true };
-    }
 
     case 'exit':
     case 'quit':

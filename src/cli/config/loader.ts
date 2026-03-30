@@ -99,7 +99,7 @@ function loadFileConfig(): Partial<AionCliConfig> {
     );
     return {};
   }
-  const KNOWN_KEYS = new Set(['defaultAgent', 'agents', 'team']);
+  const KNOWN_KEYS = new Set(['defaultAgent', 'agents']);
   const invalidKeys = Object.keys(parsed).filter((k) => !KNOWN_KEYS.has(k));
   if (invalidKeys.length > 0) {
     process.stderr.write(
@@ -128,7 +128,6 @@ export function loadConfig(): AionCliConfig {
   return {
     defaultAgent,
     agents,
-    team: fileConfig.team,
   };
 }
 

@@ -18,7 +18,7 @@
  * 5. InlineCommandPicker — command list includes all required base commands
  * 6. InlineCommandPicker — agentKeys are turned into /model <key> entries
  * 7. InlineCommandPicker — empty agentKeys produces no extra /model entries
- * 8. InlineCommandPicker — /team command has inject field set to '/team '
+ * 8. (removed — /team command deleted)
  * 9. InlineCommandPicker — truncate helper correctly truncates ASCII
  * 10. InlineCommandPicker — truncate is Unicode-safe (uses Array.from)
  * 11. InlineCommandPicker — truncate returns string unchanged when short enough
@@ -129,7 +129,6 @@ describe('InlineCommandPicker — command registry', () => {
     const names = getCommands(picker).map((c) => c.name);
     expect(names).toContain('/model');
     expect(names).toContain('/agents');
-    expect(names).toContain('/team [goal]');
     expect(names).toContain('/clear');
     expect(names).toContain('/help');
     expect(names).toContain('/exit');
@@ -150,16 +149,9 @@ describe('InlineCommandPicker — command registry', () => {
     expect(modelEntries).toHaveLength(0);
   });
 
-  it('/team [goal] carries inject field of "/team "', () => {
+  it('base commands do not carry an inject field', () => {
     const picker = new InlineCommandPicker([]);
-    const teamCmd = getCommands(picker).find((c) => c.name === '/team [goal]');
-    expect(teamCmd).toBeDefined();
-    expect(teamCmd!.inject).toBe('/team ');
-  });
-
-  it('base commands other than /team do not carry an inject field', () => {
-    const picker = new InlineCommandPicker([]);
-    const cmds = getCommands(picker).filter((c) => c.name !== '/team [goal]' && !c.name.startsWith('/model '));
+    const cmds = getCommands(picker).filter((c) => !c.name.startsWith('/model '));
     for (const cmd of cmds) {
       expect(cmd.inject, `${cmd.name} should not have inject`).toBeUndefined();
     }

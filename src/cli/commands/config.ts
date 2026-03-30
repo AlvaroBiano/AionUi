@@ -48,12 +48,4 @@ export async function showConfig(): Promise<void> {
     }
   }
 
-  if (config.team) {
-    process.stdout.write(fmt.bold('Team defaults:\n'));
-    if (config.team.concurrency)
-      process.stdout.write(`  concurrency: ${config.team.concurrency}\n`);
-    if (config.team.timeoutMs)
-      process.stdout.write(`  timeoutMs:   ${config.team.timeoutMs}\n`);
-    process.stdout.write('\n');
-  }
 }
