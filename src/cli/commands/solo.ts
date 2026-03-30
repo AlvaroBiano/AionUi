@@ -19,6 +19,7 @@ import { createCliAgentFactory } from '../agents/factory';
 import { startRepl } from '../ui/repl';
 import { InlineCommandPicker } from '../ui/InlineCommandPicker';
 import { fmt, hr, Spinner } from '../ui/format';
+import { isFirstLaunch } from '../ui/history';
 import type { Interface } from 'node:readline';
 import type { AionCliConfig } from '../config/types';
 import type { IAgentManager } from '@process/task/IAgentManager';
@@ -32,25 +33,40 @@ const VERSION: string =
 declare const __AION_VERSION__: string | undefined;
 
 const LOGO_LINES = [
-  '  ▄▄   ▀█▀  ▄▄▄  ▄  ▄',
-  ' █▄▄█   █   █ █  ██ █',
-  ' █  █   █   █ █  █▀██',
-  ' █  █  ▄█▄  ▀▀▀  █  █',
+  '  ┌─┐  ┬  ┌─┐  ┌┐┌',
+  '  ├─┤  │  │ │  │╲│',
+  '  ┴ ┴  ┴  └─┘  ┘ └',
 ];
 
 // ── Emitter ───────────────────────────────────────────────────────────────────
 
+type StdoutEmitter = IAgentEventEmitter & {
+  mute(): void;
+  unmute(): void;
+};
+
 function makeStdoutEmitter(
   getRl: () => Interface | null = () => null,
-): IAgentEventEmitter {
-  const spinner = new Spinner('思考中');
+): StdoutEmitter {
+  const spinner = new Spinner('Thinking');
   let textStarted = false;
+  // muted=true after ESC/interrupt: swallows all subsequent agent events so that
+  // in-flight text/done events don't corrupt the terminal after "已中断" is shown.
+  let muted = false;
 
   return {
+    mute() {
+      muted = true;
+      spinner.stop(); // clear spinner line immediately
+    },
+    unmute() {
+      muted = false;
+    },
     emitConfirmationAdd: () => {},
     emitConfirmationUpdate: () => {},
     emitConfirmationRemove: () => {},
     emitMessage(_cid: string, event: AgentMessageEvent) {
+      if (muted) return; // swallow all events after interrupt
       if (event.type === 'status') {
         const status = (event.data as { status?: string })?.status;
         if (status === 'running') {
@@ -82,9 +98,9 @@ function makeStdoutEmitter(
 
 function printOnboarding(): void {
   process.stdout.write('\n');
-  for (const line of LOGO_LINES) process.stdout.write(fmt.cyan(line) + '\n');
+  for (const line of LOGO_LINES) process.stdout.write(fmt.dim(line) + '\n');
   process.stdout.write('\n');
-  process.stdout.write(`   ${fmt.dim('Multi-Model Agent Platform')}   ${fmt.cyan('v' + VERSION)}\n\n`);
+  process.stdout.write(`   ${fmt.dim('Multi-Model Agent Platform')}   ${fmt.dim('v' + VERSION)}\n\n`);
   process.stdout.write(fmt.bold('No agents detected.\n\n'));
   process.stdout.write(
     `   ${fmt.cyan('brew install anthropic/tap/claude-code')}   ${fmt.dim('# Claude Code CLI')}\n` +
@@ -102,10 +118,10 @@ function printOnboarding(): void {
 function printHeader(config: AionCliConfig, activeKey: string): void {
   process.stdout.write('\n');
   for (const line of LOGO_LINES) {
-    process.stdout.write(fmt.cyan(line) + '\n');
+    process.stdout.write(fmt.dim(line) + '\n');
   }
   process.stdout.write('\n');
-  process.stdout.write(`   ${fmt.dim('Multi-Model Agent Platform')}   ${fmt.cyan('v' + VERSION)}\n\n`);
+  process.stdout.write(`   ${fmt.dim('Multi-Model Agent Platform')}   ${fmt.dim('v' + VERSION)}\n\n`);
 
   const keys = Object.keys(config.agents);
   const agentList = keys
@@ -117,31 +133,37 @@ function printHeader(config: AionCliConfig, activeKey: string): void {
     })
     .join('  ');
 
-  process.stdout.write(fmt.dim(`  ${'─'.repeat(23)}`) + '\n');
+  process.stdout.write(fmt.dim(`  ${hr()}`) + '\n');
   process.stdout.write(`   ${agentList}   ${fmt.dim('/help')}\n\n`);
 }
 
 function printTips(): void {
   process.stdout.write(
-    `  ${fmt.dim('╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴')}\n` +
-    `  ${fmt.cyan('?')}  ${fmt.dim('输入消息开始对话')}\n` +
-    `  ${fmt.cyan('/')}  ${fmt.dim('打开命令菜单  (Tab 补全)')}\n` +
-    `  ${fmt.cyan('⇌')}  ${fmt.dim('/team [目标]  启动多 Agent 协作')}\n` +
-    `  ${fmt.cyan('⊡')}  ${fmt.dim('/model        切换模型')}\n` +
-    `  ${fmt.dim('╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴')}\n\n`,
+    `  ${fmt.dim(hr('╴', 80))}\n` +
+    `  ${fmt.cyan('/')}      ${fmt.dim('Commands  —  Tab to complete')}\n` +
+    `  ${fmt.cyan('/team')}  ${fmt.dim('Multi-agent mode')}\n` +
+    `  ${fmt.cyan('ESC')}    ${fmt.dim('Interrupt, restore input')}\n` +
+    `  ${fmt.cyan('/help')}  ${fmt.dim('View commands & shortcuts')}\n` +
+    `  ${fmt.dim(hr('╴', 80))}\n\n`,
   );
 }
 
 // ── Slash commands ────────────────────────────────────────────────────────────
 
 const SLASH_HELP = `
-${fmt.bold('斜杠命令：')}
-  ${fmt.cyan('/model <名称|序号>')}  切换 Agent  ${fmt.dim('(例: /model codex  或  /model 2)')}
-  ${fmt.cyan('/agents')}             列出已配置的 Agent
-  ${fmt.cyan('/team [目标]')}        启动多 Agent 协作
-  ${fmt.cyan('/clear')}              清屏（保留会话上下文）
-  ${fmt.cyan('/help')}               显示此帮助
-  ${fmt.cyan('/exit')}               退出
+${fmt.bold('Slash commands:')}
+  ${fmt.cyan('/model <name|num>')}  Switch agent  ${fmt.dim('(e.g. /model codex  or  /model 2)')}
+  ${fmt.cyan('/agents')}            List configured agents
+  ${fmt.cyan('/team [goal]')}       Launch multi-agent mode
+  ${fmt.cyan('/clear')}             Clear screen (keeps session context)
+  ${fmt.cyan('/help')}              Show this help
+  ${fmt.cyan('/exit')}              Quit
+
+${fmt.bold('Shortcuts:')}
+  ${fmt.cyan('ESC')}       Interrupt agent response, restore input
+  ${fmt.cyan('Ctrl+C')}    Interrupt; press again to quit
+  ${fmt.cyan('Ctrl+L')}    Clear screen (same as /clear)
+  ${fmt.cyan('\\')}         Backslash at end of line to continue on next line
 `.trim();
 
 async function handleSlashCommand(
@@ -149,6 +171,8 @@ async function handleSlashCommand(
   config: AionCliConfig,
   agentKeyRef: { current: string },
   managerRef: { current: IAgentManager },
+  emitterRef: { current: StdoutEmitter },
+  suppressEscRef: { current: boolean },
   picker: InlineCommandPicker,
   getRl: () => Interface | null,
 ): Promise<{ handled: boolean; exit?: boolean }> {
@@ -174,7 +198,7 @@ async function handleSlashCommand(
           `  ${isActive ? fmt.green('●') : fmt.dim('○')} ${fmt.dim(`${i + 1}.`)} ${fmt.cyan(key)}  ${fmt.dim(provider)}${isActive ? fmt.dim('  ← active') : ''}\n`,
         );
       }
-      process.stdout.write(fmt.dim('\n  使用 /model <名称> 或 /model <序号> 切换\n\n'));
+      process.stdout.write(fmt.dim('\n  Use /model <name> or /model <number> to switch\n\n'));
       return { handled: true };
     }
 
@@ -191,10 +215,12 @@ async function handleSlashCommand(
             picker.showAgentSelector(agents, async (selectedKey) => {
               if (selectedKey && selectedKey !== agentKeyRef.current) {
                 await managerRef.current.stop();
+                process.stdout.write('\r\x1b[2K'); // clear any dangling spinner line
                 agentKeyRef.current = selectedKey;
                 const factory = createCliAgentFactory(config, undefined, selectedKey);
-                managerRef.current = factory(`solo-${Date.now()}`, '', makeStdoutEmitter(getRl));
-                process.stdout.write(`\n${fmt.cyan('→')} ${fmt.bold(fmt.cyan(selectedKey))}  ${fmt.dim('已切换，新会话开始')}\n\n`);
+                emitterRef.current = makeStdoutEmitter(getRl);
+                managerRef.current = factory(`solo-${Date.now()}`, '', emitterRef.current);
+                process.stdout.write(`\n${fmt.cyan('→')} ${fmt.bold(fmt.cyan(selectedKey))}  ${fmt.dim('Switched. New session.')}\n\n`);
               }
               resolve();
             });
@@ -207,10 +233,10 @@ async function handleSlashCommand(
             const agent = config.agents[k]!;
             const isActive = k === agentKeyRef.current;
             process.stdout.write(
-              `  ${isActive ? fmt.green('●') : fmt.dim('○')}  ${fmt.dim(`${i + 1}.`)} ${fmt.cyan(k)}  ${fmt.dim(agent.provider)}${isActive ? fmt.green('  ← 当前') : ''}\n`,
+              `  ${isActive ? fmt.green('●') : fmt.dim('○')}  ${fmt.dim(`${i + 1}.`)} ${fmt.cyan(k)}  ${fmt.dim(agent.provider)}${isActive ? fmt.green('  ← active') : ''}\n`,
             );
           }
-          process.stdout.write(fmt.dim('\n  输入 /model <名称> 或 /model <序号> 切换\n\n'));
+          process.stdout.write(fmt.dim('\n  Type /model <name> or /model <number> to switch\n\n'));
         }
         return { handled: true };
       }
@@ -225,16 +251,18 @@ async function handleSlashCommand(
 
       if (!resolvedKey) {
         const available = keys.join(', ');
-        process.stdout.write(fmt.red(`✗ "${arg}" 未找到 — 可用: ${available}\n\n`));
+        process.stdout.write(fmt.red(`✗ "${arg}" not found — available: ${available}\n\n`));
         return { handled: true };
       }
 
       // Kill old manager before switching to avoid orphaned processes
       await managerRef.current.stop();
+      process.stdout.write('\r\x1b[2K'); // clear any dangling spinner line
       agentKeyRef.current = resolvedKey;
       const factory = createCliAgentFactory(config, undefined, resolvedKey);
-      managerRef.current = factory(`solo-${Date.now()}`, '', makeStdoutEmitter(getRl));
-      process.stdout.write(`\n${fmt.cyan('→')} ${fmt.bold(fmt.cyan(resolvedKey))}  ${fmt.dim('已切换，新会话开始')}\n\n`);
+      emitterRef.current = makeStdoutEmitter(getRl);
+      managerRef.current = factory(`solo-${Date.now()}`, '', emitterRef.current);
+      process.stdout.write(`\n${fmt.cyan('→')} ${fmt.bold(fmt.cyan(resolvedKey))}  ${fmt.dim('Switched. New session.')}\n\n`);
       return { handled: true };
     }
 
@@ -246,23 +274,44 @@ async function handleSlashCommand(
 
     case 'team': {
       const { runTeam } = await import('./team');
-      await runTeam({ goal: arg || undefined }, getRl() ?? undefined);
+      const abortController = new AbortController();
+      const teamEscListener = (_str: string, key: { name?: string }) => {
+        if (key?.name === 'escape') abortController.abort();
+      };
+      process.stdin.on('keypress', teamEscListener);
+      suppressEscRef.current = true; // prevent solo onEsc from also firing during team
+      try {
+        await runTeam({ goal: arg || undefined, activeAgent: agentKeyRef.current }, getRl() ?? undefined, abortController.signal);
+      } catch (err) {
+        if (err instanceof Error && !err.message.includes('interrupted')) {
+          process.stderr.write(fmt.red(`\n✗ ${err.message}\n\n`));
+        }
+      } finally {
+        suppressEscRef.current = false;
+        process.stdin.off('keypress', teamEscListener);
+      }
       return { handled: true };
     }
 
     case 'exit':
     case 'quit':
-      process.stdout.write(fmt.dim('再见。\n'));
+      process.stdout.write(fmt.dim('Goodbye.\n'));
       return { handled: true, exit: true };
 
-    default:
-      return { handled: false };
+    default: {
+      // Unknown slash command: tell the user instead of silently passing to agent
+      const knownCmds = '/model, /agents, /team, /clear, /help, /exit';
+      process.stdout.write(
+        fmt.yellow(`⚠ Unknown command /${cmd ?? ''} — available: ${knownCmds}\n\n`),
+      );
+      return { handled: true };
+    }
   }
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-type SoloOptions = { agent?: string; workspace?: string };
+type SoloOptions = { agent?: string; workspace?: string; continueSession?: boolean };
 
 export async function runSolo(options: SoloOptions = {}): Promise<void> {
   const config = loadConfig();
@@ -288,32 +337,29 @@ export async function runSolo(options: SoloOptions = {}): Promise<void> {
   }
 
   printHeader(config, activeKey);
-  printTips();
+  if (isFirstLaunch()) printTips();
+  if (options.continueSession) {
+    process.stdout.write(`  ${fmt.cyan('↩')} ${fmt.dim('Resuming last session')}\n\n`);
+  }
 
   const agentKeyRef = { current: activeKey };
   const rlRef: { current: Interface | null } = { current: null };
   const getRl = (): Interface | null => rlRef.current;
 
-  const managerRef: { current: IAgentManager } = {
-    current: createCliAgentFactory(config, undefined, activeKey)(`solo-${Date.now()}`, '', makeStdoutEmitter(getRl)),
+  // Track the current emitter so onEsc can mute it immediately (RC-3/RC-4 fix).
+  const emitterRef: { current: StdoutEmitter } = {
+    current: makeStdoutEmitter(getRl),
   };
+  const managerRef: { current: IAgentManager } = {
+    current: createCliAgentFactory(config, undefined, activeKey, options.continueSession)(`solo-${Date.now()}`, '', emitterRef.current),
+  };
+
+  // suppressEsc=true during team runs: prevents the solo onEsc from firing
+  // alongside the team's own abortController — avoids double "已中断" (RC-2 fix).
+  const suppressEscRef = { current: false };
 
   const agentKeys = Object.keys(config.agents);
   const picker = new InlineCommandPicker(agentKeys);
-
-  // Graceful Ctrl+C: stop agent then force-exit.
-  // We do NOT rely on startRepl resolving because stop() racing with rl.close()
-  // can leave the event loop hanging. Direct process.exit is the safest path.
-  const sigintHandler = (): void => {
-    process.stdout.write('\n' + fmt.dim('再见。\n'));
-    managerRef.current
-      .stop()
-      .catch(() => {})
-      .finally(() => process.exit(0));
-    // Force-exit after 3s max in case stop() hangs (e.g. SIGKILL timeout path)
-    setTimeout(() => process.exit(0), 3000).unref();
-  };
-  process.once('SIGINT', sigintHandler);
 
   // Single readline lifecycle — owns stdin from here to EOF
   // Pass agent keys so Tab expands /model <Tab> to agent names
@@ -321,20 +367,26 @@ export async function runSolo(options: SoloOptions = {}): Promise<void> {
     () => `${agentKeyRef.current} >`,
     async (input) => {
       if (input.startsWith('/')) {
-        const result = await handleSlashCommand(input, config, agentKeyRef, managerRef, picker, getRl);
+        const result = await handleSlashCommand(input, config, agentKeyRef, managerRef, emitterRef, suppressEscRef, picker, getRl);
         if (result.exit) process.exit(0);
         if (result.handled) return;
       }
+      // Unmute emitter at the start of each new message (reset from any prior interrupt)
+      emitterRef.current.unmute();
       await managerRef.current.sendMessage({ content: input });
     },
     agentKeys,
     picker,
-    () => managerRef.current.stop().catch(() => {}),
+    () => {
+      if (suppressEscRef.current) return; // team mode handles its own abort
+      process.stdout.write('\n' + fmt.yellow('⊘ Interrupted.') + '\n');
+      emitterRef.current.mute(); // suppress in-flight agent events immediately
+      managerRef.current.stop().catch(() => {});
+    },
     (rl) => { rlRef.current = rl; },
   );
 
-  // Clean EOF path (Ctrl+D): remove SIGINT handler, stop agent, exit
-  process.off('SIGINT', sigintHandler);
+  // Clean EOF path (Ctrl+D): stop agent, exit
   await Promise.race([
     managerRef.current.stop(),
     new Promise<void>((r) => setTimeout(r, 1500).unref()),

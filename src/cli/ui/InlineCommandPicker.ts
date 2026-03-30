@@ -50,41 +50,41 @@ function buildCommands(agentKeys: string[]): Cmd[] {
   const base: Cmd[] = [
     {
       name: '/model',
-      hint: '切换 Agent',
-      description: '打开内联选择器，↑↓ 浏览已配置的 Agent，Enter 确认切换，新会话立即生效',
+      hint: 'Switch agent',
+      description: 'Open inline selector — ↑↓ browse agents, Enter to confirm, new session takes effect immediately',
     },
     {
       name: '/agents',
-      hint: '查看 Agent 列表',
-      description: '列出所有已配置的 Agent 及其 provider 和当前状态，支持 /model <名称> 直接切换',
+      hint: 'List agents',
+      description: 'List all configured agents with their provider and status — use /model <name> to switch',
     },
     {
-      name: '/team [目标]',
-      hint: '启动多 Agent 团队',
-      description: '并行调度多个 Agent 分工协作，自动推断 UX/架构/审查等角色，输入目标描述后执行',
+      name: '/team [goal]',
+      hint: 'Multi-agent mode',
+      description: 'Dispatch parallel agents with inferred roles (UX/Architect/Reviewer etc.) — enter a goal to begin',
       inject: '/team ',
     },
     {
       name: '/clear',
-      hint: '清屏',
-      description: '清空终端屏幕，保留当前会话上下文，对话历史不受影响',
+      hint: 'Clear screen',
+      description: 'Clear the terminal screen while keeping session context and conversation history intact',
     },
     {
       name: '/help',
-      hint: '显示帮助',
-      description: '查看所有可用命令及用法说明，包含 team 模式、model 切换等完整参考',
+      hint: 'Show help',
+      description: 'View all available commands and shortcuts, including team mode and model switching reference',
     },
     {
       name: '/exit',
-      hint: '退出',
-      description: '结束当前会话，退出 Aion，等同于 Ctrl+D',
+      hint: 'Quit',
+      description: 'End the current session and exit Aion — equivalent to Ctrl+D',
     },
   ];
   // Add per-agent shortcuts after /model
   const modelEntries: Cmd[] = agentKeys.map((k) => ({
     name: `/model ${k}`,
-    hint: `切换到 ${k}`,
-    description: `直接切换到 ${k}，立即对当前会话生效`,
+    hint: `Switch to ${k}`,
+    description: `Switch to ${k} immediately — takes effect for the current session`,
   }));
   return [...base, ...modelEntries];
 }
@@ -168,22 +168,28 @@ export class AgentSelector {
   private redraw(): void {
     if (!process.stdout.isTTY) return;
     const cols = process.stdout.columns ?? 80;
+    const MAX_VISIBLE = 8;
 
-    const header = `  ${fmt.bold('选择 Agent：')}`;
-    const rows: string[] = this.agents.map((agent, i) => {
+    const header = `  ${fmt.bold('Select Agent:')}`;
+    const visibleAgents = this.agents.slice(0, MAX_VISIBLE);
+    const overflowCount = this.agents.length - MAX_VISIBLE;
+    const rows: string[] = visibleAgents.map((agent, i) => {
       const isSelected = i === this.selectedIdx;
       const dot = agent.isActive ? fmt.green('●') : fmt.dim('○');
       const nameStr = isSelected ? fmt.bold(fmt.cyan(agent.key)) : fmt.cyan(agent.key);
       const providerStr = fmt.dim(agent.provider);
-      const activeLabel = agent.isActive ? fmt.dim('  ← 当前') : '';
+      const activeLabel = agent.isActive ? fmt.dim('  ← active') : '';
       const prefix = isSelected ? fmt.cyan('❯ ') : '  ';
-      const rawLen = `${isSelected ? '❯ ' : '  '}${dot}  ${agent.key}  ${agent.provider}${agent.isActive ? '  ← 当前' : ''}`.length;
+      const rawLen = `${isSelected ? '❯ ' : '  '}${dot}  ${agent.key}  ${agent.provider}${agent.isActive ? '  ← active' : ''}`.length;
       const padLen = Math.max(0, cols - rawLen - 2);
       const bg = isSelected ? '\x1b[7m' : '';
       const reset = isSelected ? '\x1b[0m' : '';
       return `${bg}${prefix}${dot} ${nameStr}  ${providerStr}${activeLabel}${' '.repeat(padLen)}${reset}`;
     });
-    const hint = fmt.dim('  ↑↓ 切换  Enter 确认  Esc 取消');
+    if (overflowCount > 0) {
+      rows.push(fmt.dim(`  … ${overflowCount} more — use /model <name> to switch`));
+    }
+    const hint = fmt.dim('  ↑↓ navigate  Enter confirm  Esc cancel');
 
     const totalLines = 1 + rows.length + 1; // header + rows + hint
     let out = HIDE + SAVE;
@@ -393,6 +399,9 @@ export class InlineCommandPicker {
     this.hidePicker();
     if (!this.rl) return;
 
+    // Detach listener to prevent re-activation from programmatic rl.write
+    if (this.keypressListener) process.stdin.off('keypress', this.keypressListener);
+
     // Clear current readline input and inject the selected command + space
     (this.rl as unknown as { clearLine: () => void }).clearLine?.();
     // Use write to inject text into readline's line buffer
@@ -405,6 +414,11 @@ export class InlineCommandPicker {
     if (history && history[0] === toInject.trim()) {
       history.shift();
     }
+
+    // Re-attach after tick so injected chars are fully processed
+    setImmediate(() => {
+      if (this.keypressListener) process.stdin.on('keypress', this.keypressListener);
+    });
   }
 
   // ── Rendering ──────────────────────────────────────────────────────────

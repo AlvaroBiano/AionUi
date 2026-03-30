@@ -80,8 +80,8 @@ function loadFileConfig(): Partial<AionCliConfig> {
     raw = readFileSync(CONFIG_FILE, 'utf-8');
   } catch (err) {
     process.stderr.write(
-      `[aion] 无法读取配置文件 ${CONFIG_FILE}：${String(err)}\n` +
-        `[aion] 请运行 \`aion doctor\` 检查配置状态\n`,
+      `[aion] Cannot read config file ${CONFIG_FILE}: ${String(err)}\n` +
+        `[aion] Run \`aion doctor\` to check your setup\n`,
     );
     return {};
   }
@@ -90,14 +90,14 @@ function loadFileConfig(): Partial<AionCliConfig> {
     parsed = JSON.parse(raw);
   } catch (err) {
     process.stderr.write(
-      `[aion] 配置文件 JSON 语法错误（${CONFIG_FILE}）：${String(err)}\n` +
-        `[aion] 请修复该文件或删除后重新运行 \`aion doctor\`\n`,
+      `[aion] Config file JSON syntax error (${CONFIG_FILE}): ${String(err)}\n` +
+        `[aion] Fix or delete the file, then run \`aion doctor\`\n`,
     );
     return {};
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     process.stderr.write(
-      `[aion] 配置文件格式无效（${CONFIG_FILE}）：顶层应为 JSON 对象\n`,
+      `[aion] Invalid config format (${CONFIG_FILE}): top-level must be a JSON object\n`,
     );
     return {};
   }
@@ -105,8 +105,8 @@ function loadFileConfig(): Partial<AionCliConfig> {
   const invalidKeys = Object.keys(parsed).filter((k) => !KNOWN_KEYS.has(k));
   if (invalidKeys.length > 0) {
     process.stderr.write(
-      `[aion] 配置文件包含未知字段：${invalidKeys.join(', ')}\n` +
-        `[aion] 有效字段为：${[...KNOWN_KEYS].join(', ')}\n`,
+      `[aion] Config has unknown fields: ${invalidKeys.join(', ')}\n` +
+        `[aion] Valid fields: ${[...KNOWN_KEYS].join(', ')}\n`,
     );
   }
   return parsed as Partial<AionCliConfig>;

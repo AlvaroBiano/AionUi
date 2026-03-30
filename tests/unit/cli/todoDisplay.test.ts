@@ -42,10 +42,18 @@ describe('parseTodoLines', () => {
     expect(items[0]?.status).toBe('in_progress');
   });
 
-  it("parses '- [-] in progress' as status:'in_progress'", () => {
+  it("parses '- [-] item' as status:'pending' (dash marker no longer in_progress)", () => {
     const items = parseTodoLines('- [-] in progress item');
-    expect(items).toHaveLength(1);
-    expect(items[0]?.status).toBe('in_progress');
+    expect(items).toHaveLength(0);
+  });
+
+  it('does not parse normal markdown list items as todos', () => {
+    const text = [
+      '- Regular list item with no brackets',
+      '- Another list item',
+      'Some synthesis text with - dashes',
+    ].join('\n');
+    expect(parseTodoLines(text)).toHaveLength(0);
   });
 
   it("parses '- [>] in progress' as status:'in_progress'", () => {

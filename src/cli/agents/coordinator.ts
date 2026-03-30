@@ -52,7 +52,9 @@ export type ReviewPlan = {
   }>;
 };
 
-export type ScoredReviewPlan = ReviewPlan & { qualityScore: number };
+export type CoordinatorDecision =
+  | { action: 'accept'; reason: string }
+  | { action: 'refine'; targets: Array<{ role: string; issue: string; guidance: string }>; reason: string };
 
 export type MidFlightAdjustment = {
   addTasks: Array<{ label: string; focus: string; dependsOn?: string[] }>;
@@ -74,6 +76,19 @@ export type VerificationResult = {
  * why the coordinator assigned specific roles.
  */
 export class CoordinatorSession {
+  private static readonly SYSTEM_PROMPT = `You are the lead coordinator of an expert team assembled to solve a specific goal.
+
+Your responsibilities:
+1. Plan: assign specialists with distinct focus areas for the goal
+2. Review: after specialists complete their work, read every output carefully and decide: is the team's combined work good enough to synthesize into a final answer?
+3. Refine: if the work is not yet good enough, identify EXACTLY who needs to redo their work and what they must fix — be specific, reference what peers have already covered
+4. Synthesize: when you are satisfied, produce a single cohesive final answer
+
+Key principles:
+- You decide when you are satisfied. Do not produce a quality score.
+- Your synthesis is not a summary — it is an integrated expert answer that leads with the most important conclusions.
+- You are a long-running session: you remember your own planning decisions when you synthesize.`;
+
   private readonly manager: IAgentManager;
   private onTextChunk: (chunk: string) => void = () => {};
   private onStatusDone: (success: boolean) => void = () => {};
@@ -82,7 +97,11 @@ export class CoordinatorSession {
 
   constructor(factory: AgentManagerFactory) {
     const emitter = this._makeEmitter();
-    this.manager = factory(`coordinator-${randomUUID().slice(0, 8)}`, '', emitter);
+    this.manager = factory(
+      `coordinator-${randomUUID().slice(0, 8)}`,
+      CoordinatorSession.SYSTEM_PROMPT,
+      emitter,
+    );
   }
 
   /** Phase 1: ask coordinator to produce a structured JSON team plan. */
@@ -188,18 +207,17 @@ export class CoordinatorSession {
     });
   }
 
-  /**
-   * Phase 2.5 (iterative): review specialist outputs with a quality score.
-   * Returns needs_refinement items AND a qualityScore (0–1) for loop decisions.
-   */
-  async reviewWithScore(
+  /** Phase 2.5 (iterative): coordinator self-decides accept or refine — no quality score. */
+  async decide(
     goal: string,
     results: SpecialistResult[],
+    round: number,
+    maxRounds: number,
     signal?: AbortSignal,
-  ): Promise<ScoredReviewPlan | null> {
+  ): Promise<CoordinatorDecision | null> {
     if (signal?.aborted || results.length === 0) return null;
 
-    return new Promise<ScoredReviewPlan | null>((resolve) => {
+    return new Promise<CoordinatorDecision | null>((resolve) => {
       let accumulated = '';
       let settled = false;
 
@@ -207,29 +225,14 @@ export class CoordinatorSession {
         if (settled) return;
         settled = true;
         if (!ok) { resolve(null); return; }
-        try {
-          const match = accumulated.match(/\{[\s\S]*\}/);
-          if (!match) { resolve(null); return; }
-          const raw = JSON.parse(match[0]) as Partial<ReviewPlan & { quality_score?: unknown }>;
-          const needs_refinement = Array.isArray(raw.needs_refinement) ? raw.needs_refinement : [];
-          // Parse quality_score with fallback heuristic
-          let qualityScore: number;
-          if (typeof raw.quality_score === 'number') {
-            qualityScore = Math.min(1, Math.max(0, raw.quality_score));
-          } else {
-            qualityScore = needs_refinement.length === 0 ? 1.0 : 0.5;
-          }
-          resolve({ needs_refinement, qualityScore });
-        } catch {
-          resolve(null);
-        }
+        resolve(parseDecision(accumulated, new Set(results.map((r) => r.role))));
       };
 
       this.onTextChunk = (chunk) => { accumulated += chunk; };
       this.onStatusDone = settle;
       this.callNonce++;
       signal?.addEventListener('abort', () => settle(false), { once: true });
-      this.manager.sendMessage({ content: buildScoredReviewPrompt(goal, results) }).catch(() => settle(false));
+      this.manager.sendMessage({ content: buildDecisionPrompt(goal, results, round, maxRounds) }).catch(() => settle(false));
     });
   }
 
@@ -422,54 +425,27 @@ Output ONLY valid JSON (no markdown, no explanation):
   ]
 }
 
+For the "guidance" field, be specific and cross-referencing:
+- If another specialist already covered something relevant, say so explicitly:
+  "Note that [RoleName] addressed X — build on or challenge that specific point."
+- If two specialists contradict each other, identify the conflict:
+  "Your view conflicts with [RoleName]'s conclusion that Y — explain why or reconcile."
+- Guidance must be actionable: tell the specialist exactly what gap to fill.
+- Keep guidance under 120 words.
+
 If all outputs are satisfactory, return: { "needs_refinement": [] }
 Be conservative — only flag truly weak outputs, not ones that are merely short.`;
 }
 
-function buildScoredReviewPrompt(goal: string, results: SpecialistResult[]): string {
-  const reports = results
-    .map((r, i) => `### [${i + 1}] ${r.role}\n${r.output.trim()}`)
-    .join('\n\n');
-
-  return `You coordinated a team of specialists for this goal: "${goal}"
-
-Here are their outputs:
-
-${reports}
-
----
-Review each specialist's contribution and score overall quality.
-
-Output ONLY valid JSON (no markdown, no explanation):
-{
-  "quality_score": 0.75,
-  "needs_refinement": [
-    {
-      "role": "ExactRoleName",
-      "issue": "One sentence: what is wrong or missing",
-      "guidance": "Specific instruction: what to add or fix in the revision"
-    }
-  ]
-}
-
-quality_score: a number from 0.0 to 1.0 representing the overall quality of ALL outputs combined.
-  - 1.0 = all outputs are thorough, specific, and fully address their assigned focus
-  - 0.75 = mostly good, minor gaps
-  - 0.5 = some outputs are weak or superficial
-  - 0.25 = most outputs are poor
-
-needs_refinement: list ONLY specialists whose output is:
-- Too brief or superficial (under 80 words of real substance)
-- Off-topic or clearly misunderstood their assigned focus
-- Missing critical aspects they were specifically asked to cover
-
-If all outputs are satisfactory, return: { "quality_score": 1.0, "needs_refinement": [] }
-Be conservative — only flag truly weak outputs, not ones that are merely short.`;
-}
-
 function buildSynthesisPrompt(goal: string, results: SpecialistResult[]): string {
+  const SYNTHESIS_CHAR_LIMIT = 1500;
   const reports = results
-    .map((r, i) => `### [${i + 1}] ${r.role}\n${r.output.trim()}`)
+    .map((r, i) => {
+      const text = r.output.length > SYNTHESIS_CHAR_LIMIT
+        ? r.output.slice(0, SYNTHESIS_CHAR_LIMIT) + '\n...[condensed for synthesis]'
+        : r.output;
+      return `### [${i + 1}] ${r.role}\n${text.trim()}`;
+    })
     .join('\n\n');
 
   return `Your team has completed their work. Synthesize their reports into ONE unified answer.
@@ -487,4 +463,100 @@ Instructions:
 4. Do NOT list reports one by one — fully integrate the perspectives
 5. Lead with the most important conclusion or recommendation
 6. Be specific, concrete, and actionable`;
+}
+
+function parseDecision(raw: string, validRoles: Set<string>): CoordinatorDecision {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) {
+    return { action: 'accept', reason: 'coordinator output unparseable — accepting current results' };
+  }
+  let parsed: unknown;
+  try { parsed = JSON.parse(match[0]); } catch {
+    return { action: 'accept', reason: 'coordinator output invalid JSON — accepting' };
+  }
+  const p = parsed as Record<string, unknown>;
+
+  if (p.action === 'accept') {
+    return { action: 'accept', reason: String(p.reason ?? 'coordinator accepted') };
+  }
+
+  if (p.action === 'refine') {
+    const rawTargets = Array.isArray(p.targets) ? p.targets : [];
+    // Fault-tolerant matching: case-insensitive + partial match
+    const validTargets = rawTargets
+      .filter((t): t is Record<string, unknown> => typeof t === 'object' && t !== null)
+      .map((t) => {
+        const roleName = String(t.role ?? '');
+        // Exact match
+        if (validRoles.has(roleName)) return { role: roleName, issue: String(t.issue ?? ''), guidance: String(t.guidance ?? '') };
+        // Case-insensitive match
+        const lowerName = roleName.toLowerCase();
+        const matched = [...validRoles].find((r) => r.toLowerCase() === lowerName);
+        if (matched) return { role: matched, issue: String(t.issue ?? ''), guidance: String(t.guidance ?? '') };
+        return null;
+      })
+      .filter((t): t is { role: string; issue: string; guidance: string } => t !== null);
+
+    if (validTargets.length === 0) {
+      return { action: 'accept', reason: 'no valid roles matched for refinement — accepting' };
+    }
+    return { action: 'refine', targets: validTargets, reason: String(p.reason ?? '') };
+  }
+
+  return { action: 'accept', reason: `unknown action "${String(p.action)}" — accepting` };
+}
+
+function buildDecisionPrompt(
+  goal: string,
+  results: SpecialistResult[],
+  round: number,
+  maxRounds: number,
+): string {
+  const roleList = results.map((r) => `"${r.role}"`).join(', ');
+  const reports = results
+    .map((r) => {
+      const text = r.output.length > 800
+        ? r.output.slice(0, 800) + '\n...[truncated for review]'
+        : r.output;
+      return `### ${r.role}\n${text.trim()}`;
+    })
+    .join('\n\n');
+
+  const urgency = round >= maxRounds - 1
+    ? `\n\nNOTE: This is round ${round} of maximum ${maxRounds}. Unless there is a critical gap, prefer "accept".`
+    : '';
+
+  return `Your team has submitted their work for the goal: "${goal}"
+
+Available roles (use EXACT names in targets): [${roleList}]
+
+Round ${round} of ${maxRounds} — Specialist outputs:
+
+${reports}
+${urgency}
+
+Read every output. Decide: is this ready to synthesize, or does someone need to revise?
+
+Output your decision as JSON only:
+
+If ready: {"action": "accept", "reason": "one sentence why"}
+
+If revision needed:
+{
+  "action": "refine",
+  "reason": "one sentence why the work is not yet ready",
+  "targets": [
+    {
+      "role": "EXACT role name from the list above",
+      "issue": "one sentence: what is wrong",
+      "guidance": "specific instruction: what to add or fix, max 100 words, reference peer outputs where relevant"
+    }
+  ]
+}
+
+Rules:
+- role must exactly match one of: [${roleList}]
+- Only flag specialists with a SPECIFIC, FIXABLE gap — not vague improvement
+- If you cannot identify a specific fixable gap, output "action": "accept"
+- Output ONLY valid JSON`;
 }

@@ -36,12 +36,13 @@ ${fmt.bold('Usage:')}
 
 ${fmt.bold('Solo mode options:')}
   ${fmt.cyan('-a, --agent <name>')}        Agent to use  ${fmt.dim('(default: from config)')}
+  ${fmt.cyan('-c, --continue')}            Resume the most recent session
   ${fmt.cyan('-w, --workspace <dir>')}     Working directory
 
 ${fmt.bold('Team mode options:')}
   ${fmt.cyan('-g, --goal <text>')}         Goal for the team
   ${fmt.cyan('    --with <k1,k2,k3>')}     Agent per role  ${fmt.dim('(default: auto-distributed)')}
-  ${fmt.cyan('-c, --concurrency <n>')}     Number of parallel agents  ${fmt.dim('(default: 3)')}
+  ${fmt.cyan('    --concurrency <n>')}      Number of parallel agents  ${fmt.dim('(default: 3)')}
 
 ${fmt.bold('Other:')}
   ${fmt.cyan('-v, --version')}             Print version
@@ -74,10 +75,11 @@ async function main(): Promise<void> {
     allowPositionals: true,
     options: {
       agent: { type: 'string', short: 'a' },
+      continue: { type: 'boolean', short: 'c' },
       goal: { type: 'string', short: 'g' },
       agents: { type: 'string' },     // legacy alias
       with: { type: 'string' },       // preferred: --with claude,gemini,claude
-      concurrency: { type: 'string', short: 'c' },
+      concurrency: { type: 'string' },
       workspace: { type: 'string', short: 'w' },
       version: { type: 'boolean', short: 'v' },
       help: { type: 'boolean', short: 'h' },
@@ -99,12 +101,18 @@ async function main(): Promise<void> {
   switch (command) {
     case 'team': {
       const { runTeam } = await import('./commands/team');
-      await runTeam({
-        goal: values.goal,
-        // --with takes precedence; --agents kept for backwards compat
-        agents: values.with ?? values.agents,
-        concurrency: values.concurrency ? parseInt(values.concurrency, 10) : undefined,
-      });
+      const controller = new AbortController();
+      process.on('SIGINT', () => { controller.abort(); });
+      await runTeam(
+        {
+          goal: values.goal,
+          // --with takes precedence; --agents kept for backwards compat
+          agents: values.with ?? values.agents,
+          concurrency: values.concurrency ? parseInt(values.concurrency, 10) : undefined,
+        },
+        undefined,
+        controller.signal,
+      );
       break;
     }
 
@@ -114,8 +122,8 @@ async function main(): Promise<void> {
         process.stderr.write(fmt.red('Usage: aion run <task>\n'));
         process.exit(1);
       }
-      const { runTeam } = await import('./commands/team');
-      await runTeam({ goal: task, concurrency: 1 });
+      const { runOnce } = await import('./commands/run');
+      await runOnce({ task, agent: values.agent });
       break;
     }
 
@@ -150,7 +158,7 @@ async function main(): Promise<void> {
             `  ${isDefault ? fmt.green('●') : fmt.dim('○')} ${fmt.dim(`${i + 1}.`)} ${fmt.cyan(key)}  ${fmt.dim(provider)}${isDefault ? fmt.dim('  ← default') : ''}\n`,
           );
         }
-        process.stdout.write(fmt.dim('\n  使用 /model <名称> 或 /model <序号> 切换（在对话模式中）\n\n'));
+        process.stdout.write(fmt.dim('\n  Use /model <name> or /model <number> to switch (in chat mode)\n\n'));
       }
       break;
     }
@@ -165,6 +173,7 @@ async function main(): Promise<void> {
       await runSolo({
         agent: values.agent,
         workspace: values.workspace,
+        continueSession: values.continue,
       });
       break;
     }

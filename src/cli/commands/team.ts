@@ -39,6 +39,23 @@ import { CoordinatorSession } from '../agents/coordinator';
 import { PersistentCoordinatorLoop } from '../agents/PersistentCoordinatorLoop';
 
 /**
+ * Build the system prompt context for a specialist agent.
+ * Direct-API providers (anthropic/openai/gemini) receive this as a system prompt.
+ */
+function buildSpecialistContext(role: string, focus: string, goalText: string): string {
+  return `You are ${role} — a specialist in a coordinated expert team.
+
+The team's goal: "${goalText}"
+Your assigned focus: ${focus}
+
+You are NOT the team coordinator. Stay focused on your assigned area.
+Do not try to cover everything — your teammates cover the rest.
+Be specific and concrete — generic advice is not useful.
+Use available tools (bash, read files) to gather evidence before responding.
+The coordinator will review your work and may ask you to revise it.`;
+}
+
+/**
  * Codex CLI outputs a clean copy of the response after "tokens used\n<count>\n".
  * Everything before that is startup info, echoed prompt, mcp errors, and streaming noise.
  * Extract only the clean final response.
@@ -46,7 +63,8 @@ import { PersistentCoordinatorLoop } from '../agents/PersistentCoordinatorLoop';
 function cleanCodexOutput(text: string): string {
   // Strip ANSI escape sequences first — codex wraps startup info in dim codes,
   // which also wraps the "tokens used" marker making \d+ fail to match "6,061".
-  const stripped = text.replace(/\x1b\[[0-9;]*m/g, '');
+  // eslint-disable-next-line no-control-regex
+  const stripped = text.replace(/\u001b\[[0-9;]*m/g, '');
 
   // Primary: extract text that appears after "tokens used\n<count>\n"
   // Count may include commas (e.g. "6,061") so use [\d,]+ not \d+
@@ -354,7 +372,7 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
       const execLabel = plan.execution_mode === 'sequential'
         ? fmt.yellow('Sequential')
         : fmt.cyan('Parallel');
-      process.stdout.write(`${fmt.dim(plan.goal_analysis)}\n\n`);
+      process.stdout.write(`${fmt.bold('Analysis')}  ${fmt.dim(plan.goal_analysis)}\n\n`);
       process.stdout.write(`${fmt.dim('Execution mode')}  ${execLabel}\n\n`);
 
       // Group specialists by phase for display
@@ -408,13 +426,15 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
       taskKind === 'execution'
         ? '\n\n**EXECUTION DIRECTIVE**: You are authorized to create and modify files. Produce working, runnable output — not descriptions or plans.'
         : '';
+
     return {
       id,
       label: role.label,
       // CLI providers (claude-cli/codex-cli) ignore presetContext — role focus goes in the prompt
+      // codex-cli role prefix injected below after agentPerTask is defined
       prompt: `${role.focus}: ${goal}\n\nBe thorough and specific. Provide a well-structured response.${executionDirective}`,
       // Direct-API providers (anthropic/openai/gemini) use presetContext as system prompt
-      presetContext: `You are a ${role.label}. ${role.focus} the goal assigned to you. Be thorough and specific. You have access to a bash tool — use it to read files, inspect the codebase, and gather evidence before responding.`,
+      presetContext: buildSpecialistContext(role.label, role.focus, goal),
       agentType: 'acp',
       phase: meta?.phase,
       dependsOn: dependsOn?.length ? dependsOn : undefined,
@@ -427,6 +447,14 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
     agentKeys.length > 0
       ? Object.fromEntries(subTasks.map((t, i) => [t.id, agentKeys[i] ?? config.defaultAgent]))
       : undefined;
+
+  // codex-cli does not support --append-system-prompt; inject role as prompt prefix now that agentPerTask is defined
+  for (const task of subTasks) {
+    const key = agentPerTask?.[task.id] ?? effectiveDefault;
+    if (config.agents[key]?.provider === 'codex-cli') {
+      task.prompt = `[You are ${task.label}. Your focus: ${task.prompt.split(':')[0]}. You are a specialist, NOT the team coordinator.]\n\n${task.prompt}`;
+    }
+  }
 
   // Print team roster
   const agentSummary = subTasks
@@ -451,6 +479,8 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
   const idToLabel = new Map(subTasks.map((t) => [t.id, t.label]));
   for (const task of subTasks) {
     panel.setLabel(task.id, task.label);
+    const agentKey = agentPerTask?.[task.id] ?? effectiveDefault;
+    panel.setAgentKey(task.id, agentKey);
     if (task.dependsOn?.length) {
       const depLabels = task.dependsOn.map((id) => idToLabel.get(id) ?? id);
       panel.setDependsOn(task.id, depLabels);
@@ -460,8 +490,6 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
 
   const loop = new PersistentCoordinatorLoop(coordinatorSession, orch, {
     maxIterations: config.team?.maxIterations ?? 3,
-    qualityThreshold: config.team?.qualityThreshold ?? 0.85,
-    marginalGainThreshold: 0.10,
     maxRetriesPerRole: 2,
   });
 
@@ -494,25 +522,13 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
             break;
 
           case 'round_display': {
-            // New panel API — set round indicator if available (#11)
-            const panelAny = panel as unknown as Record<string, unknown>;
-            if (typeof panelAny['setRound'] === 'function') {
-              (panelAny['setRound'] as (r: number, max: number) => void)(
-                event.round,
-                event.maxRounds,
-              );
-            }
+            panel.setRound(event.round, event.maxRounds);
             break;
           }
 
-          case 'quality_score_updated': {
-            // New panel API — show quality score if available (#12)
-            const panelAny = panel as unknown as Record<string, unknown>;
-            if (typeof panelAny['setQualityScore'] === 'function') {
-              (panelAny['setQualityScore'] as (s: number) => void)(event.score);
-            }
+          case 'coordinator_decision':
+            // Coordinator accept/refine decision — available for future display
             break;
-          }
 
           case 'verification_started':
             // New panel API — coordinator is verifying (#13)
@@ -535,7 +551,7 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
             break;
 
           case 'round_assessed':
-            // Quality score and refinement count available for future display
+            // Refinement count available for future display
             break;
 
           case 'round_results': {
@@ -573,6 +589,7 @@ export async function runTeam(options: TeamOptions = {}, rl?: Interface, signal?
             }
             break;
           }
+
 
           case 'synthesis_chunk':
             if (!synthStarted) {

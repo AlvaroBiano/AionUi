@@ -11,17 +11,15 @@ export function parseTodoLines(text: string): TodoItem[] {
   const lines = text.split('\n');
   const items: TodoItem[] = [];
   for (const line of lines) {
-    const m = line.match(/^[\s]*[-*]\s+\[([x X~\->])\]\s+(.+)/i);
+    const m = line.match(/^[\s]*[-*]\s+\[([xX ~>])\]\s+(.+)/);
     if (!m) continue;
-    const marker = m[1].toLowerCase();
+    const marker = m[1];
     const itemText = m[2].trim();
     let status: TodoItem['status'];
     if (marker === 'x' || marker === 'X') {
       status = 'done';
-    } else if (marker === '~' || marker === '-' || marker === '>' || marker === ' ') {
-      // ' ' is unchecked but we check for in_progress markers
-      status =
-        marker === '~' || marker === '-' || marker === '>' ? 'in_progress' : 'pending';
+    } else if (marker === '~' || marker === '>') {
+      status = 'in_progress';
     } else {
       status = 'pending';
     }

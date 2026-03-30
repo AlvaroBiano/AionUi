@@ -9,17 +9,16 @@
  *
  * Replaces the single-pass batch pipeline with a loop that:
  *   1. Runs specialist tasks via the Orchestrator.
- *   2. Asks the coordinator to review and score all results.
- *   3. If quality is below threshold, rebuilds refinement tasks for weak agents.
- *   4. Repeats until quality passes, no refinements needed, or max iterations hit.
+ *   2. Asks the coordinator to decide: accept or refine.
+ *   3. If refine, rebuilds refinement tasks for flagged agents.
+ *   4. Repeats until a stop condition triggers.
  *   5. Synthesizes all results into a final answer.
  *
  * Stop conditions (any one triggers synthesis):
  *   - signal.aborted
- *   - qualityScore >= options.qualityThreshold (default 0.85)
- *   - needs_refinement.length === 0
+ *   - coordinator decision: action === 'accept'
  *   - round >= options.maxIterations (default 3)
- *   - marginal gain < marginalGainThreshold (if round >= 2, default 0.10)
+ *   - convergence: same targets two rounds in a row
  *   - all refinement targets hit maxRetriesPerRole (default 2)
  */
 
@@ -28,23 +27,59 @@ import type { Orchestrator } from '@process/task/orchestrator/Orchestrator';
 import type { SubTask, SubTaskResult, OrchestratorEvent } from '@process/task/orchestrator/types';
 import type { CoordinatorSession, SpecialistResult } from './coordinator';
 import type { ICoordinatorLoop, CoordinatorLoopEvent } from './ICoordinatorLoop';
-import type { LiveCoordinatorAgent } from './LiveCoordinatorAgent';
+import { LiveCoordinatorAgent } from './LiveCoordinatorAgent';
 
 export type PersistentCoordinatorLoopOptions = {
   /** Maximum number of refinement rounds (default 3). */
   maxIterations?: number;
-  /** Quality score (0–1) to stop early (default 0.85). */
-  qualityThreshold?: number;
-  /** Minimum score gain to justify another round (default 0.10). */
-  marginalGainThreshold?: number;
   /** Max times the same role can be re-dispatched (default 2). */
   maxRetriesPerRole?: number;
 };
 
+/**
+ * Build a peer outputs block to inject into a refinement task's prompt.
+ * Lets the target agent see what peers have contributed so far.
+ */
+export function buildPeerContextBlock(
+  targetRole: string,
+  allResults: Map<string, SubTaskResult>,
+  flaggedRoles: Set<string>,
+  opts: { charLimit?: number; maxPeers?: number } = {},
+): string {
+  const charLimit = opts.charLimit ?? 1200;
+  const maxPeers = opts.maxPeers ?? 3;
+
+  // Collect peers: prefer non-flagged (higher quality), then flagged
+  const peers: Array<{ role: string; output: string }> = [];
+  const flagged: Array<{ role: string; output: string }> = [];
+
+  for (const [role, result] of allResults) {
+    if (role === targetRole) continue;
+    const text = result.outputText.trim();
+    if (text.length < 50) continue;
+    const truncated = text.length > charLimit ? text.slice(0, charLimit) + '\n...[truncated]' : text;
+    if (flaggedRoles.has(role)) {
+      flagged.push({ role, output: truncated });
+    } else {
+      peers.push({ role, output: truncated });
+    }
+  }
+
+  const selected = [...peers, ...flagged].slice(0, maxPeers);
+  if (selected.length === 0) return '';
+
+  const blocks = selected.map((p) => `### [${p.role}]\n${p.output}`).join('\n\n');
+  return (
+    `\n\n**Your team's current outputs (read critically — identify gaps and disagreements):**\n\n` +
+    blocks +
+    `\n\n---\n` +
+    `Do NOT repeat what your peers have said. Instead: identify what they missed, ` +
+    `challenge assumptions where you disagree, and make your own contribution specific and complementary.`
+  );
+}
+
 export class PersistentCoordinatorLoop implements ICoordinatorLoop {
   private readonly maxIterations: number;
-  private readonly qualityThreshold: number;
-  private readonly marginalGainThreshold: number;
   private readonly maxRetriesPerRole: number;
 
   constructor(
@@ -53,8 +88,6 @@ export class PersistentCoordinatorLoop implements ICoordinatorLoop {
     options: PersistentCoordinatorLoopOptions = {},
   ) {
     this.maxIterations = options.maxIterations ?? 3;
-    this.qualityThreshold = options.qualityThreshold ?? 0.85;
-    this.marginalGainThreshold = options.marginalGainThreshold ?? 0.10;
     this.maxRetriesPerRole = options.maxRetriesPerRole ?? 2;
   }
 
@@ -70,7 +103,7 @@ export class PersistentCoordinatorLoop implements ICoordinatorLoop {
     const retryCount = new Map<string, number>();
 
     let currentTasks: SubTask[] = initialTasks.map((t) => ({ ...t, iterationRound: 1 }));
-    let prevQualityScore = 0;
+    let prevTargetSet: string | null = null;
 
     onEvent({ type: 'phase_changed', phase: 'executing' });
 
@@ -130,44 +163,49 @@ export class PersistentCoordinatorLoop implements ICoordinatorLoop {
 
       if (specialistResults.length === 0) break;
 
-      // Review with quality score
       onEvent({ type: 'phase_changed', phase: 'reviewing' });
 
-      const assessment = await this.coordinator
-        .reviewWithScore(goal, specialistResults, signal)
+      const decision = await this.coordinator
+        .decide(goal, specialistResults, round, this.maxIterations, signal)
         .catch((): null => null);
 
       if (signal?.aborted) break;
-
-      if (!assessment) break;
-
-      const { qualityScore, needs_refinement } = assessment;
+      if (!decision) break;
 
       onEvent({
         type: 'round_assessed',
         round,
-        qualityScore,
-        needsRefinement: needs_refinement.length,
+        needsRefinement: decision.action === 'refine' ? decision.targets.length : 0,
+        reason: decision.reason,
       });
-      onEvent({ type: 'quality_score_updated', score: qualityScore });
+      onEvent({
+        type: 'coordinator_decision',
+        round,
+        action: decision.action,
+        reason: decision.reason,
+      });
 
-      // Stop condition: quality threshold met
-      if (qualityScore >= this.qualityThreshold) break;
+      // Stop: coordinator is satisfied
+      if (decision.action === 'accept') break;
 
-      // Stop condition: no refinements needed
-      if (needs_refinement.length === 0) break;
+      // Stop: no targets to refine
+      if (decision.targets.length === 0) break;
 
-      // Stop condition: marginal gain too small (only after round 1)
-      if (round >= 2 && qualityScore - prevQualityScore < this.marginalGainThreshold) break;
-
-      // Stop condition: last iteration
+      // Stop: last iteration
       if (round >= this.maxIterations) break;
 
-      prevQualityScore = qualityScore;
+      // Convergence detection: same targets two rounds in a row → stop
+      const currentTargetSet = decision.targets
+        .map((t) => t.role)
+        .sort()
+        .join(',');
+      if (prevTargetSet !== null && currentTargetSet === prevTargetSet) break;
+      prevTargetSet = currentTargetSet;
 
       // Build refinement tasks, respecting per-role retry limits
+      const flaggedRoles = new Set(decision.targets.map((item) => item.role));
       const refinementTasks: SubTask[] = [];
-      for (const item of needs_refinement) {
+      for (const item of decision.targets) {
         const roleRetries = retryCount.get(item.role) ?? 0;
         if (roleRetries >= this.maxRetriesPerRole) continue;
 
@@ -181,7 +219,12 @@ export class PersistentCoordinatorLoop implements ICoordinatorLoop {
         refinementTasks.push({
           id: refinedId,
           label: item.role,
-          prompt: `${origTask.prompt}\n\n**Coordinator Feedback (Round ${round}):**\nIssue: ${item.issue}\nRequired: ${item.guidance}\n\nRevise and expand your response accordingly.`,
+          prompt:
+            `${origTask.prompt}` +
+            `\n\n**Coordinator Feedback (Round ${round}):**\n` +
+            `Issue: ${item.issue}\nRequired: ${item.guidance}` +
+            buildPeerContextBlock(item.role, allResults, flaggedRoles) +
+            `\n\nRevise and expand your response accordingly.`,
           presetContext: origTask.presetContext,
           agentType: origTask.agentType,
           iterationRound: round + 1,
@@ -202,10 +245,9 @@ export class PersistentCoordinatorLoop implements ICoordinatorLoop {
     }
 
     // Verification phase (LiveCoordinatorAgent only)
-    const liveCoordinator = this.coordinator as LiveCoordinatorAgent;
     const enableVerification =
-      liveCoordinator.liveOptions !== undefined
-        ? (liveCoordinator.liveOptions.enableVerification ?? true)
+      this.coordinator instanceof LiveCoordinatorAgent
+        ? (this.coordinator.liveOptions.enableVerification ?? true)
         : false;
 
     // Snapshot all accumulated results as a flat array for verification
@@ -226,7 +268,7 @@ export class PersistentCoordinatorLoop implements ICoordinatorLoop {
         })
         .filter((r) => r.output.trim().length > 50);
 
-      const verification = await (this.coordinator as CoordinatorSession)
+      const verification = await this.coordinator
         .verify(goal, verificationInputs, signal)
         .catch((): null => null);
 

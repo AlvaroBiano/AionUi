@@ -18,6 +18,8 @@
  *   - > quote                 → │ dim quote
  */
 
+import { displayWidth as _displayWidth } from './termUtils';
+
 const ESC = '\x1b';
 const RESET = `${ESC}[0m`;
 const BOLD = `${ESC}[1m`;
@@ -27,40 +29,9 @@ const YELLOW = `${ESC}[33m`;
 const BLUE = `${ESC}[34m`;
 const MAGENTA = `${ESC}[35m`;
 
-/** Calculate visible terminal columns for a string (CJK + emoji = 2 cols). */
+/** Calculate visible terminal columns for a string (CJK + emoji = 2 cols). Strips ANSI codes. */
 export function displayWidth(s: string): number {
-  // Strip ANSI escape codes: ESC char is \x1b / codepoint 27
-  // Use String.fromCharCode to avoid no-control-regex lint rule
-  const esc = String.fromCharCode(27);
-  const ansiRe = new RegExp(esc + '\\[[0-9;]*m', 'g');
-  const plain = s.replace(ansiRe, '');
-  let w = 0;
-  for (const ch of plain) {
-    const cp = ch.codePointAt(0) ?? 0;
-    if (
-      cp > 0xffff || // surrogate pairs / emoji (most emoji are > 0xFFFF or in specific ranges)
-      (cp >= 0x1f300 && cp <= 0x1faff) || // misc symbols, emoticons
-      (cp >= 0x2600 && cp <= 0x27bf) || // misc symbols
-      (cp >= 0x1100 && cp <= 0x115f) || // Hangul Jamo
-      (cp >= 0x2e80 && cp <= 0x303e) || // CJK radicals / Kangxi
-      (cp >= 0x3041 && cp <= 0x33ff) || // Hiragana, Katakana, CJK compat
-      (cp >= 0x3400 && cp <= 0x4dbf) || // CJK Extension A
-      (cp >= 0x4e00 && cp <= 0x9fff) || // CJK Unified
-      (cp >= 0xa000 && cp <= 0xa48f) || // Yi Syllables
-      (cp >= 0xac00 && cp <= 0xd7a3) || // Hangul Syllables
-      (cp >= 0xf900 && cp <= 0xfaff) || // CJK Compat Ideographs
-      (cp >= 0xfe10 && cp <= 0xfe19) || // Vertical forms
-      (cp >= 0xfe30 && cp <= 0xfe6f) || // CJK Compat Forms
-      (cp >= 0xff01 && cp <= 0xff60) || // Fullwidth Forms
-      (cp >= 0xffe0 && cp <= 0xffe6) || // Fullwidth Signs
-      (cp >= 0x20000 && cp <= 0x2a6df) // CJK Extension B
-    ) {
-      w += 2;
-    } else {
-      w += 1;
-    }
-  }
-  return w;
+  return _displayWidth(s, true);
 }
 
 /** Pad a string to a given display width using spaces. */

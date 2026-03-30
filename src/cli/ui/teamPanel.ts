@@ -21,6 +21,7 @@ import type { TodoItem } from '../agents/ICoordinatorLoop';
 
 type AgentState = {
   label: string;
+  agentKey?: string;
   status: 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
   preview: string;
   startedAt?: number;
@@ -55,7 +56,6 @@ export class TeamPanel {
   private spinnerFrame = 0;
   private readonly SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   private renderTimer: NodeJS.Timeout | null = null;
-  private qualityScore: number | null = null;
   private currentRound: number | null = null;
   private maxRounds: number | null = null;
   private readonly todoTracker = new TodoTracker();
@@ -69,10 +69,6 @@ export class TeamPanel {
     this.coordinatorPhase = phase;
   }
 
-  setQualityScore(score: number): void {
-    this.qualityScore = score;
-  }
-
   setRound(round: number, maxRounds: number): void {
     this.currentRound = round;
     this.maxRounds = maxRounds;
@@ -84,6 +80,16 @@ export class TeamPanel {
       agent.label = label;
     } else {
       this.agents.set(subTaskId, { label, status: 'pending', preview: '' });
+    }
+  }
+
+  /** Set the agent key (model name) shown in brackets next to the role label. */
+  setAgentKey(subTaskId: string, agentKey: string): void {
+    const agent = this.agents.get(subTaskId);
+    if (agent) {
+      agent.agentKey = agentKey;
+    } else {
+      this.agents.set(subTaskId, { label: subTaskId, agentKey, status: 'pending', preview: '' });
     }
   }
 
@@ -190,26 +196,17 @@ export class TeamPanel {
       const spin = this.SPIN[this.spinnerFrame % this.SPIN.length]!;
       const phaseLabel = COORDINATOR_PHASE_LABELS[this.coordinatorPhase];
       const roundSuffix =
-        this.currentRound !== null ? `  Round ${this.currentRound}/${this.maxRounds}` : '';
+        this.currentRound !== null && this.currentRound > 1
+          ? `  Round ${this.currentRound}/${this.maxRounds}`
+          : '';
       lines.push(
         `  ${fmt.cyan(spin)} ${fmt.dim(`coordinator · ${phaseLabel}${roundSuffix}`)}`,
       );
-      if (
-        this.qualityScore !== null &&
-        this.coordinatorPhase &&
-        ['reviewing', 'refining'].includes(this.coordinatorPhase)
-      ) {
-        const score = this.qualityScore;
-        const filled = Math.round(score * 16);
-        const bar = '█'.repeat(filled) + '░'.repeat(16 - filled);
-        const coloredBar =
-          score >= 0.85 ? fmt.green(bar) : score >= 0.6 ? fmt.yellow(bar) : fmt.red(bar);
-        lines.push(`  ◈ Quality  ${score.toFixed(2)}  ${coloredBar}`);
-      }
     }
 
     for (const [id, state] of this.agents) {
-      const label = fmt.bold(state.label || id);
+      const agentTag = state.agentKey ? fmt.dim(` [${state.agentKey}]`) : '';
+      const label = fmt.bold(state.label || id) + agentTag;
 
       let coloredIcon: string;
       let statusSuffix = '';
@@ -238,9 +235,11 @@ export class TeamPanel {
 
       let preview = '';
       const cols = process.stdout.columns ?? 80;
-      const labelWidth = displayWidth(state.label || id);
+      const agentTagText = state.agentKey ? ` [${state.agentKey}]` : '';
+      const labelWidth = displayWidth(state.label || id) + displayWidth(agentTagText);
       // Measure actual suffix visual width (strip ANSI codes first)
-      const suffixText = statusSuffix.replace(/\x1b\[[0-9;]*m/g, '');
+      // eslint-disable-next-line no-control-regex
+      const suffixText = statusSuffix.replace(/\u001b\[[0-9;]*m/g, '');
       const suffixCols = displayWidth(suffixText);
       // prefix: "  " (2) + icon (1) + " " (1) + label + suffix + " " (1) padding
       const prefixCols = 2 + 1 + 1 + labelWidth + suffixCols + 2;

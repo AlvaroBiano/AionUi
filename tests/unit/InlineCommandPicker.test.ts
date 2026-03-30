@@ -16,7 +16,7 @@ describe('InlineCommandPicker — command registry', () => {
     const names = cmds.map((c) => c.name);
     expect(names).toContain('/model');
     expect(names).toContain('/agents');
-    expect(names).toContain('/team [目标]');
+    expect(names).toContain('/team [goal]');
     expect(names).toContain('/clear');
     expect(names).toContain('/help');
     expect(names).toContain('/exit');
@@ -30,10 +30,10 @@ describe('InlineCommandPicker — command registry', () => {
     expect(names).toContain('/model codex');
   });
 
-  it('/team [目标] has inject: "/team "', () => {
+  it('/team [goal] has inject: "/team "', () => {
     const picker = new InlineCommandPicker([]);
     const cmds = (picker as unknown as { commands: { name: string; inject?: string }[] }).commands;
-    const teamCmd = cmds.find((c) => c.name === '/team [目标]');
+    const teamCmd = cmds.find((c) => c.name === '/team [goal]');
     expect(teamCmd).toBeDefined();
     expect(teamCmd!.inject).toBe('/team ');
   });

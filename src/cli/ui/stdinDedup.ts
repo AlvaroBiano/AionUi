@@ -16,8 +16,11 @@
 
 import { Duplex } from 'node:stream';
 
+let _dedupInstance: Duplex | null = null;
+
 export function createDedupStdin(): NodeJS.ReadableStream {
   if (!process.stdout.isTTY) return process.stdin;
+  if (_dedupInstance) return _dedupInstance;
 
   class IMEDedupStream extends Duplex {
     private _lastChunk = '';
@@ -48,5 +51,6 @@ export function createDedupStdin(): NodeJS.ReadableStream {
     }
   }
 
-  return new IMEDedupStream();
+  _dedupInstance = new IMEDedupStream();
+  return _dedupInstance;
 }

@@ -49,8 +49,10 @@ vi.mock('@/cli/ui/teamPanel', () => {
   class MockTeamPanel {
     setGoal = vi.fn();
     setLabel = vi.fn();
+    setAgentKey = vi.fn();
     setDependsOn = vi.fn();
     setCoordinatorPhase = vi.fn();
+    setRound = vi.fn();
     update = vi.fn();
     start = vi.fn();
     clear = vi.fn();

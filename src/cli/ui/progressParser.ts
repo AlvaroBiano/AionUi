@@ -22,17 +22,17 @@ export function stripAnsi(s: string): string {
 
 const NOISE_PATTERNS: RegExp[] = [
   /^\s*\w+\s+(ERROR|WARN|DEBUG|INFO|TRACE|WARNING)[\s:]/i,
-  /^(OpenAI Codex|workdir:|model:|provider:|approval:|sandbox:|reasoning\s|session id:|mcp[\s:\/]|exec\s|succeeded in|tokens used|auto-compact)/i,
+  /^(OpenAI Codex|workdir:|model:|provider:|approval:|sandbox:|reasoning\s|session id:|mcp[\s:/]|exec\s|succeeded in|tokens used|auto-compact)/i,
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, // timestamps
-  /^[─━═\-]{4,}$/, // horizontal rules
+  /^[─━═-]{4,}$/, // horizontal rules
   /^>\s*$/, // lone arrows
   /^\s*$/, // blank lines
 ];
 
 const TOOL_PATTERN =
-  /^(bash|read|write|edit|glob|grep|webfetch|websearch|task|agent|notebook)\s*[:\(]/i;
+  /^(bash|read|write|edit|glob|grep|webfetch|websearch|task|agent|notebook)\s*[:(]/i;
 const FILE_PATTERN =
-  /(?:reading|writing|editing|creating|saved?)\s+([\w./\\\-]+\.\w{1,10})/i;
+  /(?:reading|writing|editing|creating|saved?)\s+([\w./\\-]+\.\w{1,10})/i;
 const THINKING_PATTERN = /\b(thinking|analyzing|planning|reviewing|processing|generating)\b/i;
 
 export function parseProgressLine(raw: string): ParsedProgressLine | null {

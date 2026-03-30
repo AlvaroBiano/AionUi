@@ -31,12 +31,12 @@ export async function showConfig(): Promise<void> {
     for (const [name, agent] of Object.entries(config.agents)) {
       const isCliProvider = agent.provider === 'claude-cli' || agent.provider === 'codex-cli';
       const masked = isCliProvider
-        ? fmt.dim('(CLI 认证)')
+        ? fmt.dim('(CLI auth)')
         : agent.apiKey
           ? `...${agent.apiKey.slice(-4)}`
           : fmt.red('not set');
       const modelDisplay = isCliProvider
-        ? fmt.dim('(使用 CLI 自身)')
+        ? fmt.dim('(uses CLI itself)')
         : (agent.model ?? fmt.red('undefined'));
       const isDefault = name === config.defaultAgent ? fmt.green(' ← default') : '';
       process.stdout.write(

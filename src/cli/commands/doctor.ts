@@ -60,12 +60,12 @@ const KNOWN_API_AGENTS: Array<{
 ];
 
 export async function runDoctor(): Promise<void> {
-  process.stdout.write(`\n${fmt.bold('Aion 环境检查')}\n\n`);
+  process.stdout.write(`\n${fmt.bold('Aion Environment Check')}\n\n`);
 
   const config = loadConfig();
 
   // ── Active agents ─────────────────────────────────────────────────────────
-  process.stdout.write(fmt.bold('已配置的 Agent：\n'));
+  process.stdout.write(fmt.bold('Configured agents:\n'));
 
   if (Object.keys(config.agents).length === 0) {
     process.stdout.write(fmt.yellow('  (none configured)\n'));
@@ -78,13 +78,13 @@ export async function runDoctor(): Promise<void> {
         const check = checkBin(bin);
         const status = check.ok
           ? fmt.green(`✓ ${check.version}`)
-          : fmt.red('✗ 未找到：' + bin);
+          : fmt.red('✗ not found: ' + bin);
         process.stdout.write(
           `  ${fmt.green('●')} ${fmt.cyan(name)}${isDefault}  ${fmt.dim(bin)}  ${status}\n`,
         );
       } else {
         const hasKey = !!agent.apiKey;
-        const keyStatus = hasKey ? fmt.green('✓ 已配置密钥') : fmt.yellow('⚠ 未配置密钥');
+        const keyStatus = hasKey ? fmt.green('✓ key configured') : fmt.yellow('⚠ no API key');
         process.stdout.write(
           `  ${hasKey ? fmt.green('●') : fmt.yellow('◐')} ${fmt.cyan(name)}${isDefault}  ${fmt.dim(`${agent.provider}/${agent.model ?? '?'}`)}  ${keyStatus}\n`,
         );
@@ -98,20 +98,19 @@ export async function runDoctor(): Promise<void> {
   if (missingCli.length > 0) {
     process.stdout.write(
       '\n' +
-        fmt.bold('可用 CLI Agent（未安装）：\n') +
-        `  ${fmt.dim('(可选) 安装以获得更好的体验')}\n`,
+        fmt.bold('Available CLI agents (not installed):\n') +
+        `  ${fmt.dim('(optional) install for better performance')}\n`,
     );
     for (const { key, bin, install, description } of missingCli) {
       const found = checkBin(bin);
       if (found.ok) {
-        // Binary exists but not in config — auto-detect would pick it up on restart
         process.stdout.write(
-          `  ${fmt.yellow('○')} ${fmt.cyan(key)}  ${fmt.dim(description)}  ${fmt.dim('(已安装，重启 aion 可自动激活)')}\n`,
+          `  ${fmt.yellow('○')} ${fmt.cyan(key)}  ${fmt.dim(description)}  ${fmt.dim('(installed — restart aion to activate)')}\n`,
         );
       } else {
         process.stdout.write(
           `  ${fmt.dim('○')} ${fmt.dim(key)}  ${fmt.dim(description)}\n` +
-            `     安装：${fmt.cyan(install)}\n`,
+            `     install: ${fmt.cyan(install)}\n`,
         );
       }
     }
@@ -126,59 +125,59 @@ export async function runDoctor(): Promise<void> {
   if (missingApi.length > 0) {
     process.stdout.write(
       '\n' +
-        fmt.bold('可用 API Agent（未配置密钥）：\n') +
-        `  ${fmt.dim('(可选) 配置 API Key 以直接调用 API')}\n`,
+        fmt.bold('Available API agents (no key configured):\n') +
+        `  ${fmt.dim('(optional) set API key to use directly')}\n`,
     );
     for (const { envVars, description, models } of missingApi) {
       process.stdout.write(
         `  ${fmt.dim('○')} ${fmt.dim(description)}  ${fmt.dim(`(${models})`)}\n` +
-          `     配置：${fmt.cyan(`export ${envVars[0]}=...`)}\n`,
+          `     set: ${fmt.cyan(`export ${envVars[0]}=...`)}\n`,
       );
     }
   }
 
   // ── Multi-model team potential ────────────────────────────────────────────
   const agentCount = Object.keys(config.agents).length;
-  process.stdout.write('\n' + fmt.bold('多模型团队状态：\n'));
+  process.stdout.write('\n' + fmt.bold('Multi-model team status:\n'));
   if (agentCount >= 2) {
     process.stdout.write(
-      `  ${fmt.green('✓')} 已配置 ${agentCount} 个 Agent — 多模型团队已就绪\n`,
+      `  ${fmt.green('✓')} ${agentCount} agents configured — multi-model teams ready\n`,
     );
     process.stdout.write(
       `  ${fmt.dim(`aion team --goal "..." --with ${Object.keys(config.agents).slice(0, 3).join(',')}`)}\n`,
     );
   } else if (agentCount === 1) {
     process.stdout.write(
-      `  ${fmt.yellow('⚠')} 仅配置了 1 个 Agent — 团队协作将使用相同模型\n`,
+      `  ${fmt.yellow('⚠')} only 1 agent configured — team will use the same model for all roles\n`,
     );
     process.stdout.write(
-      `  ${fmt.dim('添加第二个 Agent 可解锁混合模型协作')}\n`,
+      `  ${fmt.dim('add a second agent to unlock mixed-model collaboration')}\n`,
     );
   } else {
-    process.stdout.write(`  ${fmt.red('✗')} 未配置任何 Agent — 无法运行\n`);
+    process.stdout.write(`  ${fmt.red('✗')} no agents configured — cannot run\n`);
   }
 
   // ── Quick usage ───────────────────────────────────────────────────────────
-  process.stdout.write('\n' + fmt.bold('快速使用：\n'));
+  process.stdout.write('\n' + fmt.bold('Quick start:\n'));
   process.stdout.write(
-    `  ${fmt.cyan('aion')}                                 ${fmt.dim('交互式对话')}\n`,
+    `  ${fmt.cyan('aion')}                                 ${fmt.dim('interactive chat')}\n`,
   );
   process.stdout.write(
-    `  ${fmt.cyan('aion team --goal "..."')}              ${fmt.dim('3 Agent 团队（角色自动推断）')}\n`,
+    `  ${fmt.cyan('aion team --goal "..."')}              ${fmt.dim('3-agent team (roles auto-inferred)')}\n`,
   );
   process.stdout.write(
-    `  ${fmt.cyan('aion team --goal "..." --with a,b,c')}  ${fmt.dim('指定混合模型团队')}\n`,
+    `  ${fmt.cyan('aion team --goal "..." --with a,b,c')}  ${fmt.dim('mixed-model team (explicit agents)')}\n`,
   );
   process.stdout.write(
-    `  ${fmt.cyan('aion run "任务描述"')}                  ${fmt.dim('一次性执行，无 REPL')}\n`,
+    `  ${fmt.cyan('aion run "task description"')}         ${fmt.dim('one-shot, no REPL')}\n`,
   );
   process.stdout.write(
-    `  ${fmt.cyan('aion -a codex')}                       ${fmt.dim('指定 Agent 单独对话')}\n`,
+    `  ${fmt.cyan('aion -a codex')}                       ${fmt.dim('chat with a specific agent')}\n`,
   );
   process.stdout.write(
     '\n' + fmt.dim(hr()) + '\n',
   );
   process.stdout.write(
-    fmt.dim(`配置文件：~/.aion/config.json  ·  运行 \`aion config\` 查看详情\n\n`),
+    fmt.dim(`Config: ~/.aion/config.json  ·  run \`aion config\` for details\n\n`),
   );
 }
