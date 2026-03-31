@@ -30,7 +30,7 @@ import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
 import type { AcpBackendConfig } from './types';
 import { Button, ConfigProvider } from '@arco-design/web-react';
 import { Left, Robot } from '@icon-park/react';
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './index.module.css';
@@ -247,9 +247,10 @@ const GuidPage: React.FC = () => {
 
   // Typewriter placeholder
   const typewriterPlaceholder = useTypewriterPlaceholder(t('conversation.welcome.placeholder'));
-  const heroTitle = agentSelection.isPresetAgent && mention.selectedAgentLabel
-    ? mention.selectedAgentLabel
-    : t('conversation.welcome.title');
+  const heroTitle =
+    agentSelection.isPresetAgent && mention.selectedAgentLabel
+      ? mention.selectedAgentLabel
+      : t('conversation.welcome.title');
   const selectedAssistantDescription = useMemo(() => {
     if (!agentSelection.isPresetAgent || !agentSelection.selectedAgentInfo?.customAgentId) return '';
     const selectedId = agentSelection.selectedAgentInfo.customAgentId;
@@ -267,9 +268,7 @@ const GuidPage: React.FC = () => {
     if (!agentSelection.isPresetAgent) return null;
     const selectedId = agentSelection.selectedAgentInfo?.customAgentId;
     const strippedId = selectedId?.replace(/^builtin-/, '');
-    const candidates = new Set(
-      selectedId && strippedId ? [selectedId, `builtin-${strippedId}`, strippedId] : []
-    );
+    const candidates = new Set(selectedId && strippedId ? [selectedId, `builtin-${strippedId}`, strippedId] : []);
     const selectedAssistant = agentSelection.customAgents.find((item) => candidates.has(item.id));
     const avatarValue = selectedAssistant?.avatar?.trim() || agentSelection.selectedAgentInfo?.avatar?.trim();
     if (!avatarValue) return { kind: 'icon' as const };
@@ -295,6 +294,8 @@ const GuidPage: React.FC = () => {
     const fullLabel = t('settings.editAssistant', { defaultValue: 'Assistant Details' });
     return fullLabel.replace(/^Assistant\s+/i, '').replace(/^助手/, '');
   }, [t]);
+
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   // Agent switcher for preset agents
   const switchablePresetAgentTypes: PresetAgentType[] = ['gemini', 'claude', 'qwen', 'codex', 'opencode'];
@@ -404,7 +405,13 @@ const GuidPage: React.FC = () => {
               <p className={`${styles.heroTitle} text-2xl font-semibold mb-0 text-0 text-center`}>
                 <span className={styles.heroTitleInlineIcon} aria-hidden='true'>
                   {selectedAssistantAvatar?.kind === 'image' ? (
-                    <img src={selectedAssistantAvatar.value} alt='' width={22} height={22} style={{ objectFit: 'contain' }} />
+                    <img
+                      src={selectedAssistantAvatar.value}
+                      alt=''
+                      width={22}
+                      height={22}
+                      style={{ objectFit: 'contain' }}
+                    />
                   ) : selectedAssistantAvatar?.kind === 'emoji' ? (
                     <span className={styles.heroTitleEmoji}>{selectedAssistantAvatar.value}</span>
                   ) : (
@@ -419,29 +426,42 @@ const GuidPage: React.FC = () => {
           </div>
 
           {agentSelection.isPresetAgent && selectedAssistantDescription ? (
-            <div className={styles.heroSubtitle}>
+            <div
+              className={`${styles.heroSubtitle} ${isDescriptionExpanded ? styles.heroSubtitleExpanded : ''}`}
+              onClick={() => setIsDescriptionExpanded((v) => !v)}
+            >
               <Button
                 size='mini'
                 type='outline'
                 shape='circle'
                 icon={<Left theme='outline' size={12} fill='currentColor' />}
                 className={styles.heroSubtitleBack}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   agentSelection.setSelectedAgentKey('gemini');
                   guidInput.setInput('');
+                  setIsDescriptionExpanded(false);
                 }}
                 aria-label={t('common.back')}
+              ></Button>
+              <div
+                className={`${styles.heroSubtitleText} ${isDescriptionExpanded ? styles.heroSubtitleTextExpanded : ''}`}
               >
-              </Button>
-              <div className={styles.heroSubtitleText}>{selectedAssistantDescription}</div>
-              <Button
-                type='secondary'
-                size='mini'
-                className={styles.heroSubtitleDetail}
-                onClick={() => openAssistantDetailsRef.current?.()}
-              >
-                {assistantDetailLabel}
-              </Button>
+                {selectedAssistantDescription}
+              </div>
+              {isDescriptionExpanded && (
+                <Button
+                  type='secondary'
+                  size='mini'
+                  className={styles.heroSubtitleDetail}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openAssistantDetailsRef.current?.();
+                  }}
+                >
+                  {assistantDetailLabel}
+                </Button>
+              )}
             </div>
           ) : agentSelection.availableAgents === undefined ? (
             <AgentPillBarSkeleton />
