@@ -44,7 +44,7 @@
 .heroSubtitle {
   margin: 0 auto 14px;
   max-width: 760px;
-  height: 40px;
+  min-height: 40px;
   padding: 0 14px;
   border-radius: 20px;
   color: var(--color-text-2);
@@ -56,6 +56,23 @@
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.heroSubtitle:hover {
+  background: var(--assistant-surface-bg-hover);
+}
+
+.heroSubtitleExpanded {
+  align-items: flex-start;
+  padding: 10px 14px;
+  border-radius: 16px;
+  cursor: default;
+}
+
+.heroSubtitleExpanded .heroSubtitleBack {
+  margin-top: 2px;
 }
 
 .heroSubtitleBack {
@@ -82,6 +99,14 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 20px;
+}
+
+.heroSubtitleTextExpanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  white-space: normal;
+  line-height: 1.6;
 }
 
 .heroSubtitleDetail {
@@ -444,8 +469,7 @@
   border-radius: 16px;
   cursor: pointer;
   user-select: none;
-  transition:
-    background-color 0.2s;
+  transition: background-color 0.2s;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
