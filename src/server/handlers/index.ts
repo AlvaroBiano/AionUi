@@ -6,6 +6,7 @@
 
 import type { WsRouter } from '../router/WsRouter';
 import type { IConversationRepository } from '@process/services/database/IConversationRepository';
+import type { IChannelRepository } from '@process/services/database/IChannelRepository';
 import type { IConversationService } from '@process/services/IConversationService';
 import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
 import { registerCronHandlers } from './cron';
@@ -21,6 +22,9 @@ import { registerConversationHandlers } from './conversation';
 import { registerAcpConversationHandlers } from './acpConversation';
 import { registerFsHandlers } from './fs';
 import { registerModelHandlers } from './model';
+import { registerChannelHandlers } from './channel';
+import { registerExtensionsHandlers } from './extensions';
+import { registerWebuiHandlers } from './webui';
 
 /**
  * Dependencies required by handler registration.
@@ -28,6 +32,7 @@ import { registerModelHandlers } from './model';
  */
 export type HandlerDependencies = {
   conversationRepo: IConversationRepository;
+  channelRepo: IChannelRepository;
   conversationService: IConversationService;
   workerTaskManager: IWorkerTaskManager;
 };
@@ -52,4 +57,7 @@ export function registerAllHandlers(router: WsRouter, deps: HandlerDependencies)
   registerAcpConversationHandlers(router, deps.workerTaskManager);
   registerFsHandlers(router);
   registerModelHandlers(router);
+  registerChannelHandlers(router, deps.channelRepo);
+  registerExtensionsHandlers(router, deps.conversationRepo, deps.workerTaskManager);
+  registerWebuiHandlers(router);
 }
