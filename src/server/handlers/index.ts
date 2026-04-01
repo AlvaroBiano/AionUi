@@ -20,6 +20,7 @@ import { registerPptPreviewHandlers } from './pptPreview';
 import { registerConversationHandlers } from './conversation';
 import { registerAcpConversationHandlers } from './acpConversation';
 import { registerFsHandlers } from './fs';
+import { registerModelHandlers } from './model';
 
 /**
  * Dependencies required by handler registration.
@@ -50,4 +51,5 @@ export function registerAllHandlers(router: WsRouter, deps: HandlerDependencies)
   registerConversationHandlers(router, deps.conversationService, deps.workerTaskManager);
   registerAcpConversationHandlers(router, deps.workerTaskManager);
   registerFsHandlers(router);
+  registerModelHandlers(router);
 }
