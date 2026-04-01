@@ -63,7 +63,7 @@ const LocalAgents: React.FC = () => {
   const handleDeleteCustomAgent = useCallback(
     async (agentId: string) => {
       const current = (await ConfigStorage.get('acp.customAgents')) || [];
-      const agents = (current as AcpBackendConfig[]).filter((a) => a.id !== agentId);
+      const agents = (current as AcpBackendConfig[]).filter((a) => a.id !== agentId || a.isPreset);
       await ConfigStorage.set('acp.customAgents', agents);
       await mutateCustomAgents();
     },
@@ -74,7 +74,7 @@ const LocalAgents: React.FC = () => {
     async (agentId: string, enabled: boolean) => {
       const current = (await ConfigStorage.get('acp.customAgents')) || [];
       const agents = current as AcpBackendConfig[];
-      const agent = agents.find((a) => a.id === agentId);
+      const agent = agents.find((a) => a.id === agentId && !a.isPreset);
       if (agent) {
         agent.enabled = enabled;
         await ConfigStorage.set('acp.customAgents', agents);
@@ -112,10 +112,10 @@ const LocalAgents: React.FC = () => {
               }}
             >
               <Menu.Item key='market'>
-                {t('settings.agentManagement.installFromMarket', { defaultValue: 'Install from Market' })}
+                {t('settings.agentManagement.installFromMarket')}
               </Menu.Item>
               <Menu.Item key='custom'>
-                {t('settings.agentManagement.addCustomAgent', { defaultValue: 'Custom Agent' })}
+                {t('settings.agentManagement.detectCustomAgent')}
               </Menu.Item>
             </Menu>
           }
@@ -128,7 +128,7 @@ const LocalAgents: React.FC = () => {
             icon={<Plus size='16' />}
             className='rd-100px border-1 border-solid border-[var(--color-border-2)] h-34px px-14px text-t-secondary hover:text-t-primary'
           >
-            {t('settings.agentManagement.addAgent', { defaultValue: 'Add Agent' })}
+            {t('settings.agentManagement.addAgent')}
           </Button>
         </Dropdown>
       </div>
@@ -175,8 +175,8 @@ const LocalAgents: React.FC = () => {
         }}
         header={{
           title: editingAgent
-            ? t('settings.agentManagement.editCustomAgent', { defaultValue: 'Edit Custom Agent' })
-            : t('settings.agentManagement.addCustomAgent', { defaultValue: 'Custom Agent' }),
+            ? t('settings.agentManagement.editCustomAgent')
+            : t('settings.agentManagement.detectCustomAgent'),
           showClose: true,
         }}
         footer={null}
