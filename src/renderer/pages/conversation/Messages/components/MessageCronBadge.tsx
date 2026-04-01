@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { CronMessageMeta } from '@/common/chat/chatLib';
+import type { CronMessageMeta } from '@aionui/protocol/chat';
 import { iconColors } from '@/renderer/styles/colors';
 import { AlarmClock } from '@icon-park/react';
 import React from 'react';

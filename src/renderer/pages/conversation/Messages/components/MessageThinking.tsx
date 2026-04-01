@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IMessageThinking } from '@/common/chat/chatLib';
+import type { IMessageThinking } from '@aionui/protocol/chat';
 import { Spin } from '@arco-design/web-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';

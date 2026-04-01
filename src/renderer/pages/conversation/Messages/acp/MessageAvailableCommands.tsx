@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IMessageAvailableCommands } from '@/common/chat/chatLib';
+import type { IMessageAvailableCommands } from '@aionui/protocol/chat';
 import AionCollapse from '@/renderer/components/base/AionCollapse';
 import CollapsibleContent from '@/renderer/components/chat/CollapsibleContent';
 import { iconColors } from '@/renderer/styles/colors';

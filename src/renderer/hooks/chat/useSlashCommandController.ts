@@ -1,4 +1,4 @@
-import type { SlashCommandItem } from '@/common/chat/slash/types';
+import type { SlashCommandItem } from '@aionui/protocol/chat';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 

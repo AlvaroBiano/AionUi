@@ -1,5 +1,5 @@
 import { isSlashCommandListEnabled } from '@/common/chat/slash/availability';
-import type { SlashCommandItem } from '@/common/chat/slash/types';
+import type { SlashCommandItem } from '@aionui/protocol/chat';
 import { useApi } from '@renderer/api';
 import { useEffect, useRef, useState } from 'react';
 

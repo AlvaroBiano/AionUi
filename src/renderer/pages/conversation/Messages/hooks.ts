@@ -6,7 +6,7 @@
  */
 
 import { useApi } from '@renderer/api';
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 import { composeMessage } from '@/common/chat/chatLib';
 import { useCallback, useEffect, useRef } from 'react';
 import { createContext } from '@renderer/utils/ui/createContext';

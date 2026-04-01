@@ -1,4 +1,4 @@
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 import { useApi } from '@renderer/api';
 import type { TChatConversation } from '@aionui/protocol/config';
 import { Button } from '@arco-design/web-react';

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { CodexToolCallUpdate } from '@/common/chat/chatLib';
+import type { CodexToolCallUpdate } from '@aionui/protocol/chat';
 import FileChangesPanel, { type FileChangeItem } from '@/renderer/components/base/FileChangesPanel';
 import { usePreviewLauncher } from '@/renderer/hooks/file/usePreviewLauncher';
 import { extractContentFromDiff, parseDiff, type FileChangeInfo } from '@/renderer/utils/file/diffUtils';

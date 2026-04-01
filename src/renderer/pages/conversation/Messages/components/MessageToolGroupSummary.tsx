@@ -2,7 +2,7 @@ import type { BadgeProps } from '@arco-design/web-react';
 import { Badge } from '@arco-design/web-react';
 import { IconDown, IconRight } from '@arco-design/web-react/icon';
 import React, { useEffect, useMemo, useState } from 'react';
-import type { IMessageAcpToolCall, IMessageToolGroup } from '@/common/chat/chatLib';
+import type { IMessageAcpToolCall, IMessageToolGroup } from '@aionui/protocol/chat';
 import './MessageToolGroupSummary.css';
 
 type ToolItem = {

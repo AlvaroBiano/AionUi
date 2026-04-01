@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '@renderer/api';
 import { ConfigStorage } from '@/common/config/storage';
 import { uuid } from '@/common/utils';
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 import type { IDirOrFile } from '@aionui/protocol';
 import type { AcpBackendConfig } from '@aionui/protocol/types';
 

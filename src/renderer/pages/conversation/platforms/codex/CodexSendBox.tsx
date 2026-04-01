@@ -1,6 +1,6 @@
 import { ipcBridge } from '@/common';
 import { useApi } from '@renderer/api';
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 import { transformMessage } from '@/common/chat/chatLib';
 import { uuid } from '@/common/utils';
 import SendBox from '@/renderer/components/chat/sendbox';

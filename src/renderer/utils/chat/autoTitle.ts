@@ -1,4 +1,4 @@
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 import { readMessageContent } from '@/renderer/utils/chat/conversationExport';
 import { hasThinkTags, stripThinkTags } from '@/renderer/utils/chat/thinkTagFilter';
 

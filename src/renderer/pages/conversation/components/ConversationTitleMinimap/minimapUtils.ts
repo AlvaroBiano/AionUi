@@ -6,7 +6,7 @@
 
 // Pure utility functions for the conversation minimap panel.
 
-import type { IMessageText, TMessage } from '@/common/chat/chatLib';
+import type { IMessageText, TMessage } from '@aionui/protocol/chat';
 import React from 'react';
 import {
   defaultVisualStyle,

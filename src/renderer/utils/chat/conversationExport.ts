@@ -1,4 +1,4 @@
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 import type { TChatConversation } from '@aionui/protocol/config';
 
 const INVALID_FILENAME_CHARS_RE = /[<>:"/\\|?*]/g;

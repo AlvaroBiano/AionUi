@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 import type { IDirOrFile } from '@aionui/protocol';
 import type { TChatConversation } from '@aionui/protocol/config';
 import { getMessageRoleKey, readMessageContent, sanitizeFileName } from '@/renderer/utils/chat/conversationExport';

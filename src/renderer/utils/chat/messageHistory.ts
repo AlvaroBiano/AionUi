@@ -1,4 +1,4 @@
-import type { TMessage } from '@/common/chat/chatLib';
+import type { TMessage } from '@aionui/protocol/chat';
 
 export function getConversationInputHistory(messages: TMessage[], conversationId?: string): string[] {
   if (!conversationId) {

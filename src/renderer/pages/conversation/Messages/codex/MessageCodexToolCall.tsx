@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IMessageCodexToolCall, CodexToolCallUpdate } from '@/common/chat/chatLib';
+import type { IMessageCodexToolCall, CodexToolCallUpdate } from '@aionui/protocol/chat';
 import React from 'react';
 import ExecCommandDisplay from './ToolCallComponent/ExecCommandDisplay';
 import WebSearchDisplay from './ToolCallComponent/WebSearchDisplay';

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { CodexToolCallUpdate } from '@/common/chat/chatLib';
+import type { CodexToolCallUpdate } from '@aionui/protocol/chat';
 import { Card, Tag } from '@arco-design/web-react';
 import React from 'react';
 

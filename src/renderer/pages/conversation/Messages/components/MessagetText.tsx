@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IMessageText } from '@/common/chat/chatLib';
+import type { IMessageText } from '@aionui/protocol/chat';
 import { AIONUI_FILES_MARKER } from '@/common/config/constants';
 import { iconColors } from '@/renderer/styles/colors';
 import { Alert, Message, Tooltip } from '@arco-design/web-react';

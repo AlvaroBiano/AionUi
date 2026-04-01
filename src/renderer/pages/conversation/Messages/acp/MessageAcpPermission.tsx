@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IMessageAcpPermission } from '@/common/chat/chatLib';
+import type { IMessageAcpPermission } from '@aionui/protocol/chat';
 import { conversation } from '@/common/adapter/ipcBridge';
 import { Button, Card, Radio, Typography } from '@arco-design/web-react';
 import React, { useState } from 'react';

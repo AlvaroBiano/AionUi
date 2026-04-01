@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IMessageAgentStatus } from '@/common/chat/chatLib';
+import type { IMessageAgentStatus } from '@aionui/protocol/chat';
 import { ACP_BACKENDS_ALL } from '@aionui/protocol/types';
 import { Badge, Typography } from '@arco-design/web-react';
 import React from 'react';

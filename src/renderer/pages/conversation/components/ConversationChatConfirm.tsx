@@ -1,5 +1,5 @@
 import { useApi } from '@renderer/api';
-import type { IConfirmation } from '@/common/chat/chatLib';
+import type { IConfirmation } from '@aionui/protocol/chat';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
 import { Divider, Typography } from '@arco-design/web-react';
 import type { PropsWithChildren } from 'react';
