@@ -148,112 +148,113 @@ stateDiagram-v2
 
 ## 4. UI 需求
 
-### 4.1 Local Agent 页布局变更
+### 4.1 Local Agent 页布局
 
-**当前布局**：
-
-```
-┌────────────────────────────────────┐
-│ Detected Agents                    │
-│   ├── Gemini (内置, 有设置入口)    │
-│   ├── Claude Code (已检测)         │
-│   └── Opencode (已检测)            │
-├────────────────────────────────────┤
-│ Custom Agents                      │
-│   ├── [+ Add Custom Agent]         │
-│   └── My Agent (用户配置的)        │
-└────────────────────────────────────┘
-```
-
-**新布局**：
+**现有布局保持不变**，在页面右上角新增一个 **「+」按钮**：
 
 ```
-┌────────────────────────────────────┐
-│ Detected Hub                       │
-│   ├── Gemini         [*]           │  ← (内置, 始终置顶, 显示设置入口)
-│   ├── Claude Code    [Install]     │  ← 内置, 未安装
-│   ├── Kimi           [已安装 ✓]    │  ← 内置, 已安装
-│   ├── Opencode       [Update]      │  ← 内置, 有更新
-│   ├── iflow          [Retry ⚠]     │  ← 安装失败
-│   └── Qwen Code      [Install]     │  ← 非内置 (远程增量)
-│   └── My-Local-Agent (不在 Hub 中) │  ← Hub 里没有的已检测 agent, 显示设置入口
-├────────────────────────────────────┤
-│ Custom Agents                      │
-│   ├── [+ Add Custom Agent]         │
-│   └── My Custom Agent              │
-└────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ Local Agent                          [+] │  ← 右上角 "+" 按钮
+│                                          │
+│ Detected Agents                          │
+│   ├── Gemini (内置, 有设置入口)          │
+│   ├── Claude Code (已检测)               │
+│   └── Opencode (已检测)                  │
+├──────────────────────────────────────────┤
+│ Custom Agents                            │
+│   ├── [+ Add Custom Agent]               │
+│   └── My Agent (用户配置的)              │
+└──────────────────────────────────────────┘
 ```
 
-### 4.2 区域说明
+点击 **[+]** 出现下拉菜单：
 
-整个 Local Agent 页只有两个区域：
+```
+┌──────────────────┐
+│ 从 Hub 中添加    │  → 打开 Hub 弹窗 (见 4.2)
+│ 导入             │  → (TBD)
+└──────────────────┘
+```
 
-| 区域              | 数据来源                                                       | 说明                                            |
-| ----------------- | -------------------------------------------------------------- | ----------------------------------------------- |
-| **Detected Hub**  | Hub index (内置 + 远程) + AcpDetector 扫描结果，合并为一个列表 | 统一展示所有 agent，包括 Hub 内的和本地检测到的 |
-| **Custom Agents** | ConfigStorage `acp.customAgents`                               | 保持现有功能不变                                |
+### 4.2 Hub 弹窗
 
-**Detected Hub 内部排序**:
+点击「从 Hub 中添加」后弹出 Hub 弹窗，列出所有可用 extension（来自内置 + 远程 index.json）：
 
-1. **Gemini** — 始终置顶，保持现有样式和设置入口
-2. **Hub agents** — 来自 Hub index 的 extension，按安装状态显示不同操作按钮（Install / 已安装 / Update / Retry）
-3. **Detected-only agents** — AcpDetector 扫描到但不在 Hub index 中的 agent（用户自行安装的 CLI），显示与现有 Detected Agent 一致的样式和设置入口
+```
+┌─────────────────────────────────────────────────────┐
+│  Agent Hub                                     [✕]  │
+│                                                     │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ [icon] Claude Code                    [已安装] │ │
+│  │        Anthropic Claude Code agent             │ │
+│  ├────────────────────────────────────────────────┤ │
+│  │ [icon] Kimi                           [安装]   │ │
+│  │        Moonshot Kimi agent                     │ │
+│  ├────────────────────────────────────────────────┤ │
+│  │ [icon] Opencode                       [更新]   │ │
+│  │        Open source coding agent                │ │
+│  ├────────────────────────────────────────────────┤ │
+│  │ [icon] iflow                         [重试]    │ │
+│  │        iflow agent                             │ │
+│  └────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────┘
+```
 
-三部分处于同一个列表中，**不分隔、不分组**，只是按上述顺序排列。
+每个 extension 项展示：**icon + displayName + description + 操作按钮**。
 
-### 4.3 Detected Hub 卡片状态
+### 4.3 Hub 弹窗 — Extension 项状态
 
-同一列表中的每个 agent 根据来源和状态显示不同样式：
+| 状态               | 按钮文案      | 按钮行为                            | 备注                   |
+| ------------------ | ------------- | ----------------------------------- | ---------------------- |
+| `not_installed`    | **安装**      | 触发安装流程 (见 5.2)               |                        |
+| `installing`       | **安装中...** | 禁用，显示 loading spinner          |                        |
+| `installed`        | **已安装**    | 禁用（灰色），无操作                | 主页 Detected 中可配置 |
+| `install_failed`   | **重试**      | 重新触发安装流程 (见 5.5)           | 旁边显示错误信息摘要   |
+| `update_available` | **更新**      | 触发更新流程 (见 5.4)，覆盖已有版本 |                        |
 
-| 来源          | 状态               | 卡片内容                                    | 操作                                         |
-| ------------- | ------------------ | ------------------------------------------- | -------------------------------------------- |
-| 内置          | —                  | Gemini icon + name                          | 设置入口 (齿轮图标，导航到 /settings/gemini) |
-| Hub           | `not_installed`    | icon + name + description                   | **Install** 按钮                             |
-| Hub           | `installing`       | icon + name + "安装中..."                   | Loading spinner (按钮禁用)                   |
-| Hub           | `installed`        | icon + name，与现有 Detected Agent 样式一致 | 设置入口 + 卸载 (更多菜单)                   |
-| Hub           | `install_failed`   | icon + name + 错误信息摘要                  | **Retry** 按钮                               |
-| Hub           | `update_available` | icon + name + "有新版本"                    | **Update** 按钮                              |
-| Detected-only | —                  | icon + name，与现有 Detected Agent 样式一致 | 设置入口                                     |
+### 4.4 安装后的展示
 
-### 4.4 已安装 Hub agent 的展示
+从 Hub 安装成功后，agent 的 CLI 已可用，AcpDetector 重新扫描后会检测到它。此时：
 
-已安装的 Hub agent 展示样式应与**现有的 Detected Agent 样式完全一致**。用户无法区分"通过 Hub 安装的 agent"和"本地自动检测到的 agent"——它们看起来一样、用起来一样。Hub 只改变了"agent 从哪来"，不改变"已安装 agent 长什么样"。
+- **主页 Detected Agents**：新安装的 agent 出现在列表中，样式与现有 Detected Agent **完全一致**（icon + name + 设置入口）。用户无法区分"通过 Hub 安装"和"本地已有"——它们看起来一样、用起来一样
+- **Hub 弹窗**：该 extension 的按钮切换为「已安装」（灰色禁用）
 
-### 4.5 Hub 与 Detected 合并去重
+Hub 只改变了"agent 从哪来"，不改变"已安装 agent 长什么样"。
 
-Hub agents 和 AcpDetector 检测结果在合并到同一列表时需要去重：
+### 4.5 Hub 与 Detected 的关系
 
-1. 如果一个 agent 同时存在于 Hub index 和 AcpDetector 检测结果中（如用户之前手动装了 Claude Code CLI），**按 Hub agent 展示**（标记为 `installed`），不在列表末尾重复出现
-2. 只有 AcpDetector 检测到但 **Hub index 中没有**的 agent，才追加到列表末尾作为 Detected-only 项
-3. 匹配规则：Hub extension 的 `contributes.acpAdapters[].cliCommand` 与 AcpDetector 检测到的 CLI command 一致
+Hub 弹窗和主页 Detected Agents 是两个独立视图，数据来源不同：
+
+| 视图                     | 数据来源                         | 职责         |
+| ------------------------ | -------------------------------- | ------------ |
+| **Hub 弹窗**             | Hub index (内置 + 远程)          | 发现 + 安装  |
+| **主页 Detected Agents** | AcpDetector 扫描本地 CLI         | 使用 + 配置  |
+| **主页 Custom Agents**   | ConfigStorage `acp.customAgents` | 保持现有不变 |
+
+**状态联动**：Hub 弹窗中某 extension 的安装状态，通过 AcpDetector 检测结果推导。如果 extension 的 `contributes.acpAdapters[].cliCommand` 在本地 CLI 中已检测到，则标记为 `installed`。
 
 ---
 
 ## 5. 核心流程
 
-### 5.1 APP 启动 — 加载 Hub 列表
+### 5.1 APP 启动 — 加载流程
 
 ```
 APP 启动
   │
-  ├── 1. 读取内置 bundled-index.json (APP 资源目录)
-  │      → 得到内置 extension 列表
-  │
-  ├── 2. ExtensionLoader 扫描 ~/.aionui/extensions/ (现有逻辑)
+  ├── 1. ExtensionLoader 扫描 ~/.aionui/extensions/ (现有逻辑)
   │      → 得到已安装 extension 列表
   │
-  ├── 3. AcpDetector 扫描本地 CLI (现有逻辑不变)
-  │      → 用于推导安装状态 + Detected-only 展示
+  ├── 2. AcpDetector 扫描本地 CLI (现有逻辑不变)
+  │      → 主页 Detected Agents 直接渲染
   │
-  ├── 4. 异步: 尝试从 GitHub 拉取 remote-index.json
-  │      ├── 成功 → 计算差集 (remote - bundled)
-  │      │          → 将新增 extension 补充到列表
-  │      └── 失败 → 忽略, 仅用内置列表 (静默, 不报错)
+  ├── 3. 异步: 尝试从 GitHub 拉取 remote-index.json
+  │      ├── 成功 → 缓存到内存
+  │      └── 失败 → 忽略 (静默, 不报错)
   │
-  ├── 5. 推导每个 Hub extension 的状态 (见 3.2)
-  │
-  └── 6. 合并后的列表通过 IPC 推送到 renderer
-         → UI 渲染完整 Hub 列表
+  └── 4. 读取内置 bundled-index.json (APP 资源目录)
+         → 与远程 index 合并, Hub 数据就绪
+         → 用户打开 Hub 弹窗时渲染
 ```
 
 ### 5.2 安装 Extension
@@ -402,25 +403,25 @@ AionUI.app/Contents/Resources/
 
 ### 6.4 新增 IPC 通道
 
-| 通道                 | 方向          | 输入               | 输出                       | 用途                        |
-| -------------------- | ------------- | ------------------ | -------------------------- | --------------------------- |
-| `hub.get-agent-list` | renderer→main | void               | `HubAgentItem[]`           | 获取合并后的 Hub agent 列表 |
-| `hub.install`        | renderer→main | `{ name: string }` | `IBridgeResponse`          | 安装 extension              |
-| `hub.uninstall`      | renderer→main | `{ name: string }` | `IBridgeResponse`          | 卸载 extension              |
-| `hub.retry-install`  | renderer→main | `{ name: string }` | `IBridgeResponse`          | 重试安装                    |
-| `hub.check-updates`  | renderer→main | void               | `{ name: string }[]`       | 检查可更新的 extension      |
-| `hub.update`         | renderer→main | `{ name: string }` | `IBridgeResponse`          | 更新 extension              |
-| `hub.state-changed`  | main→renderer | —                  | `{ name, status, error? }` | 安装/卸载状态变更推送       |
+| 通道                     | 方向          | 输入               | 输出                       | 用途                           |
+| ------------------------ | ------------- | ------------------ | -------------------------- | ------------------------------ |
+| `hub.get-extension-list` | renderer→main | void               | `HubExtensionItem[]`       | 获取 Hub 弹窗的 extension 列表 |
+| `hub.install`            | renderer→main | `{ name: string }` | `IBridgeResponse`          | 安装 extension                 |
+| `hub.uninstall`          | renderer→main | `{ name: string }` | `IBridgeResponse`          | 卸载 extension                 |
+| `hub.retry-install`      | renderer→main | `{ name: string }` | `IBridgeResponse`          | 重试安装                       |
+| `hub.check-updates`      | renderer→main | void               | `{ name: string }[]`       | 检查可更新的 extension         |
+| `hub.update`             | renderer→main | `{ name: string }` | `IBridgeResponse`          | 更新 extension                 |
+| `hub.state-changed`      | main→renderer | —                  | `{ name, status, error? }` | 安装/卸载状态变更推送          |
 
 ### 6.5 主要模块
 
-| 模块              | 层            | 职责                                               |
-| ----------------- | ------------- | -------------------------------------------------- |
-| `HubIndexManager` | main process  | 加载内置 index + 拉取远程 index + 合并 + 缓存      |
-| `HubInstaller`    | main process  | 下载/解压/验证/安装/卸载 extension 的完整流程      |
-| `HubStateManager` | main process  | 管理 extension-hub-states.json 的读写              |
-| `hubBridge.ts`    | main process  | IPC 通道注册，对接 HubIndexManager 和 HubInstaller |
-| `useHubAgents`    | renderer hook | 通过 IPC 获取 Hub 列表 + 监听状态变更              |
+| 模块              | 层            | 职责                                                |
+| ----------------- | ------------- | --------------------------------------------------- |
+| `HubIndexManager` | main process  | 加载内置 index + 拉取远程 index + 合并 + 缓存       |
+| `HubInstaller`    | main process  | 下载/解压/验证/安装/卸载 extension 的完整流程       |
+| `HubStateManager` | main process  | 管理 extension-hub-states.json 的读写               |
+| `hubBridge.ts`    | main process  | IPC 通道注册，对接 HubIndexManager 和 HubInstaller  |
+| `useHubModal`     | renderer hook | Hub 弹窗状态管理 + 通过 IPC 获取列表 + 监听状态变更 |
 
 ### 6.6 远程 Index 拉取策略
 
@@ -442,42 +443,48 @@ AionUI.app/Contents/Resources/
 
 ---
 
-## 7. Detected Hub 列表合并逻辑
+## 7. Hub 弹窗列表与状态推导
 
-引入 Hub 后，AcpDetector 仍正常工作（扫描本地已安装 CLI）。Detected Hub 是一个统一列表，由 Hub agents + Detected-only agents 合并而成：
+Hub 弹窗展示的列表独立于主页 Detected Agents，两者数据来源不同但通过 AcpDetector 结果联动：
 
 ```typescript
-// 伪代码
-const gemini = getBuiltinGemini();
-const hubAgents = hubIndexManager.getAgentList();
-const detectedAgents = acpDetector.getDetectedAgents(); // 排除 gemini
-const customAgents = configStorage.get('acp.customAgents');
+// 伪代码 — Hub 弹窗列表构建
+const hubAgents = hubIndexManager.getAgentList(); // 内置 + 远程
+const detectedAgents = acpDetector.getDetectedAgents();
 
-// 1. Hub 中的 agent，如果本地 CLI 已检测到，标记为 installed
+// 推导每个 Hub extension 的安装状态
 for (const hubAgent of hubAgents) {
   const cliCommand = hubAgent.contributes.acpAdapters[0]?.cliCommand;
-  if (detectedAgents.some((d) => d.cliCommand === cliCommand)) {
+  const extDir = `~/.aionui/extensions/${hubAgent.name}/`;
+
+  if (!fs.existsSync(extDir)) {
+    hubAgent.status = 'not_installed';
+  } else if (detectedAgents.some((d) => d.cliCommand === cliCommand)) {
     hubAgent.status = 'installed';
+  } else if (hubAgent.installError) {
+    hubAgent.status = 'install_failed';
+  }
+
+  // 更新检查 (对比 integrity)
+  if (
+    hubAgent.status === 'installed' &&
+    hubAgent.dist.integrity !== localManifest.integrity
+  ) {
+    hubAgent.status = 'update_available';
   }
 }
 
-// 2. Detected 中排除已在 Hub 中的，剩余的作为 Detected-only
-const hubCliCommands = new Set(hubAgents.map((a) => a.contributes.acpAdapters[0]?.cliCommand));
-const detectedOnly = detectedAgents.filter((d) => !hubCliCommands.has(d.cliCommand));
+// Hub 弹窗直接渲染 hubAgents
+// ┌── Agent Hub 弹窗 ─────────────┐
+// │  hubAgents (各种状态)          │
+// └────────────────────────────────┘
 
-// 3. 合并为统一的 Detected Hub 列表
-const detectedHubList = [
-  gemini, // 始终置顶
-  ...hubAgents, // Hub agents (各种状态)
-  ...detectedOnly, // 不在 Hub 中的已检测 agent
-];
-
-// 4. 最终 UI 渲染
-// ┌── Detected Hub ──────────────┐
-// │  detectedHubList             │
-// ├── Custom Agents ─────────────┤
-// │  customAgents                │
-// └──────────────────────────────┘
+// 主页不变，AcpDetector 结果直接渲染
+// ┌── Detected Agents ─────────────┐
+// │  detectedAgents (现有逻辑)     │
+// ├── Custom Agents ───────────────┤
+// │  customAgents (现有逻辑)       │
+// └────────────────────────────────┘
 ```
 
 ---

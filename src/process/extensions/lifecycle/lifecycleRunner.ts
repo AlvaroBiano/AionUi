@@ -16,9 +16,16 @@
  *   Child → Main:  { success: true } | { success: false, error: string }
  */
 
+import { spawn } from 'child_process';
+
 interface RunRequest {
-  scriptPath: string;
-  hookName: string;
+  type: 'script' | 'shell';
+  scriptPath?: string;
+  hookName?: string;
+  shell?: {
+    cliCommand: string;
+    args?: string[];
+  };
   context: {
     extensionName: string;
     extensionDir: string;
@@ -28,21 +35,41 @@ interface RunRequest {
 
 process.on('message', async (msg: RunRequest) => {
   try {
-    // eslint-disable-next-line no-eval -- bypasses bundler to load extension script at runtime
-    const nativeRequire = eval('require');
-    const mod = nativeRequire(msg.scriptPath);
-    const hookFn = mod.default || mod[msg.hookName] || mod;
+    if (msg.type === 'shell' && msg.shell) {
+      const { cliCommand, args = [] } = msg.shell;
+      const child = spawn(cliCommand, args, {
+        cwd: msg.context.extensionDir,
+        env: process.env,
+        stdio: 'inherit',
+        shell: process.platform === 'win32',
+      });
 
-    if (typeof hookFn !== 'function') {
-      process.send!({ success: false, error: 'Hook script does not export a callable function' });
-      process.exit(1);
-      return;
-    }
+      await new Promise<void>((resolve, reject) => {
+        child.on('error', reject);
+        child.on('exit', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Shell command exited with code ${code}`));
+        });
+      });
+    } else if (msg.type === 'script' && msg.scriptPath && msg.hookName) {
+      // eslint-disable-next-line no-eval -- bypasses bundler to load extension script at runtime
+      const nativeRequire = eval('require');
+      const mod = nativeRequire(msg.scriptPath);
+      const hookFn = mod.default || mod[msg.hookName] || mod;
 
-    const result = hookFn(msg.context);
-    // Support both sync and async hooks
-    if (result && typeof result.then === 'function') {
-      await result;
+      if (typeof hookFn !== 'function') {
+        process.send!({ success: false, error: 'Hook script does not export a callable function' });
+        process.exit(1);
+        return;
+      }
+
+      const result = hookFn(msg.context);
+      // Support both sync and async hooks
+      if (result && typeof result.then === 'function') {
+        await result;
+      }
+    } else {
+      throw new Error('Invalid run request payload');
     }
 
     process.send!({ success: true });
