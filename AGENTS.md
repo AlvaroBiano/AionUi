@@ -113,17 +113,9 @@ Detailed rules and guidelines are organized into Skills for better modularity:
 | **bump-version**  | Version bump workflow: update package.json, checks, branch, PR, tag release          | Bumping version, `/bump-version`                                          |
 | **pr-review**     | Local PR code review with full project context, no truncation limits                 | Reviewing a PR, user says "review PR", `/pr-review`                       |
 | **pr-fix**        | Fix all issues from a pr-review report, create a follow-up PR, and verify each fix   | After pr-review, user says "fix all issues", `/pr-fix`                    |
-| **pr-automation** | PR automation orchestrator: poll PRs, review, fix, and merge via label state machine | Invoked by daemon script (`pr-automation.sh`), `/pr-automation`           |
+| **pr-team**       | PR Review Team: Leader + Reviewer + Fixer collaborative PR processing               | `/pr-team`                                                                |
 
 > Skills are located in `.claude/skills/` and contain project conventions that apply to **all** agents and contributors. Every agent working in this repository must read and follow the relevant skill files when the task matches their scope.
-
-## PR 自动化流程
-
-本仓库运行 PR 自动化 agent，定期处理 open PR（review、fix、合并）。
-
-- **运行方式**：`scripts/pr-automation.sh` 作为 daemon 持续运行，每轮间隔 30 秒；日志默认写入 `~/Library/Logs/AionUi/`，可通过 `LOG_DIR=...` 覆盖
-- **状态追踪**：通过 `bot:*` label（`bot:reviewing`、`bot:fixing`、`bot:ready-to-fix`、`bot:ci-waiting`、`bot:needs-human-review`、`bot:ready-to-merge`、`bot:done`）
-- **详细说明**：[docs/conventions/pr-automation.md](docs/conventions/pr-automation.md)
 
 ## Internationalization
 

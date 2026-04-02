@@ -1,6 +1,45 @@
 # PR 自动化流程说明
 
-本仓库运行 PR 自动化 agent，持续处理 open PR（review、fix、合并）。本文说明 label 体系、触发条件和人工介入方式。
+本仓库通过 PR Review Team 持续处理 open PR（review、fix、合并）。本文说明启动方式、label 体系、触发条件和人工介入方式。
+
+---
+
+## 启动方式
+
+### PR Review Team（推荐）
+
+```bash
+# 需要 bypass 权限，team 成员才能自主执行工具
+claude --dangerously-skip-permissions
+```
+
+进入会话后：
+
+```
+/pr-team
+```
+
+Team 启动后可随时与 Leader 对话：
+
+| 命令 | 说明 |
+|------|------|
+| "跳过 #N" | 不处理该 PR |
+| "优先 #N" | 优先处理该 PR |
+| "别合并 #N" | 强制人工合并 |
+| "暂停" | 停止轮询 |
+| "继续" | 恢复轮询 |
+| "状态" | 查看当前看板 |
+| "报告" | 查看工作报告 |
+
+### Daemon 脚本（旧方案，后续移除）
+
+```bash
+# 前台运行
+./scripts/pr-automation.sh
+
+# 后台运行
+nohup ./scripts/pr-automation.sh >> /tmp/pr-automation.log 2>&1 &
+```
 
 ---
 
@@ -85,17 +124,9 @@ tail -f /tmp/pr-automation.log
 
 ---
 
-## 守护进程管理
+## 守护进程管理（旧方案，后续移除）
 
-### 启动
-
-```bash
-# 前台运行
-./scripts/pr-automation.sh
-
-# 后台运行
-nohup ./scripts/pr-automation.sh >> /tmp/pr-automation.log 2>&1 &
-```
+> 以下为 `scripts/pr-automation.sh` daemon 的管理方式，已被 PR Review Team 替代。
 
 ### 停止
 
@@ -112,18 +143,10 @@ PID=$(cat /tmp/pr-automation-daemon.pid 2>/dev/null) \
   || echo "Daemon not running"
 ```
 
-### 自定义参数
-
-```bash
-SLEEP_SECONDS=60        # 每轮间隔（默认 30 秒）
-MAX_CLAUDE_SECS=3600    # Claude 超时阈值（默认 3600 秒）
-LOG_FILE=/var/log/pr-automation.log
-```
-
 ---
 
 ## 首次部署
 
 1. 确认 `gh auth login` 已完成，有足够权限（PR labels、合并、向外部 fork 推送）
-2. 手动运行一次：`./scripts/pr-automation.sh` 并观察日志
-3. 确认输出 `No eligible PR found this round` 或正常处理一个 PR
+2. 启动 team：`claude --dangerously-skip-permissions`，然后 `/pr-team`
+3. 确认 Leader 输出 `No open PRs found` 或正常开始处理 PR
