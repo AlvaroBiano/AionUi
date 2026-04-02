@@ -13,7 +13,7 @@ import {
 } from '@/common/electronSafe';
 import * as path from 'path';
 import i18n from '@server/services/i18n';
-import { workerTaskManager } from '../task/workerTaskManagerSingleton';
+import { workerTaskManager } from '@server/task/workerTaskManagerSingleton';
 
 let tray: TrayInstance | null = null;
 let closeToTrayEnabled = false;

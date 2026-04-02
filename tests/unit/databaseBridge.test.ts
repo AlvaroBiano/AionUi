@@ -39,7 +39,7 @@ vi.mock('../../src/process/bridge/migrationUtils', () => ({
 }));
 
 import { initDatabaseBridge } from '../../src/process/bridge/databaseBridge';
-import type { IConversationRepository } from '../../src/process/services/database/IConversationRepository';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
 import type { TChatConversation } from '../../src/common/config/storage';
 import type { TMessage } from '../../src/common/chat/chatLib';
 

@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { promisify } from 'node:util';
-import { WorkspaceSnapshotService } from '../../src/process/services/WorkspaceSnapshotService';
+import { WorkspaceSnapshotService } from '@server/services/WorkspaceSnapshotService';
 
 const exec = promisify(execFile);
 

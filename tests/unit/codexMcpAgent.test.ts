@@ -9,7 +9,7 @@ import type { IMcpServer } from '../../src/common/config/storage';
 import {
   buildCodexAddArgs,
   parseCodexMcpListOutput,
-} from '../../src/process/services/mcpServices/agents/CodexMcpAgent';
+} from '@server/services/mcpServices/agents/CodexMcpAgent';
 
 describe('CodexMcpAgent helpers', () => {
   it('builds stdio add args with env flags before -- separator', () => {

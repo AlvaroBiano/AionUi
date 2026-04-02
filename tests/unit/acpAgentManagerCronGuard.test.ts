@@ -95,7 +95,7 @@ vi.mock('@/common/utils', () => ({ parseError: vi.fn((e: unknown) => e), uuid: v
 vi.mock('@/common/chat/chatLib', () => ({ transformMessage: vi.fn(), uuid: vi.fn(() => 'uuid') }));
 
 // ── Import real AcpAgentManager after all mocks are set up ───────────────────
-import AcpAgentManager from '../../src/process/task/AcpAgentManager';
+import AcpAgentManager from '@server/task/AcpAgentManager';
 import type { AcpBackend } from '../../src/common/types/acpTypes';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

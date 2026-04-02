@@ -81,7 +81,7 @@ vi.mock('@/process/bridge/services/ConversationSideQuestionService', () => ({
   },
 }));
 
-vi.mock('@/process/task/agentUtils', () => ({
+vi.mock('@server/task/agentUtils', () => ({
   prepareFirstMessage: vi.fn(async (input: string) => input),
 }));
 

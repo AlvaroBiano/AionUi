@@ -3,7 +3,7 @@ import {
   applyCodexLaunchOptions,
   getCodexConfigPath,
   parseCodexApprovalPolicy,
-} from '../../../src/process/agent/codex/connection/codexLaunchConfig';
+} from '@server/agent/codex/connection/codexLaunchConfig';
 
 describe('codexLaunchConfig', () => {
   it('prefers CODEX_HOME when resolving the config path and appends launch overrides', () => {

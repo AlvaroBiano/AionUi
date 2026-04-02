@@ -5,11 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IConversationRepository } from '../../src/process/services/database/IConversationRepository';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
 
 vi.mock('electron', () => ({ app: { getPath: vi.fn(() => '/tmp'), isPackaged: false } }));
 vi.mock('../../src/process/utils/initStorage', () => ({ ProcessChat: { get: vi.fn(async () => []) } }));
-vi.mock('../../src/process/services/cron/cronServiceSingleton', () => ({
+vi.mock('@server/services/cron/cronServiceSingleton', () => ({
   cronService: {
     listJobsByConversation: vi.fn(async () => []),
     removeJob: vi.fn(async () => {}),
@@ -37,7 +37,7 @@ function makeRepo(overrides: Partial<IConversationRepository> = {}): IConversati
   };
 }
 
-import { ConversationServiceImpl } from '../../src/process/services/ConversationServiceImpl';
+import { ConversationServiceImpl } from '@server/services/ConversationServiceImpl';
 
 describe('ConversationServiceImpl.getConversation', () => {
   it('returns conversation from repo', async () => {

@@ -15,7 +15,7 @@ import {
 import {
   getCodexConfigPath,
   getCodexSandboxModeForSessionMode,
-} from '../../../src/process/agent/codex/connection/codexConfig';
+} from '@server/agent/codex/connection/codexConfig';
 import { getAgentModes } from '../../../src/renderer/utils/model/agentModes';
 
 describe('codex mode helpers', () => {

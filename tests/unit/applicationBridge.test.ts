@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { IWorkerTaskManager } from '../../src/process/task/IWorkerTaskManager';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 
 function makeTaskManager(overrides?: Partial<IWorkerTaskManager>): IWorkerTaskManager {
   return {

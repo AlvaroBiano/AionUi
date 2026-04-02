@@ -23,7 +23,7 @@ vi.mock('../../src/common', () => ({
 }));
 
 import { initTaskBridge } from '../../src/process/bridge/taskBridge';
-import type { IWorkerTaskManager } from '../../src/process/task/IWorkerTaskManager';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 
 function makeTaskManager(overrides?: Partial<IWorkerTaskManager>): IWorkerTaskManager {
   return {

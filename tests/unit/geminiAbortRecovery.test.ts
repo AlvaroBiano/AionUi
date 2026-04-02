@@ -36,8 +36,8 @@ vi.mock('../../src/process/utils/shellEnv', () => ({
   getEnhancedEnv: vi.fn(() => ({})),
 }));
 
-import { GeminiAgent } from '../../src/process/agent/gemini';
-import { GeminiAgentManager } from '../../src/process/task/GeminiAgentManager';
+import { GeminiAgent } from '@server/agent/gemini';
+import { GeminiAgentManager } from '@server/task/GeminiAgentManager';
 
 describe('Gemini abort recovery', () => {
   beforeEach(() => {

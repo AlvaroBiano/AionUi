@@ -12,10 +12,10 @@ import type { IConversationService } from '@server/services/IConversationService
 import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import { ipcBridge } from '@/common';
 import { getSkillsDir, getBuiltinSkillsCopyDir, getSystemDir, ProcessChat } from '@process/utils/initStorage';
-import type AcpAgentManager from '../task/AcpAgentManager';
-import type { GeminiAgentManager } from '../task/GeminiAgentManager';
-import type OpenClawAgentManager from '../task/OpenClawAgentManager';
-import { prepareFirstMessage } from '../task/agentUtils';
+import type AcpAgentManager from '@server/task/AcpAgentManager';
+import type { GeminiAgentManager } from '@server/task/GeminiAgentManager';
+import type OpenClawAgentManager from '@server/task/OpenClawAgentManager';
+import { prepareFirstMessage } from '@server/task/agentUtils';
 import { refreshTrayMenu } from '@process/utils/tray';
 import { copyFilesToDirectory, readDirectoryRecursive } from '@process/utils';
 import { computeOpenClawIdentityHash } from '@process/utils/openclawUtils';

@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AcpConnection } from '../../src/process/agent/acp/AcpConnection';
-import { AcpAgent } from '../../src/process/agent/acp/index';
+import { AcpConnection } from '@server/agent/acp/AcpConnection';
+import { AcpAgent } from '@server/agent/acp/index';
 import type { AcpSessionConfigOption, AcpSessionModels } from '../../src/types/acpTypes';
 
 vi.mock('@process/utils/initStorage', async (importOriginal) => {

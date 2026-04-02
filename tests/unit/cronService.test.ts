@@ -34,12 +34,12 @@ vi.mock('@process/utils/initStorage', () => ({
   ProcessConfig: { get: vi.fn(async () => false) },
 }));
 
-import { CronService } from '../../src/process/services/cron/CronService';
-import type { ICronRepository } from '../../src/process/services/cron/ICronRepository';
-import type { ICronEventEmitter } from '../../src/process/services/cron/ICronEventEmitter';
-import type { ICronJobExecutor } from '../../src/process/services/cron/ICronJobExecutor';
-import type { IConversationRepository } from '../../src/process/services/database/IConversationRepository';
-import type { CronJob } from '../../src/process/services/cron/CronStore';
+import { CronService } from '@server/services/cron/CronService';
+import type { ICronRepository } from '@server/services/cron/ICronRepository';
+import type { ICronEventEmitter } from '@server/services/cron/ICronEventEmitter';
+import type { ICronJobExecutor } from '@server/services/cron/ICronJobExecutor';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
+import type { CronJob } from '@server/services/cron/CronStore';
 
 function makeRepo(overrides?: Partial<ICronRepository>): ICronRepository {
   return {

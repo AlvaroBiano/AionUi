@@ -56,7 +56,7 @@ vi.mock('../../src/common', () => {
   };
 });
 
-vi.mock('../../src/process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn().mockResolvedValue(mockDb),
 }));
 
@@ -65,7 +65,7 @@ vi.mock('../../src/common/utils', () => {
   return { uuid: () => `test-uuid-${++counter}` };
 });
 
-vi.mock('../../src/process/agent/openclaw/deviceIdentity', () => ({
+vi.mock('@server/agent/openclaw/deviceIdentity', () => ({
   generateIdentity: vi.fn(() => ({
     deviceId: 'dev-id',
     publicKeyPem: 'pub-pem',
@@ -89,7 +89,7 @@ const mockWebSocketState = vi.hoisted(() => ({
   throwOnUrl: undefined as string | undefined,
 }));
 
-vi.mock('../../src/process/agent/openclaw/OpenClawGatewayConnection', () => ({
+vi.mock('@server/agent/openclaw/OpenClawGatewayConnection', () => ({
   OpenClawGatewayConnection: class {
     start = vi.fn();
     stop = vi.fn();

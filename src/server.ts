@@ -13,12 +13,11 @@ import './common/platform/register-node';
 import './common/adapter/standalone';
 
 import { initBridgeStandalone } from './process/utils/initBridgeStandalone';
-import { startWebServerWithInstance } from './process/webserver';
-import { cleanupWebAdapter } from './process/webserver/adapter';
+import { startWebServerWithInstance } from './server/http';
 import initStorage from './process/utils/initStorage';
-import { ExtensionRegistry } from './process/extensions';
-import { getChannelManager } from './process/channels';
-import { closeDatabase } from './process/services/database/export';
+import { ExtensionRegistry } from '@server/extensions';
+import { getChannelManager } from '@server/channels';
+import { closeDatabase } from '@server/services/database/export';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const ALLOW_REMOTE = process.env.ALLOW_REMOTE === 'true';
@@ -56,7 +55,6 @@ const shutdown = (signal: string) => {
     .catch((e) => console.error('[server] ChannelManager shutdown error:', e))
     .finally(() => {
       try {
-        cleanupWebAdapter();
         // Close the database explicitly so SQLite checkpoints the WAL file.
         // Also called from process.on('exit') as a safety net.
         closeDatabase();

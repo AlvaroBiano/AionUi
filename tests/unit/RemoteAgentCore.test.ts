@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IResponseMessage } from '../../src/common/adapter/ipcBridge';
-import type { RemoteAgentCoreConfig } from '../../src/process/agent/remote/RemoteAgentCore';
+import type { RemoteAgentCoreConfig } from '@server/agent/remote/RemoteAgentCore';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks
@@ -30,7 +30,7 @@ const capturedCallbacks = vi.hoisted(() => ({
   onClose: null as ((code: number, reason: string) => void) | null,
 }));
 
-vi.mock('../../src/process/agent/openclaw/OpenClawGatewayConnection', () => ({
+vi.mock('@server/agent/openclaw/OpenClawGatewayConnection', () => ({
   OpenClawGatewayConnection: vi.fn().mockImplementation((opts: Record<string, unknown>) => {
     capturedCallbacks.onEvent = opts.onEvent as typeof capturedCallbacks.onEvent;
     capturedCallbacks.onHelloOk = opts.onHelloOk as typeof capturedCallbacks.onHelloOk;
@@ -40,7 +40,7 @@ vi.mock('../../src/process/agent/openclaw/OpenClawGatewayConnection', () => ({
   }),
 }));
 
-vi.mock('../../src/process/agent/acp/AcpAdapter', () => {
+vi.mock('@server/agent/acp/AcpAdapter', () => {
   return {
     AcpAdapter: class {
       resetMessageTracking = vi.fn();
@@ -49,7 +49,7 @@ vi.mock('../../src/process/agent/acp/AcpAdapter', () => {
   };
 });
 
-vi.mock('../../src/process/agent/acp/ApprovalStore', () => {
+vi.mock('@server/agent/acp/ApprovalStore', () => {
   return {
     AcpApprovalStore: class {
       clear = vi.fn();
@@ -75,13 +75,13 @@ vi.mock('../../src/common/chat/navigation', () => ({
   },
 }));
 
-vi.mock('../../src/process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn().mockResolvedValue({
     updateRemoteAgent: vi.fn(),
   }),
 }));
 
-import { RemoteAgentCore } from '../../src/process/agent/remote/RemoteAgentCore';
+import { RemoteAgentCore } from '@server/agent/remote/RemoteAgentCore';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -741,7 +741,7 @@ describe('RemoteAgentCore', () => {
   describe('persistDeviceToken', () => {
     it('persists device token to database', async () => {
       const { core } = createConnectedCore();
-      const { getDatabase } = await import('../../src/process/services/database');
+      const { getDatabase } = await import('@server/services/database');
       const db = await (getDatabase as ReturnType<typeof vi.fn>)();
 
       core['persistDeviceToken']('new-token');

@@ -11,8 +11,8 @@ vi.mock('electron', () => ({
 }));
 
 import { ActivitySnapshotBuilder } from '../../src/process/bridge/services/ActivitySnapshotBuilder';
-import type { IConversationRepository } from '../../src/process/services/database/IConversationRepository';
-import type { IWorkerTaskManager } from '../../src/process/task/IWorkerTaskManager';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import type { TChatConversation } from '../../src/common/config/storage';
 import type { TMessage } from '../../src/common/chat/chatLib';
 

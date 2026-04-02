@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CodexConnection } from '../../src/process/agent/codex/connection/CodexConnection';
+import { CodexConnection } from '@server/agent/codex/connection/CodexConnection';
 
 describe('CodexConnection permission timeout', () => {
   beforeEach(() => {

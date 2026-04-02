@@ -23,7 +23,7 @@ vi.mock('@process/utils/shellEnv', () => ({
   resolveNpxPath: vi.fn(() => 'npx'),
 }));
 
-import { AcpConnection } from '../../src/process/agent/acp/AcpConnection';
+import { AcpConnection } from '@server/agent/acp/AcpConnection';
 
 // Helper to access private members in tests
 function priv(conn: AcpConnection): Record<string, unknown> {

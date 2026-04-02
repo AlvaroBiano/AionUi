@@ -9,7 +9,7 @@ import type { IMcpServer } from '../../src/common/config/storage';
 import {
   buildBuiltinAcpSessionMcpServers,
   parseAcpMcpCapabilities,
-} from '../../src/process/agent/acp/mcpSessionConfig';
+} from '@server/agent/acp/mcpSessionConfig';
 
 describe('ACP built-in MCP session config', () => {
   it('injects only enabled built-in MCP servers and converts transport shape for session/new', () => {
@@ -178,29 +178,29 @@ describe('McpService Gemini detection', () => {
         throw new Error('gemini not installed');
       }),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/ClaudeMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/ClaudeMcpAgent', () => ({
       ClaudeMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/CodebuddyMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/CodebuddyMcpAgent', () => ({
       CodebuddyMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/QwenMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/QwenMcpAgent', () => ({
       QwenMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/IflowMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/IflowMcpAgent', () => ({
       IflowMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/GeminiMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/GeminiMcpAgent', () => ({
       GeminiMcpAgent: makeAgentClass(nativeDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/AionuiMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/AionuiMcpAgent', () => ({
       AionuiMcpAgent: makeAgentClass(builtinDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/CodexMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/CodexMcpAgent', () => ({
       CodexMcpAgent: makeAgentClass(emptyDetect),
     }));
 
-    const { McpService } = await import('../../src/process/services/mcpServices/McpService');
+    const { McpService } = await import('@server/services/mcpServices/McpService');
     const service = new McpService();
 
     const result = await service.getAgentMcpConfigs([{ backend: 'gemini', name: 'Gemini CLI', cliPath: undefined }]);
@@ -224,29 +224,29 @@ describe('McpService Gemini detection', () => {
     vi.doMock('child_process', () => ({
       execSync: vi.fn(() => '/usr/local/bin/gemini\n'),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/ClaudeMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/ClaudeMcpAgent', () => ({
       ClaudeMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/CodebuddyMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/CodebuddyMcpAgent', () => ({
       CodebuddyMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/QwenMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/QwenMcpAgent', () => ({
       QwenMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/IflowMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/IflowMcpAgent', () => ({
       IflowMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/GeminiMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/GeminiMcpAgent', () => ({
       GeminiMcpAgent: makeAgentClass(nativeDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/AionuiMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/AionuiMcpAgent', () => ({
       AionuiMcpAgent: makeAgentClass(builtinDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/CodexMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/CodexMcpAgent', () => ({
       CodexMcpAgent: makeAgentClass(emptyDetect),
     }));
 
-    const { McpService } = await import('../../src/process/services/mcpServices/McpService');
+    const { McpService } = await import('@server/services/mcpServices/McpService');
     const service = new McpService();
 
     const result = await service.getAgentMcpConfigs([{ backend: 'gemini', name: 'Gemini CLI', cliPath: undefined }]);
@@ -272,29 +272,29 @@ describe('McpService Gemini detection', () => {
         throw new Error('gemini not installed');
       }),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/ClaudeMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/ClaudeMcpAgent', () => ({
       ClaudeMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/CodebuddyMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/CodebuddyMcpAgent', () => ({
       CodebuddyMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/QwenMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/QwenMcpAgent', () => ({
       QwenMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/IflowMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/IflowMcpAgent', () => ({
       IflowMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/GeminiMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/GeminiMcpAgent', () => ({
       GeminiMcpAgent: makeAgentClass(emptyDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/AionuiMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/AionuiMcpAgent', () => ({
       AionuiMcpAgent: makeAgentClass(builtinDetect),
     }));
-    vi.doMock('../../src/process/services/mcpServices/agents/CodexMcpAgent', () => ({
+    vi.doMock('@server/services/mcpServices/agents/CodexMcpAgent', () => ({
       CodexMcpAgent: makeAgentClass(emptyDetect),
     }));
 
-    const { McpService } = await import('../../src/process/services/mcpServices/McpService');
+    const { McpService } = await import('@server/services/mcpServices/McpService');
     const service = new McpService();
 
     const result = await service.getAgentMcpConfigs([{ backend: 'gemini', name: 'Gemini CLI', cliPath: undefined }]);

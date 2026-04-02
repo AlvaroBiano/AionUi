@@ -22,7 +22,7 @@ vi.mock('../../src/common', () => ({
 }));
 
 import { initGeminiConversationBridge } from '../../src/process/bridge/geminiConversationBridge';
-import type { IWorkerTaskManager } from '../../src/process/task/IWorkerTaskManager';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 
 function makeTaskManager(overrides?: Partial<IWorkerTaskManager>): IWorkerTaskManager {
   return {

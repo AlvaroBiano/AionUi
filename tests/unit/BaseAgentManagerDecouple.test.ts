@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { IAgentEventEmitter } from '../../src/process/task/IAgentEventEmitter';
-import type { IAgentManager } from '../../src/process/task/IAgentManager';
+import type { IAgentEventEmitter } from '@server/task/IAgentEventEmitter';
+import type { IAgentManager } from '@server/task/IAgentManager';
 
 vi.mock('@/common/platform', () => ({
   getPlatformServices: () => ({
@@ -27,7 +27,7 @@ function makeMockEmitter(): IAgentEventEmitter {
   };
 }
 
-import BaseAgentManager from '../../src/process/task/BaseAgentManager';
+import BaseAgentManager from '@server/task/BaseAgentManager';
 
 /** Minimal concrete subclass exposing protected helpers for testing */
 function makeAgent(type: any = 'gemini', data: any = {}, emitter?: IAgentEventEmitter) {

@@ -54,7 +54,7 @@ const mockIpcBridge = vi.hoisted(() => ({
 // Module mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('../../src/process/agent/remote', () => {
+vi.mock('@server/agent/remote', () => {
   return {
     RemoteAgentCore: class {
       constructor(config: Record<string, unknown>) {
@@ -68,7 +68,7 @@ vi.mock('../../src/process/agent/remote', () => {
   };
 });
 
-vi.mock('../../src/process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn().mockResolvedValue(mockDb),
 }));
 
@@ -114,15 +114,15 @@ vi.mock('../../src/process/utils/message', () => ({
   addOrUpdateMessage: vi.fn(),
 }));
 
-vi.mock('../../src/process/channels/agent/ChannelEventBus', () => ({
+vi.mock('@server/channels/agent/ChannelEventBus', () => ({
   channelEventBus: { emitAgentMessage: vi.fn() },
 }));
 
-vi.mock('../../src/process/services/cron/CronBusyGuard', () => ({
+vi.mock('@server/services/cron/CronBusyGuard', () => ({
   cronBusyGuard: { setProcessing: vi.fn() },
 }));
 
-vi.mock('../../src/process/task/BaseAgentManager', () => {
+vi.mock('@server/task/BaseAgentManager', () => {
   return {
     default: class BaseAgentManager {
       conversation_id = '';
@@ -138,14 +138,14 @@ vi.mock('../../src/process/task/BaseAgentManager', () => {
   };
 });
 
-vi.mock('../../src/process/task/IpcAgentEventEmitter', () => ({
+vi.mock('@server/task/IpcAgentEventEmitter', () => ({
   IpcAgentEventEmitter: class {},
 }));
 
-import RemoteAgentManager from '../../src/process/task/RemoteAgentManager';
+import RemoteAgentManager from '@server/task/RemoteAgentManager';
 import { addMessage, addOrUpdateMessage } from '../../src/process/utils/message';
-import { cronBusyGuard } from '../../src/process/services/cron/CronBusyGuard';
-import { channelEventBus } from '../../src/process/channels/agent/ChannelEventBus';
+import { cronBusyGuard } from '@server/services/cron/CronBusyGuard';
+import { channelEventBus } from '@server/channels/agent/ChannelEventBus';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -19,7 +19,7 @@ const mockDb = {
 };
 vi.mock('@server/services/database', () => ({ getDatabase: vi.fn(() => Promise.resolve(mockDb)) }));
 
-import { SqliteConversationRepository } from '../../src/process/services/database/SqliteConversationRepository';
+import { SqliteConversationRepository } from '@server/services/database/SqliteConversationRepository';
 
 describe('SqliteConversationRepository', () => {
   beforeEach(() => vi.clearAllMocks());

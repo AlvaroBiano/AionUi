@@ -1,7 +1,7 @@
 import type { AcpPermissionRequest, AcpSessionUpdate } from '@/common/types/acpTypes';
 import type { TChatConversation } from '@/common/config/storage';
 import { ConversationSideQuestionService } from '@/process/bridge/services/ConversationSideQuestionService';
-import type { IConversationService } from '@/process/services/IConversationService';
+import type { IConversationService } from '@server/services/IConversationService';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type DisconnectInfo = {

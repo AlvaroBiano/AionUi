@@ -4,10 +4,10 @@ vi.mock('electron', () => ({ app: { isPackaged: false, getPath: vi.fn(() => '/tm
 vi.mock('@/common/utils', () => ({ uuid: vi.fn(() => 'test-uuid') }));
 vi.mock('@process/utils', () => ({ copyFilesToDirectory: vi.fn(async () => []) }));
 
-import { WorkerTaskManagerJobExecutor } from '../../src/process/services/cron/WorkerTaskManagerJobExecutor';
-import { CronBusyGuard } from '../../src/process/services/cron/CronBusyGuard';
-import type { IWorkerTaskManager } from '../../src/process/task/IWorkerTaskManager';
-import type { CronJob } from '../../src/process/services/cron/CronStore';
+import { WorkerTaskManagerJobExecutor } from '@server/services/cron/WorkerTaskManagerJobExecutor';
+import { CronBusyGuard } from '@server/services/cron/CronBusyGuard';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
+import type { CronJob } from '@server/services/cron/CronStore';
 
 function makeTaskManager(overrides?: Partial<IWorkerTaskManager>): IWorkerTaskManager {
   return {

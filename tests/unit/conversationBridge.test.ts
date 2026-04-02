@@ -73,13 +73,13 @@ vi.mock('../../src/process/utils/openclawUtils', () => ({
   computeOpenClawIdentityHash: vi.fn(async () => 'hash'),
 }));
 
-vi.mock('../../src/process/task/agentUtils', () => ({
+vi.mock('@server/task/agentUtils', () => ({
   prepareFirstMessage: vi.fn(async (msg: string) => msg),
 }));
 
 import { initConversationBridge } from '../../src/process/bridge/conversationBridge';
-import type { IConversationService } from '../../src/process/services/IConversationService';
-import type { IWorkerTaskManager } from '../../src/process/task/IWorkerTaskManager';
+import type { IConversationService } from '@server/services/IConversationService';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import type { TChatConversation } from '../../src/common/config/storage';
 
 function makeService(overrides?: Partial<IConversationService>): IConversationService {

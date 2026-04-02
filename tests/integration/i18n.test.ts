@@ -146,7 +146,7 @@ describe('i18n Configuration Tests', () => {
 });
 
 describe('i18n Build Safety Tests', () => {
-  const mainI18nFile = path.resolve(__dirname, '../../src/process/services/i18n/index.ts');
+  const mainI18nFile = path.resolve(__dirname, '../../src/server/services/i18n/index.ts');
   const rendererI18nFile = path.resolve(__dirname, '../../src/renderer/services/i18n/index.ts');
 
   it('main process i18n should NOT use fs.readFile for locale loading', () => {

@@ -33,11 +33,11 @@ vi.mock('../../src/common', () => ({
   },
 }));
 
-vi.mock('../../src/process/agent/acp/AcpDetector', () => ({
+vi.mock('@server/agent/acp/AcpDetector', () => ({
   acpDetector: { getDetectedAgents: vi.fn(() => []), refreshCustomAgents: vi.fn(async () => {}) },
 }));
 
-vi.mock('../../src/process/agent/acp/AcpConnection', () => ({
+vi.mock('@server/agent/acp/AcpConnection', () => ({
   AcpConnection: vi.fn(() => ({
     connect: vi.fn(async () => {}),
     newSession: vi.fn(async () => {}),
@@ -49,7 +49,7 @@ vi.mock('../../src/process/agent/acp/AcpConnection', () => ({
   })),
 }));
 
-vi.mock('../../src/process/agent/acp/modelInfo', () => ({
+vi.mock('@server/agent/acp/modelInfo', () => ({
   buildAcpModelInfo: vi.fn(() => ({})),
   summarizeAcpModelInfo: vi.fn(() => ({})),
 }));
@@ -63,11 +63,11 @@ vi.mock('../../src/agent/codex/connection/CodexConnection', () => ({
   })),
 }));
 
-vi.mock('../../src/process/task/AcpAgentManager', () => ({ default: class AcpAgentManager {} }));
-vi.mock('../../src/process/task/CodexAgentManager', () => ({ default: class CodexAgentManager {} }));
-vi.mock('../../src/process/task/GeminiAgentManager', () => ({ GeminiAgentManager: class GeminiAgentManager {} }));
+vi.mock('@server/task/AcpAgentManager', () => ({ default: class AcpAgentManager {} }));
+vi.mock('@server/task/CodexAgentManager', () => ({ default: class CodexAgentManager {} }));
+vi.mock('@server/task/GeminiAgentManager', () => ({ GeminiAgentManager: class GeminiAgentManager {} }));
 
-vi.mock('../../src/process/services/mcpServices/McpService', () => ({
+vi.mock('@server/services/mcpServices/McpService', () => ({
   mcpService: { getSupportedTransportsForAgent: vi.fn(() => []) },
 }));
 
@@ -77,7 +77,7 @@ vi.mock('../../src/process/utils/mainLogger', () => ({
 }));
 
 import { initAcpConversationBridge } from '../../src/process/bridge/acpConversationBridge';
-import type { IWorkerTaskManager } from '../../src/process/task/IWorkerTaskManager';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 
 function makeTaskManager(overrides?: Partial<IWorkerTaskManager>): IWorkerTaskManager {
   return {
@@ -123,7 +123,7 @@ describe('acpConversationBridge', () => {
   // --- refreshCustomAgents ---
 
   it('refreshCustomAgents returns success when detector succeeds', async () => {
-    const { acpDetector } = await import('../../src/process/agent/acp/AcpDetector');
+    const { acpDetector } = await import('@server/agent/acp/AcpDetector');
     vi.mocked(acpDetector.refreshCustomAgents).mockResolvedValue(undefined as any);
 
     const result = await handlers['refreshCustomAgents']();
@@ -131,7 +131,7 @@ describe('acpConversationBridge', () => {
   });
 
   it('refreshCustomAgents returns error when detector throws', async () => {
-    const { acpDetector } = await import('../../src/process/agent/acp/AcpDetector');
+    const { acpDetector } = await import('@server/agent/acp/AcpDetector');
     vi.mocked(acpDetector.refreshCustomAgents).mockRejectedValue(new Error('refresh failed'));
 
     const result = await handlers['refreshCustomAgents']();
@@ -141,12 +141,12 @@ describe('acpConversationBridge', () => {
   // --- getAvailableAgents ---
 
   it('getAvailableAgents returns enriched agent list', async () => {
-    const { acpDetector } = await import('../../src/process/agent/acp/AcpDetector');
+    const { acpDetector } = await import('@server/agent/acp/AcpDetector');
     vi.mocked(acpDetector.getDetectedAgents).mockReturnValue([
       { backend: 'claude', name: 'Claude', cliPath: '/usr/bin/claude' },
     ] as any);
 
-    const { mcpService } = await import('../../src/process/services/mcpServices/McpService');
+    const { mcpService } = await import('@server/services/mcpServices/McpService');
     vi.mocked(mcpService.getSupportedTransportsForAgent).mockReturnValue(['stdio'] as any);
 
     const result = await handlers['getAvailableAgents']();
@@ -156,7 +156,7 @@ describe('acpConversationBridge', () => {
   });
 
   it('getAvailableAgents returns error when detector throws', async () => {
-    const { acpDetector } = await import('../../src/process/agent/acp/AcpDetector');
+    const { acpDetector } = await import('@server/agent/acp/AcpDetector');
     vi.mocked(acpDetector.getDetectedAgents).mockImplementation(() => {
       throw new Error('detection failed');
     });

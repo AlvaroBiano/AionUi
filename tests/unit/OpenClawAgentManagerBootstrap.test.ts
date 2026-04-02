@@ -21,7 +21,7 @@ const mockAgent = vi.hoisted(() => ({
   currentSessionKey: 'key-1',
 }));
 
-vi.mock('../../src/process/agent/openclaw', () => ({
+vi.mock('@server/agent/openclaw', () => ({
   OpenClawAgent: class {
     constructor() {
       Object.assign(this, mockAgent);
@@ -29,7 +29,7 @@ vi.mock('../../src/process/agent/openclaw', () => ({
   },
 }));
 
-vi.mock('../../src/process/channels/agent/ChannelEventBus', () => ({
+vi.mock('@server/channels/agent/ChannelEventBus', () => ({
   channelEventBus: { emitAgentMessage: vi.fn() },
 }));
 
@@ -54,18 +54,18 @@ vi.mock('../../src/process/utils/message', () => ({
   addOrUpdateMessage: vi.fn(),
 }));
 
-vi.mock('../../src/process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn().mockResolvedValue({
     getConversation: vi.fn(() => ({ success: false })),
     updateConversation: vi.fn(),
   }),
 }));
 
-vi.mock('../../src/process/services/cron/CronBusyGuard', () => ({
+vi.mock('@server/services/cron/CronBusyGuard', () => ({
   cronBusyGuard: { setProcessing: vi.fn() },
 }));
 
-vi.mock('../../src/process/task/BaseAgentManager', () => ({
+vi.mock('@server/task/BaseAgentManager', () => ({
   default: class BaseAgentManager {
     conversation_id = '';
     workspace = '';
@@ -79,11 +79,11 @@ vi.mock('../../src/process/task/BaseAgentManager', () => ({
   },
 }));
 
-vi.mock('../../src/process/task/IpcAgentEventEmitter', () => ({
+vi.mock('@server/task/IpcAgentEventEmitter', () => ({
   IpcAgentEventEmitter: class {},
 }));
 
-import OpenClawAgentManager from '../../src/process/task/OpenClawAgentManager';
+import OpenClawAgentManager from '@server/task/OpenClawAgentManager';
 
 // ---------------------------------------------------------------------------
 // Helpers

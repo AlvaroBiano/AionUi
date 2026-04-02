@@ -9,8 +9,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { setWebServerInstance } from '../bridge/webuiBridge';
 import { ProcessConfig } from './initStorage';
-import { startWebServerWithInstance } from '../webserver';
-import { SERVER_CONFIG } from '../webserver/config/constants';
+import { startWebServerWithInstance } from '@server/http';
+import { SERVER_CONFIG } from '@server/http/config/constants';
 
 const WEBUI_CONFIG_FILE = 'webui.config.json';
 const DESKTOP_WEBUI_ENABLED_KEY = 'webui.desktop.enabled';

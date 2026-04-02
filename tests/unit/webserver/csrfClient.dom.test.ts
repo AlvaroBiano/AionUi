@@ -12,8 +12,8 @@ import {
   clearAllCookies,
   withCsrfToken,
   withCsrfHeader,
-} from '@/process/webserver/middleware/csrfClient';
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/process/webserver/config/constants';
+} from '@server/http/middleware/csrfClient';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@server/http/config/constants';
 
 // Mock document.cookie
 const mockCookies: Record<string, string> = {};

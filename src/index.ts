@@ -28,9 +28,9 @@ import { loadShellEnvironmentAsync, logEnvironmentDiagnostics, mergePaths } from
 import { initializeAcpDetector, registerWindowMaximizeListeners } from '@process/bridge';
 import { onCloseToTrayChanged, onLanguageChanged } from './process/bridge/systemSettingsBridge';
 import { setInitialLanguage } from '@server/services/i18n';
-import { workerTaskManager } from './process/task/workerTaskManagerSingleton';
+import { workerTaskManager } from './server/task/workerTaskManagerSingleton';
 import { setupApplicationMenu } from './process/utils/appMenu';
-import { startWebServer } from './process/webserver';
+import { startWebServer } from './server/http';
 import { applyZoomToWindow, initializeZoomFactor } from './process/utils/zoom';
 import {
   clearPendingDeepLinkUrl,
@@ -273,7 +273,7 @@ const createWindow = (): void => {
   const disableAutoUpdater =
     process.env.AIONUI_DISABLE_AUTO_UPDATE === '1' || process.env.AIONUI_E2E_TEST === '1' || isCiRuntime;
   if (!disableAutoUpdater) {
-    Promise.all([import('./process/services/autoUpdaterService'), import('./process/bridge/updateBridge')])
+    Promise.all([import('./server/services/autoUpdaterService'), import('./process/bridge/updateBridge')])
       .then(([{ autoUpdaterService }, { createAutoUpdateStatusBroadcast }]) => {
         // Create status broadcast callback that emits via ipcBridge (pure emitter, no window binding)
         const statusBroadcast = createAutoUpdateStatusBroadcast();

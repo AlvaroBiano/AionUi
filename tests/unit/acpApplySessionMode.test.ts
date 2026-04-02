@@ -14,7 +14,7 @@ const { mockConnect, mockSetSessionMode, mockSetModel, mockDisconnect, mockGetIn
   mockGetInitializeResponse: vi.fn().mockReturnValue(null),
 }));
 
-vi.mock('../../src/process/agent/acp/AcpConnection', () => ({
+vi.mock('@server/agent/acp/AcpConnection', () => ({
   AcpConnection: class {
     hasActiveSession = true;
     isConnected = true;
@@ -35,20 +35,20 @@ vi.mock('../../src/process/agent/acp/AcpConnection', () => ({
   },
 }));
 
-vi.mock('../../src/process/agent/acp/AcpAdapter', () => ({
+vi.mock('@server/agent/acp/AcpAdapter', () => ({
   AcpAdapter: class {
     constructor() {}
   },
 }));
 
-vi.mock('../../src/process/agent/acp/ApprovalStore', () => ({
+vi.mock('@server/agent/acp/ApprovalStore', () => ({
   AcpApprovalStore: class {
     constructor() {}
   },
   createAcpApprovalKey: vi.fn(),
 }));
 
-vi.mock('../../src/process/agent/acp/utils', () => ({
+vi.mock('@server/agent/acp/utils', () => ({
   getClaudeModel: vi.fn().mockReturnValue(null),
   killChild: vi.fn(),
   readTextFile: vi.fn(),
@@ -56,12 +56,12 @@ vi.mock('../../src/process/agent/acp/utils', () => ({
   writeTextFile: vi.fn(),
 }));
 
-vi.mock('../../src/process/agent/acp/modelInfo', () => ({
+vi.mock('@server/agent/acp/modelInfo', () => ({
   buildAcpModelInfo: vi.fn().mockReturnValue(null),
   summarizeAcpModelInfo: vi.fn(),
 }));
 
-vi.mock('../../src/process/agent/acp/mcpSessionConfig', () => ({
+vi.mock('@server/agent/acp/mcpSessionConfig', () => ({
   buildBuiltinAcpSessionMcpServers: vi.fn().mockResolvedValue([]),
   parseAcpMcpCapabilities: vi.fn().mockReturnValue([]),
 }));
@@ -86,7 +86,7 @@ vi.mock('../../src/process/utils/initStorage', () => ({
   ProcessConfig: { get: vi.fn().mockResolvedValue(null) },
 }));
 
-import { AcpAgent } from '../../src/process/agent/acp/index';
+import { AcpAgent } from '@server/agent/acp/index';
 
 describe('AcpAgent.start() — applySessionMode', () => {
   const baseConfig = {

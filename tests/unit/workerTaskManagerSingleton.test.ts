@@ -5,13 +5,13 @@ const { mockGetConversation, mockAcpManager } = vi.hoisted(() => ({
   mockAcpManager: vi.fn(),
 }));
 
-vi.mock('../../src/process/services/database/SqliteConversationRepository', () => ({
+vi.mock('@server/services/database/SqliteConversationRepository', () => ({
   SqliteConversationRepository: class {
     getConversation = mockGetConversation;
   },
 }));
 
-vi.mock('../../src/process/task/AcpAgentManager', () => ({
+vi.mock('@server/task/AcpAgentManager', () => ({
   default: class {
     type = 'acp';
     kill = vi.fn();
@@ -23,23 +23,23 @@ vi.mock('../../src/process/task/AcpAgentManager', () => ({
   },
 }));
 
-vi.mock('../../src/process/task/GeminiAgentManager', () => ({
+vi.mock('@server/task/GeminiAgentManager', () => ({
   GeminiAgentManager: vi.fn().mockImplementation(() => ({ type: 'gemini', kill: vi.fn() })),
 }));
 
-vi.mock('../../src/process/agent/codex', () => ({
+vi.mock('@server/agent/codex', () => ({
   CodexAgentManager: vi.fn().mockImplementation(() => ({ type: 'codex', kill: vi.fn() })),
 }));
 
-vi.mock('../../src/process/task/OpenClawAgentManager', () => ({
+vi.mock('@server/task/OpenClawAgentManager', () => ({
   default: vi.fn().mockImplementation(() => ({ type: 'openclaw-gateway', kill: vi.fn() })),
 }));
 
-vi.mock('../../src/process/task/NanoBotAgentManager', () => ({
+vi.mock('@server/task/NanoBotAgentManager', () => ({
   default: vi.fn().mockImplementation(() => ({ type: 'nanobot', kill: vi.fn() })),
 }));
 
-import { workerTaskManager } from '../../src/process/task/workerTaskManagerSingleton';
+import { workerTaskManager } from '@server/task/workerTaskManagerSingleton';
 
 describe('workerTaskManagerSingleton', () => {
   beforeEach(() => {

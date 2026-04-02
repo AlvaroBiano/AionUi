@@ -5,7 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
-import type { GeminiAgentManager } from '../task/GeminiAgentManager';
+import type { GeminiAgentManager } from '@server/task/GeminiAgentManager';
 import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 
 // Gemini confirmMessage provider (for 'input.confirm.message' channel)

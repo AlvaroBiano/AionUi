@@ -5,8 +5,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { IConversationService } from '@/process/services/IConversationService';
-import type { IWorkerTaskManager } from '@/process/task/IWorkerTaskManager';
+import type { IConversationService } from '@server/services/IConversationService';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 
 type Provider = (payload?: unknown) => Promise<unknown>;
 
@@ -91,7 +91,7 @@ const registerMocks = () => {
     ProcessConfig: { get: vi.fn(async () => []) },
   }));
 
-  vi.doMock('@/process/task/agentUtils', () => ({
+  vi.doMock('@server/task/agentUtils', () => ({
     prepareFirstMessage: vi.fn(),
   }));
 

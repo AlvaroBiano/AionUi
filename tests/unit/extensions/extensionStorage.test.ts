@@ -8,7 +8,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ExtensionStorage } from '../../../src/process/extensions/sandbox/ExtensionStorage';
+import { ExtensionStorage } from '@server/extensions/sandbox/ExtensionStorage';
 
 const tempRoots: string[] = [];
 

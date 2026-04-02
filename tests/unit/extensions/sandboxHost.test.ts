@@ -6,9 +6,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'events';
-import { SandboxHost } from '../../../src/process/extensions/sandbox/sandbox';
-import type { SandboxMessage } from '../../../src/process/extensions/sandbox/sandbox';
-import { extensionEventBus } from '../../../src/process/extensions/lifecycle/ExtensionEventBus';
+import { SandboxHost } from '@server/extensions/sandbox/sandbox';
+import type { SandboxMessage } from '@server/extensions/sandbox/sandbox';
+import { extensionEventBus } from '@server/extensions/lifecycle/ExtensionEventBus';
 
 // Minimal mock worker that captures postMessage calls
 function createMockWorker() {

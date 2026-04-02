@@ -7,7 +7,7 @@
 import type { TMessage } from '@/common/chat/chatLib';
 import { composeMessage } from '@/common/chat/chatLib';
 import type { AcpBackend } from '@/common/types/acpTypes';
-import { getDatabase } from '../services/database/export';
+import { getDatabase } from '@server/services/database/export';
 import { ProcessChat } from './initStorage';
 
 const Cache = new Map<string, ConversationManageWithDB>();

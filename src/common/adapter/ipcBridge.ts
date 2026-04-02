@@ -6,7 +6,7 @@
 
 import { bridge } from '@office-ai/platform';
 import type { OpenDialogOptions } from 'electron';
-import type { McpSource } from '../../process/services/mcpServices/McpProtocol';
+import type { McpSource } from '@server/services/mcpServices/McpProtocol';
 // Re-export all protocol types so existing consumers (`import { X } from 'ipcBridge'`) keep working
 export type {
   IConfirmation,

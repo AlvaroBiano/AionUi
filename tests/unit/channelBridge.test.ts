@@ -68,13 +68,13 @@ vi.mock('@/extensions', () => ({
 vi.mock('@/extensions/assetProtocol', () => ({ toAssetUrl: vi.fn((p: string) => `asset://${p}`) }));
 
 import { initChannelBridge } from '../../src/process/bridge/channelBridge';
-import type { IChannelRepository } from '../../src/process/services/database/IChannelRepository';
+import type { IChannelRepository } from '@server/services/database/IChannelRepository';
 import type {
   IChannelPluginConfig,
   IChannelUser,
   IChannelPairingRequest,
   IChannelSession,
-} from '../../src/process/channels/types';
+} from '@server/channels/types';
 
 function makeRepo(overrides?: Partial<IChannelRepository>): IChannelRepository {
   return {

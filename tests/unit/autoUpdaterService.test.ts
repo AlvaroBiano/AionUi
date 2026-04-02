@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { autoUpdater } from 'electron-updater';
-import { getUpdateChannel } from '@/process/services/autoUpdaterService';
+import { getUpdateChannel } from '@server/services/autoUpdaterService';
 
 // Mock electron modules
 vi.mock('electron', () => ({
@@ -65,7 +65,7 @@ describe('AutoUpdaterService', () => {
     mockStatusBroadcast = vi.fn();
 
     // Import the service (after mocks are set up)
-    const module = await import('@/process/services/autoUpdaterService');
+    const module = await import('@server/services/autoUpdaterService');
     autoUpdaterService = module.autoUpdaterService;
   });
 
