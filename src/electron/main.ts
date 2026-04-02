@@ -13,7 +13,7 @@ Sentry.init({
   dsn: process.env.SENTRY_DSN,
 });
 
-import '@process/utils/configureConsoleLog';
+import '@electron/utils/configureConsoleLog';
 import { app, BrowserWindow, nativeImage, net, powerMonitor, protocol, screen } from 'electron';
 import fixPath from 'fix-path';
 import * as fs from 'fs';
@@ -44,13 +44,13 @@ import {
   bindMainWindowReferences,
   showAndFocusMainWindow,
   showOrCreateMainWindow,
-} from '@process/utils/mainWindowLifecycle';
+} from '@electron/utils/mainWindowLifecycle';
 import {
   loadUserWebUIConfig,
   resolveRemoteAccess,
   resolveWebUIPort,
   restoreDesktopWebUIFromPreferences,
-} from '@process/utils/webuiConfig';
+} from '@electron/utils/webuiConfig';
 import {
   createOrUpdateTray,
   destroyTray,
@@ -387,7 +387,7 @@ const handleAppReady = async (): Promise<void> => {
 
   if (isResetPasswordMode) {
     try {
-      const { resetPasswordCLI, resolveResetPasswordUsername } = await import('@process/utils/resetPasswordCLI');
+      const { resetPasswordCLI, resolveResetPasswordUsername } = await import('@server/utils/resetPasswordCLI');
       const username = resolveResetPasswordUsername(process.argv);
       await resetPasswordCLI(username);
       app.quit();

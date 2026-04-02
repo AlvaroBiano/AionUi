@@ -18,22 +18,22 @@ describe('resetPasswordCLI helpers', () => {
   });
 
   it('returns admin when resetpass is missing', async () => {
-    const { resolveResetPasswordUsername } = await import('@process/utils/resetPasswordCLI');
+    const { resolveResetPasswordUsername } = await import('@server/utils/resetPasswordCLI');
     expect(resolveResetPasswordUsername(['node', 'server.mjs'])).toBe('admin');
   });
 
   it('returns admin when resetpass has no username', async () => {
-    const { resolveResetPasswordUsername } = await import('@process/utils/resetPasswordCLI');
+    const { resolveResetPasswordUsername } = await import('@server/utils/resetPasswordCLI');
     expect(resolveResetPasswordUsername(['node', 'server.mjs', '--resetpass'])).toBe('admin');
   });
 
   it('returns the first positional arg after resetpass', async () => {
-    const { resolveResetPasswordUsername } = await import('@process/utils/resetPasswordCLI');
+    const { resolveResetPasswordUsername } = await import('@server/utils/resetPasswordCLI');
     expect(resolveResetPasswordUsername(['node', 'server.mjs', '--resetpass', 'alice'])).toBe('alice');
   });
 
   it('skips flags and still resolves username', async () => {
-    const { resolveResetPasswordUsername } = await import('@process/utils/resetPasswordCLI');
+    const { resolveResetPasswordUsername } = await import('@server/utils/resetPasswordCLI');
     expect(resolveResetPasswordUsername(['node', 'server.mjs', '--resetpass', '--verbose', 'alice'])).toBe('alice');
   });
 
@@ -67,7 +67,7 @@ describe('resetPasswordCLI helpers', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined as never) as never);
 
-    const { resetPasswordCLI } = await import('@process/utils/resetPasswordCLI');
+    const { resetPasswordCLI } = await import('@server/utils/resetPasswordCLI');
 
     await expect(resetPasswordCLI('admin')).resolves.toBeUndefined();
     expect(mockDb.hasUsers).toHaveBeenCalledOnce();

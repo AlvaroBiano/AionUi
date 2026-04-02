@@ -76,7 +76,7 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 async function main(): Promise<void> {
   if (isResetPasswordMode) {
-    const { resetPasswordCLI, resolveResetPasswordUsername } = await import('./process/utils/resetPasswordCLI');
+    const { resetPasswordCLI, resolveResetPasswordUsername } = await import('@server/utils/resetPasswordCLI');
     const username = resolveResetPasswordUsername(process.argv);
     await resetPasswordCLI(username);
     process.exit(0);

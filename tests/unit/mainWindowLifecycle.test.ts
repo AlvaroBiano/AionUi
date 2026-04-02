@@ -29,7 +29,7 @@ describe('mainWindowLifecycle', () => {
     const { setApplicationMainWindow } = await import('@process/bridge/applicationBridge');
     const { setDeepLinkMainWindow } = await import('@process/utils/deepLink');
     const { setTrayMainWindow } = await import('@process/utils/tray');
-    const { bindMainWindowReferences } = await import('@process/utils/mainWindowLifecycle');
+    const { bindMainWindowReferences } = await import('@electron/utils/mainWindowLifecycle');
 
     bindMainWindowReferences(window);
 
@@ -47,7 +47,7 @@ describe('mainWindowLifecycle', () => {
       show: vi.fn(),
       focus: vi.fn(),
     } as unknown as Electron.BrowserWindow;
-    const { showOrCreateMainWindow } = await import('@process/utils/mainWindowLifecycle');
+    const { showOrCreateMainWindow } = await import('@electron/utils/mainWindowLifecycle');
 
     showOrCreateMainWindow({ mainWindow: window, createWindow });
 
@@ -66,7 +66,7 @@ describe('mainWindowLifecycle', () => {
       show: vi.fn(),
       focus: vi.fn(),
     } as unknown as Electron.BrowserWindow;
-    const { showOrCreateMainWindow } = await import('@process/utils/mainWindowLifecycle');
+    const { showOrCreateMainWindow } = await import('@electron/utils/mainWindowLifecycle');
 
     showOrCreateMainWindow({ mainWindow: destroyedWindow, createWindow });
 
