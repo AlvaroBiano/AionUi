@@ -97,6 +97,10 @@ vi.mock('@/renderer/hooks/agent/useHubAgents', () => ({
   useHubAgents: () => ({ agents: [], loading: false, install: vi.fn(), retryInstall: vi.fn(), update: vi.fn() }),
 }));
 
+vi.mock('../../src/renderer/pages/settings/AgentSettings/AgentHubModal', () => ({
+  AgentHubModal: ({ visible }: { visible: boolean }) => (visible ? <div data-testid='hub-modal' /> : null),
+}));
+
 vi.mock('@/renderer/utils/model/availableAgents', () => ({
   AVAILABLE_AGENTS_SWR_KEY: 'acp.agents.available',
 }));
@@ -129,13 +133,13 @@ describe('LocalAgents', () => {
     mockSwrMutate.mockResolvedValue(undefined);
   });
 
-  it('renders description and setup link', async () => {
+  it('renders description and detect custom agent link', async () => {
     await act(async () => {
       render(<LocalAgents />);
     });
 
     expect(screen.getByText('settings.agentManagement.localAgentsDescription')).toBeTruthy();
-    expect(screen.getByText('settings.agentManagement.localAgentsSetupLink')).toBeTruthy();
+    expect(screen.getByText('settings.agentManagement.detectCustomAgent')).toBeTruthy();
   });
 
   it('renders detected section heading', async () => {
