@@ -86,12 +86,16 @@ Log format (all roles use this):
 [YYYY-MM-DD HH:MM:SS] [role] [level] message
 ```
 
-### 1d. Create Team
+### 1d. Agent Lifecycle
 
-Spawn two teammates:
+**Do NOT pre-spawn Reviewer or Fixer at startup.** Agents are spawned on-demand per PR and destroyed after use:
 
-1. Spawn **Reviewer** using `pr-reviewer` agent type (model: sonnet)
-2. Spawn **Fixer** using `pr-fixer` agent type (model: sonnet)
+- **Reviewer**: Spawn a fresh `pr-reviewer` agent (model: sonnet) when a PR needs review. The agent completes its review, replies to Leader, and is not reused.
+- **Fixer**: Spawn a fresh `pr-fixer` agent (model: sonnet) only when a review concludes CONDITIONAL. The agent completes its fix, replies to Leader, and is not reused.
+
+This ensures each PR gets a **clean context window** — no residual state from previously processed PRs.
+
+Agent naming convention: `reviewer-<PR_NUMBER>` / `fixer-<PR_NUMBER>` (e.g., `reviewer-1997`, `fixer-1997`).
 
 ### 1e. Initialize Session State
 
@@ -126,11 +130,10 @@ overrides = {
 ### 1f. Announce
 
 ```
-🚀 PR Review Team 启动
-  ✅ Reviewer 就绪
-  ✅ Fixer 就绪
+🚀 PR Review Team 启动（按需模式）
   📋 配置: REPO=<repo>, PR_DAYS_LOOKBACK=<N>, THRESHOLD=<N>
   📝 日志: <LOG_FILE>
+  🔄 Reviewer / Fixer 按需创建，每个 PR 独立上下文
 
 💬 你可以随时跟我说话:
   "跳过 #N"    — 不处理该 PR
@@ -403,26 +406,32 @@ LATEST_COMMIT_TIME=$(gh pr view <PR_NUMBER> --json commits | \
 
 If cached review valid (no new commits since review): parse `<!-- automation-result -->` block, skip to Step 6.
 
-### 5b. Claim and Assign
+### 5b. Claim and Spawn Reviewer
 
 ```bash
 gh pr edit <PR_NUMBER> --add-label "bot:reviewing"
 ```
 
-Send to Reviewer:
+Spawn a **new** Reviewer agent for this PR (clean context):
 
 ```
-SendMessage to Reviewer:
-  REVIEW PR #<PR_NUMBER>
+Agent(
+  name: "reviewer-<PR_NUMBER>",
+  subagent_type: "pr-reviewer",
+  model: sonnet,
+  prompt: "REVIEW PR #<PR_NUMBER>"
+)
 ```
 
-Log: `[leader] [info] PR #N: assigned to Reviewer`
+**Do NOT run in background** — Leader waits for the Reviewer to complete and return its result.
+
+Log: `[leader] [info] PR #N: spawned reviewer-<PR_NUMBER>`
 
 Update board: `status = reviewing`
 
-### 5c. Wait for Reviewer Response
+### 5c. Parse Reviewer Result
 
-Reviewer will reply:
+The Reviewer agent returns its result directly (not via SendMessage). Parse the response for:
 
 ```
 REVIEW_COMPLETE PR #<number>
@@ -431,6 +440,8 @@ IS_CRITICAL_PATH: true | false
 CRITICAL_PATH_FILES: (none) | file1, file2
 SUMMARY: <one-line summary>
 ```
+
+The reviewer agent is automatically destroyed after returning.
 
 Log: `[leader] [info] PR #N: review complete — <CONCLUSION>`
 
@@ -580,18 +591,28 @@ gh pr view <PR_NUMBER> --json statusCheckRollup \
 | Any QUEUED/IN_PROGRESS | Remove `bot:fixing`, log "CI still running", skip |
 | Any failure | Remove `bot:fixing`, log "CI failed", skip |
 
-**Send to Fixer:**
+**Spawn Fixer:**
+
+Spawn a **new** Fixer agent for this PR (clean context):
 
 ```
-SendMessage to Fixer:
-  FIX PR #<PR_NUMBER>
+Agent(
+  name: "fixer-<PR_NUMBER>",
+  subagent_type: "pr-fixer",
+  model: sonnet,
+  prompt: "FIX PR #<PR_NUMBER>"
+)
 ```
 
-Log: `[leader] [info] PR #N: assigned to Fixer`
+**Do NOT run in background** — Leader waits for the Fixer to complete and return its result.
+
+Log: `[leader] [info] PR #N: spawned fixer-<PR_NUMBER>`
 
 Update board: `status = fixing`
 
-**Wait for Fixer response:**
+**Parse Fixer result:**
+
+The Fixer agent returns its result directly. Parse the response for:
 
 ```
 FIX_COMPLETE PR #<number>
@@ -601,6 +622,8 @@ ISSUES_FIXED: N
 ISSUES_TOTAL: M
 SUMMARY: <one-line summary>
 ```
+
+The fixer agent is automatically destroyed after returning.
 
 **After fix:**
 
@@ -738,5 +761,6 @@ After processing all eligible PRs in a round, output a brief summary:
 - **Clean up on error** — always remove mutex labels (`bot:reviewing`, `bot:fixing`) if aborting
 - **Worktree cleanup** — always remove worktrees after use
 - **Log everything** — every action, every decision, every error
-- **Single PR per teammate** — only one PR assigned to Reviewer at a time, one to Fixer at a time
+- **Spawn per PR, clean context** — spawn a fresh Reviewer/Fixer agent for each PR, never reuse agents across PRs
+- **Sequential pipeline** — process one PR at a time through the full pipeline (review → decision → fix → merge) before starting the next
 - **Leader never reads/modifies code** — delegate to Reviewer or Fixer
