@@ -96,6 +96,7 @@ vi.mock('@icon-park/react', () => ({
   Setting: () => <span data-testid='icon-setting'>SettingIcon</span>,
   Robot: () => <span data-testid='icon-robot'>RobotIcon</span>,
   Plus: () => <span data-testid='icon-plus'>PlusIcon</span>,
+  Close: () => <span data-testid='icon-close'>CloseIcon</span>,
 }));
 
 vi.mock('@/renderer/utils/model/agentLogo', () => ({

@@ -28,10 +28,17 @@ export function getEnvExtensionsDirs(): string[] {
   if (!envPath) return [];
   return envPath.split(PATH_SEPARATOR).filter(Boolean);
 }
-/** Remote mirror URLs for the AionHub repository (tried in order). */
+/**
+ * The maximum hub index schemaVersion this app version can understand.
+ * Bump only when the app adds support for a new breaking schema version.
+ * Remote indexes with schemaVersion > this value are considered incompatible.
+ */
+export const HUB_SUPPORTED_SCHEMA_VERSION = 1;
+
+/** Remote mirror base URLs for the AionHub repository (tried in order). */
 export const HUB_REMOTE_URLS = [
-  // 'https://raw.githubusercontent.com/iOfficeAI/AionHub/dist/',
-  'https://cdn.jsdelivr.net/gh/iOfficeAI/AionHub@dist/',
+  'https://raw.githubusercontent.com/iOfficeAI/AionHub/dist-latest/',
+  'https://cdn.jsdelivr.net/gh/iOfficeAI/AionHub@dist-latest/',
 ];
 
 export const HUB_INDEX_FILE = 'index.json';

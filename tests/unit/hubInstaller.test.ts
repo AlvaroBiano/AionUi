@@ -4,7 +4,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('electron', () => ({ app: { isPackaged: false, getPath: vi.fn(() => '/tmp') } }));
+const mockFetch = vi.fn();
+
+vi.mock('electron', () => ({
+  app: { isPackaged: false, getPath: vi.fn(() => '/tmp') },
+  net: { fetch: (...args: unknown[]) => mockFetch(...args) },
+}));
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs');
@@ -38,10 +43,21 @@ vi.mock('../../src/process/extensions/ExtensionRegistry', () => ({
 const mocks = vi.hoisted(() => ({
   getExtensionResult: undefined as unknown,
   setTransientCalls: [] as unknown[][],
+  detectedAgents: [] as Array<{
+    backend: string;
+    name: string;
+    isExtension?: boolean;
+    customAgentId?: string;
+  }>,
 }));
 
 vi.mock('../../src/process/extensions/hub/HubIndexManager', () => ({
   hubIndexManager: { getExtension: () => mocks.getExtensionResult },
+}));
+
+const mockMarkForReinstall = vi.fn();
+vi.mock('@process/extensions/lifecycle/statePersistence', () => ({
+  markExtensionForReinstall: (...args: unknown[]) => mockMarkForReinstall(...args),
 }));
 
 vi.mock('../../src/process/extensions/hub/HubStateManager', () => ({
@@ -53,11 +69,12 @@ vi.mock('../../src/process/extensions/hub/HubStateManager', () => ({
 }));
 
 vi.mock('@process/agent/acp/AcpDetector', () => ({
-  acpDetector: { refreshExtensionAgents: vi.fn(async () => {}) },
+  acpDetector: {
+    refreshExtensionAgents: vi.fn(async () => {}),
+    refreshAll: vi.fn(async () => {}),
+    getDetectedAgents: () => mocks.detectedAgents,
+  },
 }));
-
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
 
 import * as fs from 'fs';
 import { hubInstaller } from '../../src/process/extensions/hub/HubInstaller';
@@ -84,6 +101,7 @@ describe('HubInstaller', () => {
     mockFetch.mockRejectedValue(new Error('no network'));
     mocks.getExtensionResult = undefined;
     mocks.setTransientCalls = [];
+    mocks.detectedAgents = [];
   });
 
   describe('install', () => {
@@ -179,6 +197,127 @@ describe('HubInstaller', () => {
       });
 
       await expect(hubInstaller.retryInstall('broken-ext')).rejects.toThrow('manifest missing');
+    });
+  });
+
+  describe('markExtensionForReinstall', () => {
+    it('should call markExtensionForReinstall before hotReload during install', async () => {
+      mocks.getExtensionResult = makeExtInfo('reinstall-ext', true);
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s.includes('reinstall-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('aion-extension.json')) return true;
+        return false;
+      });
+
+      await hubInstaller.install('reinstall-ext');
+
+      expect(mockMarkForReinstall).toHaveBeenCalledWith('reinstall-ext');
+      expect(mocks.setTransientCalls.at(-1)).toEqual(['reinstall-ext', 'installed']);
+    });
+
+    it('should call markExtensionForReinstall before hotReload during retryInstall', async () => {
+      mocks.getExtensionResult = makeExtInfo('retry-mark-ext', true);
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s === '/ext-install-dir/retry-mark-ext') return true;
+        if (s.includes('aion-extension.json')) return true;
+        return false;
+      });
+
+      await hubInstaller.retryInstall('retry-mark-ext');
+
+      expect(mockMarkForReinstall).toHaveBeenCalledWith('retry-mark-ext');
+    });
+  });
+
+  describe('post-install verification', () => {
+    it('should fail when contributed acpAdapters are not detected after install', async () => {
+      mocks.getExtensionResult = {
+        ...makeExtInfo('acp-ext', true),
+        contributes: { acpAdapters: ['myagent'] },
+      };
+      mocks.detectedAgents = []; // CLI not detected
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s.includes('acp-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('aion-extension.json')) return true;
+        return false;
+      });
+
+      await expect(hubInstaller.install('acp-ext')).rejects.toThrow('ACP adapters not detected');
+      expect(mocks.setTransientCalls.at(-1)?.[1]).toBe('install_failed');
+    });
+
+    it('should succeed when contributed acpAdapters are detected after install', async () => {
+      mocks.getExtensionResult = {
+        ...makeExtInfo('acp-ok-ext', true),
+        contributes: { acpAdapters: ['claude'] },
+      };
+      mocks.detectedAgents = [{ backend: 'claude', name: 'Claude Code' }];
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s.includes('acp-ok-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('aion-extension.json')) return true;
+        return false;
+      });
+
+      await hubInstaller.install('acp-ok-ext');
+      expect(mocks.setTransientCalls.at(-1)).toEqual(['acp-ok-ext', 'installed']);
+    });
+
+    it('should pass verification when extension has no contributes', async () => {
+      mocks.getExtensionResult = makeExtInfo('no-contrib-ext', true);
+      mocks.detectedAgents = [];
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s.includes('no-contrib-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('aion-extension.json')) return true;
+        return false;
+      });
+
+      await hubInstaller.install('no-contrib-ext');
+      expect(mocks.setTransientCalls.at(-1)).toEqual(['no-contrib-ext', 'installed']);
+    });
+
+    it('should fail when only some contributed acpAdapters are detected', async () => {
+      mocks.getExtensionResult = {
+        ...makeExtInfo('partial-ext', true),
+        contributes: { acpAdapters: ['claude', 'missing-agent'] },
+      };
+      mocks.detectedAgents = [{ backend: 'claude', name: 'Claude Code' }];
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s.includes('partial-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('aion-extension.json')) return true;
+        return false;
+      });
+
+      await expect(hubInstaller.install('partial-ext')).rejects.toThrow('ACP adapters not detected');
+    });
+    it('should succeed when custom adapter ID is detected via extension agent customAgentId', async () => {
+      mocks.getExtensionResult = {
+        ...makeExtInfo('custom-acp-ext', true),
+        contributes: { acpAdapters: ['my-custom-agent'] },
+      };
+      // Extension agent with backend 'custom' but adapter ID in customAgentId
+      mocks.detectedAgents = [
+        {
+          backend: 'custom',
+          name: 'My Custom',
+          isExtension: true,
+          customAgentId: 'ext:custom-acp-ext:my-custom-agent',
+        },
+      ];
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s.includes('custom-acp-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('aion-extension.json')) return true;
+        return false;
+      });
+
+      await hubInstaller.install('custom-acp-ext');
+      expect(mocks.setTransientCalls.at(-1)).toEqual(['custom-acp-ext', 'installed']);
     });
   });
 });

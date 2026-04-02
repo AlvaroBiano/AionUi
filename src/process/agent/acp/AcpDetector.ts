@@ -274,6 +274,30 @@ class AcpDetector {
     this.detectedAgents.push(...extensionAgents);
     this.detectedAgents = this.deduplicate(this.detectedAgents);
   }
+
+  /**
+   * Re-run all three detection paths from scratch.
+   * Called after hub install since onInstall hooks may have installed new CLIs.
+   * Clears cached env to pick up PATH changes.
+   */
+  async refreshAll(): Promise<void> {
+    this.enhancedEnv = undefined;
+
+    const [builtinAgents, extensionAgents, customAgents] = await Promise.all([
+      this.detectBuiltinAgents(),
+      this.detectExtensionAgents(),
+      this.detectCustomAgents(),
+    ]);
+
+    const gemini: DetectedAgent = {
+      backend: 'gemini',
+      name: 'Gemini CLI',
+      cliPath: undefined,
+      acpArgs: undefined,
+    };
+
+    this.detectedAgents = this.deduplicate([gemini, ...builtinAgents, ...extensionAgents, ...customAgents]);
+  }
 }
 
 export const acpDetector = new AcpDetector();

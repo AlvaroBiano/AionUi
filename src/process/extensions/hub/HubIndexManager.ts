@@ -1,16 +1,13 @@
-import type { HubExtensionStatus, IHubAgentItem, IHubExtension, IHubIndex } from '@/common/types/hub';
-import { acpDetector } from '@process/agent/acp/AcpDetector';
+import type { IHubExtension, IHubIndex } from '@/common/types/hub';
 import { net } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ExtensionRegistry } from '@process/extensions/ExtensionRegistry';
 import {
-  EXTENSION_MANIFEST_FILE,
   HUB_REMOTE_URLS,
   HUB_INDEX_FILE,
+  HUB_SUPPORTED_SCHEMA_VERSION,
   getHubResourcesDir,
 } from '@process/extensions/constants';
-import { hubStateManager } from '@process/extensions/hub/HubStateManager';
 
 /**
  * HubIndexManager
@@ -76,95 +73,18 @@ class HubIndexManagerImpl {
   }
 
   /**
-   * Returns the full extension list with runtime status.
+   * Validate that the index schemaVersion is compatible with this app.
+   * Returns true if compatible, false otherwise.
    */
-  public getExtensionListWithStatus(): IHubAgentItem[] {
-    const loadedByName = new Map(
-      ExtensionRegistry.getInstance()
-        .getLoadedExtensions()
-        .map((e) => [e.manifest.name, e])
-    );
-
-    const detectedAgents = acpDetector.getDetectedAgents();
-    const detectedBackends = new Set<string>(
-      detectedAgents
-        .map((a) => {
-          if (a.backend === 'custom' && a.isExtension) return a.customAgentId ?? a.name;
-          if (a.backend !== 'custom') return a.backend;
-          return null; // only return known backends and extension-contributed agents
-        })
-        .filter((b): b is string => b !== null)
-    );
-
-    console.log(
-      `[HubIndexManager] Status context: ${loadedByName.size} loaded extension(s) [${[...loadedByName.keys()].join(', ')}], ` +
-        `${detectedAgents.length} detected agent(s) [${[...detectedBackends].join(', ')}], ` +
-        `${Object.keys(this.mergedIndex).length} hub extension(s)`
-    );
-
-    const result: IHubAgentItem[] = [];
-
-    for (const ext of Object.values(this.mergedIndex)) {
-      const status = this.deriveStatus(ext, loadedByName, detectedBackends);
-
-      result.push({
-        ...ext,
-        status,
-        installError: hubStateManager.getPersistentInstallError(ext.name),
-      });
+  private isSchemaCompatible(data: IHubIndex, source: string): boolean {
+    if (data.schemaVersion > HUB_SUPPORTED_SCHEMA_VERSION) {
+      console.warn(
+        `[HubIndexManager] ${source} index schemaVersion ${data.schemaVersion} ` +
+          `> supported ${HUB_SUPPORTED_SCHEMA_VERSION}, skipping`
+      );
+      return false;
     }
-
-    return result;
-  }
-
-  /**
-   * Derive the runtime status for a single hub extension.
-   *
-   * Priority:
-   *   1. Transient state (installing / uninstalling)
-   *   2. Persistent install error
-   *   3. Loaded in ExtensionRegistry (check for update)
-   *   4. AcpDetector already detected all contributed backends → installed
-   *   5. not_installed
-   */
-  private deriveStatus(
-    ext: IHubExtension,
-    loadedByName: Map<string, { directory: string }>,
-    detectedBackends: Set<string>
-  ): HubExtensionStatus {
-    // 1. Transient state (installing / uninstalling)
-    const transient = hubStateManager.getTransientState(ext.name);
-    if (transient) return transient;
-
-    // 2. Persistent install error
-    const hasError = hubStateManager.getPersistentInstallError(ext.name);
-    if (hasError) return 'install_failed';
-
-    // 3. Loaded in ExtensionRegistry — check for update
-    const loaded = loadedByName.get(ext.name);
-    if (loaded) {
-      const manifestPath = path.join(loaded.directory, EXTENSION_MANIFEST_FILE);
-      try {
-        if (fs.existsSync(manifestPath)) {
-          const localManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-          if (localManifest.dist?.integrity && localManifest.dist.integrity !== ext.dist.integrity) {
-            return 'update_available';
-          }
-        }
-      } catch {
-        // Ignore read errors — treat as installed
-      }
-    }
-
-    // 4. All contributed acpAdapters are already detected on system
-    const adapterIds = ext.contributes?.acpAdapters;
-    if (adapterIds && adapterIds.length > 0) {
-      if (adapterIds.every((id) => detectedBackends.has(id))) {
-        return 'installed';
-      }
-    }
-
-    return 'not_installed';
+    return true;
   }
 
   private fetchLocalIndex(): Record<string, IHubExtension> {
@@ -177,7 +97,7 @@ class HubIndexManagerImpl {
 
       const content = fs.readFileSync(indexPath, 'utf-8');
       const data = JSON.parse(content) as IHubIndex;
-
+      if (!this.isSchemaCompatible(data, 'Local')) return {};
       return data.extensions ?? {};
     } catch (error) {
       console.error('[HubIndexManager] Failed to read local bundled index:', error);
@@ -198,6 +118,8 @@ class HubIndexManagerImpl {
         const response = (await Promise.race([net.fetch(url), timeoutPromise])) as Response;
         if (!response.ok) throw new Error(`Status ${response.status}`);
         const data = (await response.json()) as IHubIndex;
+
+        if (!this.isSchemaCompatible(data, 'Remote')) return {};
         return data.extensions ?? {};
       } catch (error) {
         console.warn(`[HubIndexManager] Fetch failed from ${url} (${error})`);

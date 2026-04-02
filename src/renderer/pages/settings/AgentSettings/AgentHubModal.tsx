@@ -1,6 +1,7 @@
 import React from 'react';
-import { Modal, List, Button, Typography, Space, Tooltip } from '@arco-design/web-react';
+import { List, Button, Typography, Tooltip } from '@arco-design/web-react';
 import { IconDownload, IconRefresh } from '@arco-design/web-react/icon';
+import ModalWrapper from '@/renderer/components/base/ModalWrapper';
 import { useHubAgents } from '@/renderer/hooks/agent/useHubAgents';
 import type { IHubAgentItem } from '@/common/types/hub';
 import { resolveAgentLogo } from '@renderer/utils/model/agentLogo';
@@ -54,7 +55,7 @@ export const AgentHubModal: React.FC<AgentHubModalProps> = ({ visible, onCancel 
   };
 
   return (
-    <Modal
+    <ModalWrapper
       title='Agent Hub'
       visible={visible}
       onCancel={onCancel}
@@ -95,6 +96,6 @@ export const AgentHubModal: React.FC<AgentHubModalProps> = ({ visible, onCancel 
           </List.Item>
         )}
       />
-    </Modal>
+    </ModalWrapper>
   );
 };

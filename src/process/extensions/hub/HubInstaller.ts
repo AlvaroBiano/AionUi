@@ -13,10 +13,76 @@ import {
   HUB_REMOTE_URLS,
 } from '@process/extensions/constants';
 import { ExtensionRegistry } from '@process/extensions/ExtensionRegistry';
+import { markExtensionForReinstall } from '@process/extensions/lifecycle/statePersistence';
 import { hubIndexManager } from '@process/extensions/hub/HubIndexManager';
 import { hubStateManager } from '@process/extensions/hub/HubStateManager';
+import type { IHubExtension, HubContributes } from '@/common/types/hub';
 
 const execAsync = promisify(exec);
+
+// ---------------------------------------------------------------------------
+// Post-install verification
+// ---------------------------------------------------------------------------
+
+type VerifyResult = { ok: boolean; reason?: string };
+
+/**
+ * Per-contributes-type verification functions.
+ * Each verifier checks whether the contributed capabilities are actually
+ * available after onInstall has completed.
+ *
+ * Return { ok: true } to pass, or { ok: false, reason } to fail.
+ * Types without a verifier are assumed to pass (installed == extracted + loaded).
+ */
+const contributeVerifiers: Partial<Record<keyof HubContributes, (ids: string[]) => VerifyResult>> = {
+  acpAdapters(ids: string[]): VerifyResult {
+    const agents = acpDetector.getDetectedAgents();
+
+    // Build a set of all identifiers that represent a detected adapter:
+    // - backend ID for builtin agents (e.g. 'claude', 'qwen')
+    // - adapter ID from customAgentId for extension agents (e.g. 'ext:name:adapterId' → 'adapterId')
+    const detectedIds = new Set<string>();
+    for (const a of agents) {
+      if (a.backend !== 'custom') {
+        detectedIds.add(a.backend);
+      }
+      if (a.isExtension && a.customAgentId) {
+        const adapterId = a.customAgentId.split(':').pop();
+        if (adapterId) detectedIds.add(adapterId);
+      }
+    }
+
+    const missing = ids.filter((id) => !detectedIds.has(id));
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        reason: `ACP adapters not detected after install: [${missing.join(', ')}]. The onInstall hook may have failed to install the required CLI.`,
+      };
+    }
+    return { ok: true };
+  },
+};
+
+/**
+ * Verify that all contributed capabilities declared by an extension
+ * are actually available after installation.
+ */
+function verifyInstallation(extInfo: IHubExtension): VerifyResult {
+  const contributes = extInfo.contributes;
+  if (!contributes) return { ok: true };
+
+  for (const [key, ids] of Object.entries(contributes)) {
+    if (!ids || ids.length === 0) continue;
+
+    const verifier = contributeVerifiers[key as keyof HubContributes];
+    if (!verifier) continue; // No verifier for this type — assume OK
+
+    const result = verifier(ids);
+    if (!result.ok) return result;
+  }
+
+  return { ok: true };
+}
 
 export class HubInstallerImpl {
   private getCacheDir(): string {
@@ -89,14 +155,24 @@ export class HubInstallerImpl {
       }
 
       // Step 5: Reload extension registry and refresh AcpDetector
+      // Clear persisted state so hotReload treats this as a fresh install
+      // and re-runs onInstall (handles reinstall after CLI was uninstalled).
+      markExtensionForReinstall(name);
+
       // hotReload re-scans all extension directories, discovers this new extension,
       // and runs the full lifecycle (onInstall for first-time + onActivate) via
       // the extension system's lifecycle runner (forked process, timeout, sandboxing).
       await ExtensionRegistry.hotReload();
 
-      // Re-read extension-contributed ACP adapters from the updated registry
-      // so that getAvailableAgents reflects the newly installed agent.
-      await acpDetector.refreshExtensionAgents();
+      // Re-detect all agents (builtin + extension + custom) since onInstall
+      // may have installed new CLIs that weren't on PATH at startup.
+      await acpDetector.refreshAll();
+
+      // Step 6: Verify contributed capabilities are actually available
+      const verification = verifyInstallation(extInfo);
+      if (!verification.ok) {
+        throw new Error(verification.reason);
+      }
 
       hubStateManager.setTransientState(name, 'installed');
     } catch (error) {
@@ -125,9 +201,20 @@ export class HubInstallerImpl {
         throw new Error('Extension manifest missing, please reinstall from scratch.');
       }
 
-      // Reload registry — it will re-discover this extension and run lifecycle hooks
+      // Reload registry — clear persisted state to force onInstall re-run
+      markExtensionForReinstall(name);
       await ExtensionRegistry.hotReload();
-      await acpDetector.refreshExtensionAgents();
+      await acpDetector.refreshAll();
+
+      // Verify contributed capabilities
+      const extInfo = hubIndexManager.getExtension(name);
+      if (extInfo) {
+        const verification = verifyInstallation(extInfo);
+        if (!verification.ok) {
+          throw new Error(verification.reason);
+        }
+      }
+
       hubStateManager.setTransientState(name, 'installed');
     } catch (error) {
       console.error(`[HubInstaller] Failed to retry install ${name}:`, error);

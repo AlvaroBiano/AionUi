@@ -151,3 +151,17 @@ export function needsInstallHook(
 
   return { isFirstInstall: false, isUpgrade: false };
 }
+
+/**
+ * Clear the installed state for an extension so that the next hotReload
+ * treats it as a fresh install and re-runs the onInstall lifecycle hook.
+ */
+export function markExtensionForReinstall(extensionName: string): void {
+  const states = loadPersistedStates();
+  const state = states.get(extensionName);
+  if (state) {
+    state.installed = false;
+    states.set(extensionName, state);
+    savePersistedStates(states);
+  }
+}

@@ -109,6 +109,8 @@ extraResources:
     to: app.png
   - from: resources/bundled-bun
     to: bundled-bun
+  - from: resources/hub
+    to: hub
 
 win:
   target:
