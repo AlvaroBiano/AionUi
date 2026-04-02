@@ -132,15 +132,7 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
     }
 
     void editor.handleEdit(targetAssistant);
-  }, [
-    agentMessage,
-    assistants,
-    customAgents,
-    editor,
-    selectedAgentInfo?.customAgentId,
-    selectedAgentKey,
-    t,
-  ]);
+  }, [agentMessage, assistants, customAgents, editor, selectedAgentInfo?.customAgentId, selectedAgentKey, t]);
 
   useLayoutEffect(() => {
     if (!onRegisterOpenDetails) return;

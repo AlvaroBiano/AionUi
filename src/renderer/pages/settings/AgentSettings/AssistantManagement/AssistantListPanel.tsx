@@ -104,7 +104,10 @@ const AssistantListPanel: React.FC<AssistantListPanelProps> = ({
             </div>
           </div>
         </div>
-        <div className='flex items-center gap-10px text-t-secondary ml-12px flex-shrink-0' onClick={(e) => e.stopPropagation()}>
+        <div
+          className='flex items-center gap-10px text-t-secondary ml-12px flex-shrink-0'
+          onClick={(e) => e.stopPropagation()}
+        >
           <span
             className='invisible group-hover:visible text-12px text-primary cursor-pointer hover:underline transition-all'
             onClick={() => {
@@ -189,7 +192,11 @@ const AssistantListPanel: React.FC<AssistantListPanelProps> = ({
                 size='small'
                 className='!rounded-10px !h-34px !w-34px !p-0 flex items-center justify-center !text-t-secondary hover:!bg-fill-1 hover:!text-t-primary'
                 icon={
-                  isSearchVisible ? <CloseSmall size={16} fill='currentColor' /> : <Search size={16} fill='currentColor' />
+                  isSearchVisible ? (
+                    <CloseSmall size={16} fill='currentColor' />
+                  ) : (
+                    <Search size={16} fill='currentColor' />
+                  )
                 }
                 onClick={() => {
                   if (isSearchVisible) {
