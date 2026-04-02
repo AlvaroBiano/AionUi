@@ -5,7 +5,7 @@
  */
 
 import type { TChatConversation } from '@/common/config/storage';
-import { getDatabase } from '@process/services/database';
+import { getDatabase } from '@server/services/database';
 import { ProcessChatMessage } from '@process/utils/initStorage';
 
 /**

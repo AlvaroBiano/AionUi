@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeWsUrl } from '@process/agent/openclaw/OpenClawGatewayConnection';
+import { normalizeWsUrl } from '@server/agent/openclaw/OpenClawGatewayConnection';
 
 describe('normalizeWsUrl', () => {
   it('should prepend ws:// when no protocol is present', () => {

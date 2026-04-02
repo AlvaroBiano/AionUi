@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { decodeWindowsError } from '@process/agent/acp/utils';
+import { decodeWindowsError } from '@server/agent/acp/utils';
 
 describe('decodeWindowsError', () => {
   it('returns stderr string when it is readable', () => {

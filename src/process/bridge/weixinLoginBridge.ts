@@ -5,7 +5,7 @@
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
-import { WeixinLoginHandler } from '@process/channels/plugins/weixin/WeixinLoginHandler';
+import { WeixinLoginHandler } from '@server/channels/plugins/weixin/WeixinLoginHandler';
 
 let handler: WeixinLoginHandler | null = null;
 

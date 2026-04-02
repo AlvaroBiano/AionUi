@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ChannelMessageService } from '@process/channels/agent/ChannelMessageService';
-import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
-import * as databaseModule from '@process/services/database';
+import { ChannelMessageService } from '@server/channels/agent/ChannelMessageService';
+import { workerTaskManager } from '@server/task/workerTaskManagerSingleton';
+import * as databaseModule from '@server/services/database';
 
 const flushMicrotasks = async (count = 5) => {
   for (let i = 0; i < count; i++) {

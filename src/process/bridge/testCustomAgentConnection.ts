@@ -8,7 +8,7 @@
  * 2. Spawn CLI and send ACP initialize request
  */
 import { execFileSync } from 'child_process';
-import { AcpConnection } from '@process/agent/acp/AcpConnection';
+import { AcpConnection } from '@server/agent/acp/AcpConnection';
 import * as os from 'os';
 
 type TestResult = {

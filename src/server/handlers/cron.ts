@@ -5,7 +5,7 @@
  */
 
 import type { WsRouter } from '../router/WsRouter';
-import { cronService } from '@process/services/cron/cronServiceSingleton';
+import { cronService } from '@server/services/cron/cronServiceSingleton';
 
 /**
  * Register cron endpoint handlers on the WsRouter.

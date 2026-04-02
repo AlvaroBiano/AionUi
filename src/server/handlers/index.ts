@@ -5,10 +5,10 @@
  */
 
 import type { WsRouter } from '../router/WsRouter';
-import type { IConversationRepository } from '@process/services/database/IConversationRepository';
-import type { IChannelRepository } from '@process/services/database/IChannelRepository';
-import type { IConversationService } from '@process/services/IConversationService';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
+import type { IChannelRepository } from '@server/services/database/IChannelRepository';
+import type { IConversationService } from '@server/services/IConversationService';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import { registerCronHandlers } from './cron';
 import { registerDatabaseHandlers } from './database';
 import { registerAuthHandlers } from './auth';

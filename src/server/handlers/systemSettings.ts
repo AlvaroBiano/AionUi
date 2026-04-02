@@ -13,7 +13,7 @@
  */
 
 import { ProcessConfig } from '@process/utils/initStorage';
-import { changeLanguage } from '@process/services/i18n';
+import { changeLanguage } from '@server/services/i18n';
 import type { WsRouter } from '../router/WsRouter';
 
 type CloseToTrayChangeListener = (enabled: boolean) => void;

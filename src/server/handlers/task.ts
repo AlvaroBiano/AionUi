@@ -5,7 +5,7 @@
  */
 
 import type { WsRouter } from '../router/WsRouter';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 
 /**
  * Register task management endpoint handlers on the WsRouter.

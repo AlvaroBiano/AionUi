@@ -5,14 +5,14 @@
  */
 
 import type { WsRouter } from '../router/WsRouter';
-import { getChannelManager } from '@process/channels/core/ChannelManager';
-import { getPairingService } from '@process/channels/pairing/PairingService';
-import { ExtensionRegistry } from '@process/extensions';
-import { toAssetUrl } from '@process/extensions/protocol/assetProtocol';
+import { getChannelManager } from '@server/channels/core/ChannelManager';
+import { getPairingService } from '@server/channels/pairing/PairingService';
+import { ExtensionRegistry } from '@server/extensions';
+import { toAssetUrl } from '@server/extensions/protocol/assetProtocol';
 import * as path from 'path';
-import type { IChannelPluginStatus } from '@process/channels/types';
-import { hasPluginCredentials } from '@process/channels/types';
-import type { IChannelRepository } from '@process/services/database/IChannelRepository';
+import type { IChannelPluginStatus } from '@server/channels/types';
+import { hasPluginCredentials } from '@server/channels/types';
+import type { IChannelRepository } from '@server/services/database/IChannelRepository';
 
 /**
  * Register channel endpoint handlers on the WsRouter.
@@ -30,7 +30,7 @@ export function registerChannelHandlers(router: WsRouter, channelRepo: IChannelR
     try {
       const BUILTIN_TYPES = new Set(['telegram', 'lark', 'dingtalk', 'slack', 'discord', 'weixin']);
 
-      let dbPlugins: import('@process/channels/types').IChannelPluginConfig[] = [];
+      let dbPlugins: import('@server/channels/types').IChannelPluginConfig[] = [];
       try {
         dbPlugins = await channelRepo.getChannelPlugins();
       } catch (dbError) {

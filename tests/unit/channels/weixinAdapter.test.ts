@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { WeixinChatRequest } from '@process/channels/plugins/weixin/WeixinMonitor';
-import { toUnifiedIncomingMessage, stripHtml } from '@process/channels/plugins/weixin/WeixinAdapter';
+import type { WeixinChatRequest } from '@server/channels/plugins/weixin/WeixinMonitor';
+import { toUnifiedIncomingMessage, stripHtml } from '@server/channels/plugins/weixin/WeixinAdapter';
 
 describe('toUnifiedIncomingMessage', () => {
   const baseRequest: WeixinChatRequest = {

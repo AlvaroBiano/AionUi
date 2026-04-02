@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { escapeHtml, markdownToTelegramHtml } from '@process/channels/plugins/telegram/TelegramAdapter';
+import { escapeHtml, markdownToTelegramHtml } from '@server/channels/plugins/telegram/TelegramAdapter';
 
 describe('escapeHtml', () => {
   it('escapes ampersands, angle brackets', () => {

@@ -13,7 +13,7 @@ import type { WsRouter } from '../../router/WsRouter';
 import type { IProvider } from '@/common/config/storage';
 import { uuid } from '@/common/utils';
 import { ProcessConfig } from '@process/utils/initStorage';
-import { ExtensionRegistry } from '@process/extensions';
+import { ExtensionRegistry } from '@server/extensions';
 
 export function registerModelConfigHandlers(router: WsRouter): void {
   router.handle('mode.save-model-config', (models) => {

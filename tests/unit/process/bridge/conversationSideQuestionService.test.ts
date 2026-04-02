@@ -39,7 +39,7 @@ vi.mock('@process/utils/initStorage', () => ({
   },
 }));
 
-vi.mock('@process/agent/acp/AcpConnection', () => ({
+vi.mock('@server/agent/acp/AcpConnection', () => ({
   AcpConnection: class {
     onSessionUpdate: (data: AcpSessionUpdate) => void = () => {};
     onPermissionRequest: (data: AcpPermissionRequest) => Promise<{ optionId: string }> = async () => ({

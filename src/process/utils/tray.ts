@@ -12,7 +12,7 @@ import {
   electronTray as Tray,
 } from '@/common/electronSafe';
 import * as path from 'path';
-import i18n from '@process/services/i18n';
+import i18n from '@server/services/i18n';
 import { workerTaskManager } from '../task/workerTaskManagerSingleton';
 
 let tray: TrayInstance | null = null;
@@ -55,7 +55,7 @@ const getTrayIcon = (): Electron.NativeImage => {
 const buildTrayContextMenu = async (): Promise<Electron.Menu> => {
   const getRecentConversations = async (): Promise<Array<{ id: string; title: string }>> => {
     try {
-      const { getDatabase } = await import('@process/services/database');
+      const { getDatabase } = await import('@server/services/database');
       const db = await getDatabase();
       const result = db.getUserConversations(undefined, 0, 5);
       return (result.data || []).slice(0, 5).map((conv) => ({

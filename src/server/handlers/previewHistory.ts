@@ -6,7 +6,7 @@
 
 import type { WsRouter } from '../router/WsRouter';
 import type { PreviewHistoryTarget } from '@aionui/protocol/types/preview';
-import { previewHistoryService } from '@process/services/previewHistoryService';
+import { previewHistoryService } from '@server/services/previewHistoryService';
 
 /**
  * Register preview history endpoint handlers on the WsRouter.

@@ -36,7 +36,7 @@ vi.mock('../../src/common/adapter/ipcBridge', () => ({
   },
 }));
 
-vi.mock('@process/channels/core/ChannelManager', () => ({
+vi.mock('@server/channels/core/ChannelManager', () => ({
   getChannelManager: vi.fn(() => ({
     enablePlugin: vi.fn(async () => ({ success: true })),
     disablePlugin: vi.fn(async () => ({ success: true })),
@@ -45,7 +45,7 @@ vi.mock('@process/channels/core/ChannelManager', () => ({
   })),
 }));
 
-vi.mock('@process/channels/pairing/PairingService', () => ({
+vi.mock('@server/channels/pairing/PairingService', () => ({
   getPairingService: vi.fn(() => ({
     approvePairing: vi.fn(async () => ({ success: true })),
     rejectPairing: vi.fn(async () => ({ success: true })),

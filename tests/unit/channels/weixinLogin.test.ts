@@ -8,7 +8,7 @@ vi.mock('https', () => ({
 }));
 
 import https from 'https';
-import { startLogin } from '@process/channels/plugins/weixin/WeixinLogin';
+import { startLogin } from '@server/channels/plugins/weixin/WeixinLogin';
 
 type MockRequestCallback = (res: {
   on: (event: string, cb: (data?: unknown) => void) => void;

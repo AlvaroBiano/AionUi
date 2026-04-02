@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { acpDetector } from '@process/agent/acp/AcpDetector';
-import type { IChannelRepository } from '@process/services/database/IChannelRepository';
-import type { IConversationRepository } from '@process/services/database/IConversationRepository';
-import type { IConversationService } from '@process/services/IConversationService';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
+import { acpDetector } from '@server/agent/acp/AcpDetector';
+import type { IChannelRepository } from '@server/services/database/IChannelRepository';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
+import type { IConversationService } from '@server/services/IConversationService';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import { initAcpConversationBridge } from './acpConversationBridge';
 import { initApplicationBridge } from './applicationBridge';
 import { initAuthBridge } from './authBridge';

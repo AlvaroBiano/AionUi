@@ -20,7 +20,7 @@ vi.mock('@/common/platform', () => ({
 vi.mock('croner', () => ({
   Cron: vi.fn(() => ({ stop: vi.fn(), nextRun: vi.fn(() => null) })),
 }));
-vi.mock('@process/services/i18n', () => ({
+vi.mock('@server/services/i18n', () => ({
   default: { t: vi.fn((key: string) => key) },
   i18nReady: Promise.resolve(),
 }));

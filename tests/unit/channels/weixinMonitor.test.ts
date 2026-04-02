@@ -9,8 +9,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { startMonitor } from '@process/channels/plugins/weixin/WeixinMonitor';
-import type { MonitorOptions } from '@process/channels/plugins/weixin/WeixinMonitor';
+import { startMonitor } from '@server/channels/plugins/weixin/WeixinMonitor';
+import type { MonitorOptions } from '@server/channels/plugins/weixin/WeixinMonitor';
 
 const TEST_DIR = path.join(os.tmpdir(), `aionui-weixin-monitor-${process.pid}`);
 

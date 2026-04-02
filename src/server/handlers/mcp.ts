@@ -5,8 +5,8 @@
  */
 
 import type { WsRouter } from '../router/WsRouter';
-import { mcpService } from '@process/services/mcpServices/McpService';
-import { mcpOAuthService } from '@process/services/mcpServices/McpOAuthService';
+import { mcpService } from '@server/services/mcpServices/McpService';
+import { mcpOAuthService } from '@server/services/mcpServices/McpOAuthService';
 
 /**
  * Register MCP service endpoint handlers on the WsRouter.

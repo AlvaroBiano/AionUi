@@ -12,17 +12,17 @@
  */
 
 import type { WsRouter } from '../router/WsRouter';
-import type { CodexAgentManager } from '@process/agent/codex';
-import { GeminiAgent, GeminiApprovalStore } from '@process/agent/gemini';
+import type { CodexAgentManager } from '@server/agent/codex';
+import { GeminiAgent, GeminiApprovalStore } from '@server/agent/gemini';
 import type { TChatConversation } from '@/common/config/storage';
-import type { IAgentManager } from '@process/task/IAgentManager';
-import type { IConversationService } from '@process/services/IConversationService';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
+import type { IAgentManager } from '@server/task/IAgentManager';
+import type { IConversationService } from '@server/services/IConversationService';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import { getSkillsDir, getBuiltinSkillsCopyDir, getSystemDir, ProcessChat } from '@process/utils/initStorage';
-import type AcpAgentManager from '@process/task/AcpAgentManager';
-import type { GeminiAgentManager } from '@process/task/GeminiAgentManager';
-import type OpenClawAgentManager from '@process/task/OpenClawAgentManager';
-import { prepareFirstMessage } from '@process/task/agentUtils';
+import type AcpAgentManager from '@server/task/AcpAgentManager';
+import type { GeminiAgentManager } from '@server/task/GeminiAgentManager';
+import type OpenClawAgentManager from '@server/task/OpenClawAgentManager';
+import { prepareFirstMessage } from '@server/task/agentUtils';
 import { refreshTrayMenu } from '@process/utils/tray';
 import { copyFilesToDirectory, readDirectoryRecursive } from '@process/utils';
 import { computeOpenClawIdentityHash } from '@process/utils/openclawUtils';
@@ -223,7 +223,7 @@ export function registerConversationHandlers(
 
       if (source && source !== 'aionui') {
         try {
-          const { getChannelManager } = await import('@process/channels/core/ChannelManager');
+          const { getChannelManager } = await import('@server/channels/core/ChannelManager');
           const channelManager = getChannelManager();
           if (channelManager.isInitialized()) {
             await channelManager.cleanupConversation(id);

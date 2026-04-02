@@ -666,7 +666,7 @@ export function registerSkillOpsHandlers(router: WsRouter): void {
       const content = await readBundledSkillsMarketMd();
       await fs.writeFile(path.join(skillDir, 'SKILL.md'), content, 'utf-8');
 
-      const { AcpSkillManager } = await import('@process/task/AcpSkillManager');
+      const { AcpSkillManager } = await import('@server/task/AcpSkillManager');
       AcpSkillManager.resetInstance();
 
       return { success: true, msg: 'Skills Market skill enabled' };
@@ -685,7 +685,7 @@ export function registerSkillOpsHandlers(router: WsRouter): void {
       const skillDir = path.join(getAutoSkillsDir(), 'aionui-skills');
       await fs.rm(skillDir, { recursive: true, force: true });
 
-      const { AcpSkillManager } = await import('@process/task/AcpSkillManager');
+      const { AcpSkillManager } = await import('@server/task/AcpSkillManager');
       AcpSkillManager.resetInstance();
 
       return { success: true, msg: 'Skills Market skill disabled' };

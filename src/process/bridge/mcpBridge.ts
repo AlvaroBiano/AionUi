@@ -5,8 +5,8 @@
  */
 
 import { ipcBridge } from '@/common';
-import { mcpService } from '@process/services/mcpServices/McpService';
-import { mcpOAuthService } from '@process/services/mcpServices/McpOAuthService';
+import { mcpService } from '@server/services/mcpServices/McpService';
+import { mcpOAuthService } from '@server/services/mcpServices/McpOAuthService';
 
 export function initMcpBridge(): void {
   // MCP 服务相关 IPC 处理程序

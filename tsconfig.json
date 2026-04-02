@@ -19,7 +19,7 @@
       "@/*": ["./src/*"],
       "@process/*": ["./src/process/*"],
       "@renderer/*": ["./src/renderer/*"],
-      "@worker/*": ["./src/process/worker/*"],
+      "@worker/*": ["./src/server/worker/*"],
       "@server/*": ["./src/server/*"],
       "@aionui/protocol": ["./packages/protocol/src"],
       "@aionui/protocol/*": ["./packages/protocol/src/*"]
@@ -34,7 +34,7 @@
     "src/renderer/types.d.ts"
   ],
   "exclude": [
-    "src/process/services/database/drivers/BunSqliteDriver.ts",
-    "src/process/services/database/drivers/BunSqliteDriver.bun.test.ts"
+    "src/server/services/database/drivers/BunSqliteDriver.ts",
+    "src/server/services/database/drivers/BunSqliteDriver.bun.test.ts"
   ]
 }

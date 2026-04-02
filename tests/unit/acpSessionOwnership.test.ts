@@ -37,7 +37,7 @@ const mockInitialize = vi.fn().mockResolvedValue({ agentInfo: {} });
 const mockOn = vi.fn();
 const mockDestroy = vi.fn();
 
-vi.mock('@process/agent/acp/AcpConnection', () => {
+vi.mock('@server/agent/acp/AcpConnection', () => {
   return {
     AcpConnection: class MockAcpConnection {
       loadSession = mockLoadSession;
@@ -50,21 +50,21 @@ vi.mock('@process/agent/acp/AcpConnection', () => {
   };
 });
 
-vi.mock('@process/agent/acp/mcpSessionConfig', () => ({
+vi.mock('@server/agent/acp/mcpSessionConfig', () => ({
   buildBuiltinAcpSessionMcpServers: vi.fn().mockResolvedValue([]),
   parseAcpMcpCapabilities: vi.fn(),
 }));
 
-vi.mock('@process/agent/acp/modelInfo', () => ({
+vi.mock('@server/agent/acp/modelInfo', () => ({
   buildAcpModelInfo: vi.fn(),
   summarizeAcpModelInfo: vi.fn(),
 }));
 
-vi.mock('@process/agent/acp/utils', () => ({
+vi.mock('@server/agent/acp/utils', () => ({
   getClaudeModel: vi.fn(),
 }));
 
-import { AcpAgent } from '@process/agent/acp';
+import { AcpAgent } from '@server/agent/acp';
 
 describe('AcpAgent - session ownership validation', () => {
   const onStreamEvent = vi.fn();

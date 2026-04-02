@@ -39,7 +39,8 @@ const mainAliases = {
   '@common': resolve('src/common'),
   '@renderer': resolve('src/renderer'),
   '@process': resolve('src/process'),
-  '@worker': resolve('src/process/worker'),
+  '@server': resolve('src/server'),
+  '@worker': resolve('src/server/worker'),
   '@xterm/headless': resolve('src/common/utils/shims/xterm-headless.ts'),
 };
 
@@ -77,8 +78,8 @@ export default defineConfig(({ mode }) => {
                 targets: [
                   // Use single * glob to copy top-level items (directories) with their contents intact.
                   // Using ** would flatten all nested files into the dest root.
-                  { src: 'src/process/resources/skills/*', dest: 'skills' },
-                  { src: 'src/process/resources/assistant/*', dest: 'assistant' },
+                  { src: 'src/server/resources/skills/*', dest: 'skills' },
+                  { src: 'src/server/resources/assistant/*', dest: 'assistant' },
                   { src: 'src/renderer/assets/logos/*', dest: 'static/images' },
                 ],
               }),
@@ -96,13 +97,13 @@ export default defineConfig(({ mode }) => {
             // Worker entry files are output alongside index.js in out/main/.
             // BaseAgentManager.resolveWorkerDir() handles the case where code
             // splitting places it in a chunks/ subdirectory.
-            gemini: resolve('src/process/worker/gemini.ts'),
-            acp: resolve('src/process/worker/acp.ts'),
-            codex: resolve('src/process/worker/codex.ts'),
-            'openclaw-gateway': resolve('src/process/worker/openclaw-gateway.ts'),
-            nanobot: resolve('src/process/worker/nanobot.ts'),
+            gemini: resolve('src/server/worker/gemini.ts'),
+            acp: resolve('src/server/worker/acp.ts'),
+            codex: resolve('src/server/worker/codex.ts'),
+            'openclaw-gateway': resolve('src/server/worker/openclaw-gateway.ts'),
+            nanobot: resolve('src/server/worker/nanobot.ts'),
             // Built-in MCP server entry points
-            'builtin-mcp-image-gen': resolve('src/process/resources/builtinMcp/imageGenServer.ts'),
+            'builtin-mcp-image-gen': resolve('src/server/resources/builtinMcp/imageGenServer.ts'),
           },
           onwarn(warning, warn) {
             if (warning.code === 'EVAL') return;
@@ -152,7 +153,8 @@ export default defineConfig(({ mode }) => {
           '@common': resolve('src/common'),
           '@renderer': resolve('src/renderer'),
           '@process': resolve('src/process'),
-          '@worker': resolve('src/process/worker'),
+          '@server': resolve('src/server'),
+          '@worker': resolve('src/server/worker'),
           // Force ESM version of streamdown
           streamdown: resolve('node_modules/streamdown/dist/index.js'),
         },

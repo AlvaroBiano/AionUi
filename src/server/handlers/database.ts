@@ -8,7 +8,7 @@ import type { WsRouter } from '../router/WsRouter';
 import type { TChatConversation } from '@aionui/protocol/config/storage';
 import { ProcessChat } from '@process/utils/initStorage';
 import { migrateConversationToDatabase } from '@process/bridge/migrationUtils';
-import type { IConversationRepository } from '@process/services/database/IConversationRepository';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
 
 /**
  * Register database endpoint handlers on the WsRouter.

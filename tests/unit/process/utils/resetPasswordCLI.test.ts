@@ -14,7 +14,7 @@ describe('resetPasswordCLI helpers', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.doUnmock('@process/utils');
-    vi.doUnmock('@process/services/database/export');
+    vi.doUnmock('@server/services/database/export');
   });
 
   it('returns admin when resetpass is missing', async () => {
@@ -58,7 +58,7 @@ describe('resetPasswordCLI helpers', () => {
     vi.doMock('@process/utils', () => ({
       getDataPath: vi.fn(() => 'C:/mock/.aionui/aionui'),
     }));
-    vi.doMock('@process/services/database/export', () => ({
+    vi.doMock('@server/services/database/export', () => ({
       getDatabase: vi.fn(() => Promise.resolve(mockDb)),
       closeDatabase,
     }));

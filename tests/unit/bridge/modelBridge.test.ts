@@ -74,7 +74,7 @@ vi.mock('@process/utils/initStorage', () => ({
   },
 }));
 
-vi.mock('@process/extensions', () => ({
+vi.mock('@server/extensions', () => ({
   ExtensionRegistry: {
     getInstance: vi.fn(() => ({
       getModelProviders: vi.fn(() => []),

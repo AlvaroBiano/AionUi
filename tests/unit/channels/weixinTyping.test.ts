@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TypingManager } from '@process/channels/plugins/weixin/WeixinTyping';
+import { TypingManager } from '@server/channels/plugins/weixin/WeixinTyping';
 
 // ---------------------------------------------------------------------------
 // Helpers

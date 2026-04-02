@@ -16,7 +16,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // ── Hoisted mocks ────────────────────────────────────────────────────────────
 const { mockSetProcessing } = vi.hoisted(() => ({ mockSetProcessing: vi.fn() }));
 
-vi.mock('@process/services/cron/CronBusyGuard', () => ({
+vi.mock('@server/services/cron/CronBusyGuard', () => ({
   cronBusyGuard: { setProcessing: mockSetProcessing },
 }));
 vi.mock('@process/utils/mainLogger', () => ({
@@ -30,7 +30,7 @@ vi.mock('@process/utils/initStorage', () => ({
 vi.mock('@/common', () => ({
   ipcBridge: { acpConversation: { responseStream: { emit: vi.fn() } } },
 }));
-vi.mock('@process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn(() => Promise.resolve({ updateConversation: vi.fn() })),
 }));
 vi.mock('@process/utils/message', () => ({
@@ -38,7 +38,7 @@ vi.mock('@process/utils/message', () => ({
   addOrUpdateMessage: vi.fn(),
   nextTickToLocalFinish: vi.fn((cb: () => void) => cb()),
 }));
-vi.mock('@process/channels/agent/ChannelEventBus', () => ({
+vi.mock('@server/channels/agent/ChannelEventBus', () => ({
   channelEventBus: {
     emit: vi.fn(),
     on: vi.fn(),
@@ -47,12 +47,12 @@ vi.mock('@process/channels/agent/ChannelEventBus', () => ({
   },
 }));
 vi.mock('@process/utils/previewUtils', () => ({ handlePreviewOpenEvent: vi.fn() }));
-vi.mock('@process/extensions', () => ({
+vi.mock('@server/extensions', () => ({
   ExtensionRegistry: {
     getInstance: vi.fn(() => ({ getAll: vi.fn(() => []), getAcpAdapters: vi.fn(() => []) })),
   },
 }));
-vi.mock('@process/agent/acp', () => ({
+vi.mock('@server/agent/acp', () => ({
   AcpAgent: class {
     sendMessage = vi.fn();
     stop = vi.fn();
@@ -62,7 +62,7 @@ vi.mock('@process/agent/acp', () => ({
 }));
 
 // Mock BaseAgentManager as a minimal class to avoid ForkTask child-process spawning
-vi.mock('@process/task/BaseAgentManager', () => ({
+vi.mock('@server/task/BaseAgentManager', () => ({
   default: class {
     conversation_id = '';
     status: string | undefined;
@@ -80,15 +80,15 @@ vi.mock('@process/task/BaseAgentManager', () => ({
   },
 }));
 
-vi.mock('@process/task/IpcAgentEventEmitter', () => ({ IpcAgentEventEmitter: vi.fn() }));
-vi.mock('@process/task/CronCommandDetector', () => ({ hasCronCommands: vi.fn(() => false) }));
-vi.mock('@process/task/MessageMiddleware', () => ({
+vi.mock('@server/task/IpcAgentEventEmitter', () => ({ IpcAgentEventEmitter: vi.fn() }));
+vi.mock('@server/task/CronCommandDetector', () => ({ hasCronCommands: vi.fn(() => false) }));
+vi.mock('@server/task/MessageMiddleware', () => ({
   extractTextFromMessage: vi.fn(() => ''),
   processCronInMessage: vi.fn((x: unknown) => x),
 }));
-vi.mock('@process/task/ThinkTagDetector', () => ({ stripThinkTags: vi.fn((x: unknown) => x) }));
+vi.mock('@server/task/ThinkTagDetector', () => ({ stripThinkTags: vi.fn((x: unknown) => x) }));
 vi.mock('@process/utils/initAgent', () => ({ hasNativeSkillSupport: vi.fn(() => false) }));
-vi.mock('@process/task/agentUtils', () => ({
+vi.mock('@server/task/agentUtils', () => ({
   prepareFirstMessageWithSkillsIndex: vi.fn((x: string) => Promise.resolve(x)),
 }));
 vi.mock('@/common/utils', () => ({ parseError: vi.fn((e: unknown) => e), uuid: vi.fn(() => 'test-uuid') }));

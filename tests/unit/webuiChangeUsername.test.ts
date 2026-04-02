@@ -14,7 +14,7 @@ describe('AuthService.validateUsername', () => {
   beforeEach(() => {
     vi.resetModules();
     // Break the DB import chain triggered by UserRepository
-    vi.doMock('@process/services/database/export', () => ({
+    vi.doMock('@server/services/database/export', () => ({
       getDatabase: vi.fn(() => ({})),
     }));
   });
@@ -69,7 +69,7 @@ describe('UserRepository.updateUsername', () => {
   });
 
   it('does not throw when db.updateUserUsername succeeds', async () => {
-    vi.doMock('@process/services/database/export', () => ({
+    vi.doMock('@server/services/database/export', () => ({
       getDatabase: vi.fn(() =>
         Promise.resolve({
           updateUserUsername: vi.fn(() => ({ success: true, data: true })),
@@ -82,7 +82,7 @@ describe('UserRepository.updateUsername', () => {
   });
 
   it('throws when db.updateUserUsername returns failure', async () => {
-    vi.doMock('@process/services/database/export', () => ({
+    vi.doMock('@server/services/database/export', () => ({
       getDatabase: vi.fn(() =>
         Promise.resolve({
           updateUserUsername: vi.fn(() => ({
@@ -100,7 +100,7 @@ describe('UserRepository.updateUsername', () => {
 
   it('calls db.updateUserUsername with correct arguments', async () => {
     const updateUserUsernameMock = vi.fn(() => ({ success: true, data: true }));
-    vi.doMock('@process/services/database/export', () => ({
+    vi.doMock('@server/services/database/export', () => ({
       getDatabase: vi.fn(() => Promise.resolve({ updateUserUsername: updateUserUsernameMock })),
     }));
 

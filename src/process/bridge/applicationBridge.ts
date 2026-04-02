@@ -7,7 +7,7 @@
 import type { BrowserWindow } from 'electron';
 import { app } from 'electron';
 import { ipcBridge } from '@/common';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import { ProcessConfig } from '@process/utils/initStorage';
 import { getZoomFactor, setZoomFactor } from '@process/utils/zoom';
 import { getCdpStatus, updateCdpConfig } from '@process/utils/configureChromium';

@@ -21,13 +21,13 @@ import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { initMainAdapterWithWindow } from './common/adapter/main';
 import { ipcBridge } from './common';
-import { AION_ASSET_PROTOCOL } from '@process/extensions';
+import { AION_ASSET_PROTOCOL } from '@server/extensions';
 import { initializeProcess } from './process';
 import { ProcessConfig } from './process/utils/initStorage';
 import { loadShellEnvironmentAsync, logEnvironmentDiagnostics, mergePaths } from './process/utils/shellEnv';
 import { initializeAcpDetector, registerWindowMaximizeListeners } from '@process/bridge';
 import { onCloseToTrayChanged, onLanguageChanged } from './process/bridge/systemSettingsBridge';
-import { setInitialLanguage } from '@process/services/i18n';
+import { setInitialLanguage } from '@server/services/i18n';
 import { workerTaskManager } from './process/task/workerTaskManagerSingleton';
 import { setupApplicationMenu } from './process/utils/appMenu';
 import { startWebServer } from './process/webserver';
@@ -576,7 +576,7 @@ const handleAppReady = async (): Promise<void> => {
     } catch {
       // Console write may fail with EIO when PTY is broken after sleep
     }
-    import('@process/services/cron/cronServiceSingleton')
+    import('@server/services/cron/cronServiceSingleton')
       .then(({ cronService }) => {
         void cronService.handleSystemResume();
       })
@@ -655,7 +655,7 @@ app.on('before-quit', async () => {
 
   // Shutdown Channel subsystem
   try {
-    const { getChannelManager } = await import('@process/channels');
+    const { getChannelManager } = await import('@server/channels');
     await getChannelManager().shutdown();
   } catch (error) {
     console.error('[App] Failed to shutdown ChannelManager:', error);

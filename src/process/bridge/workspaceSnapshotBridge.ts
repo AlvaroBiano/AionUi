@@ -5,7 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
-import { WorkspaceSnapshotService } from '@process/services/WorkspaceSnapshotService';
+import { WorkspaceSnapshotService } from '@server/services/WorkspaceSnapshotService';
 
 const snapshotService = new WorkspaceSnapshotService();
 

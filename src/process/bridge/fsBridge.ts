@@ -1463,7 +1463,7 @@ export function initFsBridge(): void {
       await fs.writeFile(path.join(skillDir, 'SKILL.md'), content, 'utf-8');
 
       // Reset AcpSkillManager singleton so it re-discovers builtin skills
-      const { AcpSkillManager } = await import('@process/task/AcpSkillManager');
+      const { AcpSkillManager } = await import('@server/task/AcpSkillManager');
       AcpSkillManager.resetInstance();
 
       return { success: true, msg: 'Skills Market skill enabled' };
@@ -1484,7 +1484,7 @@ export function initFsBridge(): void {
       await fs.rm(skillDir, { recursive: true, force: true });
 
       // Reset AcpSkillManager singleton so it re-discovers builtin skills
-      const { AcpSkillManager } = await import('@process/task/AcpSkillManager');
+      const { AcpSkillManager } = await import('@server/task/AcpSkillManager');
       AcpSkillManager.resetInstance();
 
       return { success: true, msg: 'Skills Market skill disabled' };

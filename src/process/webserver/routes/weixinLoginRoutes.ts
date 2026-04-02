@@ -6,7 +6,7 @@
 
 import type { Express, Request, Response } from 'express';
 import type { RequestHandler } from 'express';
-import { startLogin } from '@process/channels/plugins/weixin/WeixinLogin';
+import { startLogin } from '@server/channels/plugins/weixin/WeixinLogin';
 
 /**
  * Register WeChat QR-code login SSE route for WebUI mode.

@@ -6,9 +6,9 @@
 
 import { ipcBridge } from '@/common';
 import type { IExtensionAgentActivitySnapshot } from '@/common/adapter/ipcBridge';
-import { ExtensionRegistry } from '@process/extensions';
-import type { IConversationRepository } from '@process/services/database/IConversationRepository';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
+import { ExtensionRegistry } from '@server/extensions';
+import type { IConversationRepository } from '@server/services/database/IConversationRepository';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import { ActivitySnapshotBuilder } from './services/ActivitySnapshotBuilder';
 
 const ACTIVITY_SNAPSHOT_TTL_MS = 3000;

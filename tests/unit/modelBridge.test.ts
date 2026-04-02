@@ -38,7 +38,7 @@ vi.mock('@process/utils/initStorage', () => ({
   ProcessConfig: { get: vi.fn(() => ({})), set: vi.fn() },
 }));
 
-vi.mock('@process/extensions', () => ({
+vi.mock('@server/extensions', () => ({
   ExtensionRegistry: { getInstance: vi.fn(() => ({ getExtensionModelList: vi.fn(async () => []) })) },
 }));
 

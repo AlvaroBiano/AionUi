@@ -23,13 +23,13 @@ vi.mock('@process/utils/shellEnv', () => ({
 }));
 
 // Mock codexLaunchConfig
-vi.mock('@process/agent/codex/connection/codexLaunchConfig', () => ({
+vi.mock('@server/agent/codex/connection/codexLaunchConfig', () => ({
   applyCodexLaunchOptions: vi.fn((_args: string[]) => ['mcp-server']),
   readUserApprovalPolicyConfig: vi.fn(() => undefined),
 }));
 
 // Mock ErrorService
-vi.mock('@process/agent/codex/core/ErrorService', () => ({
+vi.mock('@server/agent/codex/core/ErrorService', () => ({
   globalErrorService: {
     handleError: vi.fn((e: unknown) => e),
     shouldRetry: vi.fn(() => false),
@@ -70,7 +70,7 @@ describe('CodexConnection.start — startup exit handling', () => {
   });
 
   it('rejects with descriptive error when process is killed by signal (code=null)', async () => {
-    const { CodexConnection } = await import('@process/agent/codex/connection/CodexConnection');
+    const { CodexConnection } = await import('@server/agent/codex/connection/CodexConnection');
     const conn = new CodexConnection();
 
     const startPromise = conn.start('codex', '/tmp');
@@ -93,7 +93,7 @@ describe('CodexConnection.start — startup exit handling', () => {
   });
 
   it('rejects with descriptive error when process exits with non-zero code', async () => {
-    const { CodexConnection } = await import('@process/agent/codex/connection/CodexConnection');
+    const { CodexConnection } = await import('@server/agent/codex/connection/CodexConnection');
     const conn = new CodexConnection();
 
     const startPromise = conn.start('codex', '/tmp');
@@ -115,7 +115,7 @@ describe('CodexConnection.start — startup exit handling', () => {
   });
 
   it('resolves when process is still alive after 5 seconds', async () => {
-    const { CodexConnection } = await import('@process/agent/codex/connection/CodexConnection');
+    const { CodexConnection } = await import('@server/agent/codex/connection/CodexConnection');
     const conn = new CodexConnection();
 
     const startPromise = conn.start('codex', '/tmp');

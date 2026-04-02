@@ -6,7 +6,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { GOOGLE_AUTH_PROVIDER_ID } from '@/common/config/constants';
-import { buildChannelConversationExtra, getChannelEnabledSkills } from '@process/channels/utils';
+import { buildChannelConversationExtra, getChannelEnabledSkills } from '@server/channels/utils';
 
 // Mock electron before any imports
 vi.mock('electron', () => ({
@@ -18,7 +18,7 @@ vi.mock('@process/utils/initStorage', () => ({
   ProcessConfig: { get: mockGet },
 }));
 
-vi.mock('@process/channels/pairing/PairingService', () => ({
+vi.mock('@server/channels/pairing/PairingService', () => ({
   getPairingService: vi.fn(() => ({})),
 }));
 
@@ -37,7 +37,7 @@ describe('SystemActions weixin platform handling', () => {
   });
 
   it('getChannelDefaultModel reads assistant.weixin.defaultModel for weixin platform', async () => {
-    const { getChannelDefaultModel } = await import('@process/channels/actions/SystemActions');
+    const { getChannelDefaultModel } = await import('@server/channels/actions/SystemActions');
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'assistant.weixin.defaultModel') return Promise.resolve({ id: 'p1', useModel: 'gemini-2.0-flash' });
@@ -56,7 +56,7 @@ describe('SystemActions weixin platform handling', () => {
   });
 
   it('getChannelDefaultModel still reads assistant.telegram.defaultModel for telegram', async () => {
-    const { getChannelDefaultModel } = await import('@process/channels/actions/SystemActions');
+    const { getChannelDefaultModel } = await import('@server/channels/actions/SystemActions');
 
     mockGet.mockResolvedValue(undefined);
     await getChannelDefaultModel('telegram');
@@ -65,7 +65,7 @@ describe('SystemActions weixin platform handling', () => {
   });
 
   it('uses local Gemini OAuth credentials when the saved weixin model is Google Auth', async () => {
-    const { getChannelDefaultModel } = await import('@process/channels/actions/SystemActions');
+    const { getChannelDefaultModel } = await import('@server/channels/actions/SystemActions');
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'model.config') return Promise.resolve([]);
@@ -89,7 +89,7 @@ describe('SystemActions weixin platform handling', () => {
   });
 
   it('falls back to a Gemini API-key provider when Google Auth is selected but local creds are missing', async () => {
-    const { getChannelDefaultModel } = await import('@process/channels/actions/SystemActions');
+    const { getChannelDefaultModel } = await import('@server/channels/actions/SystemActions');
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'model.config') {
@@ -118,7 +118,7 @@ describe('SystemActions weixin platform handling', () => {
   });
 
   it('falls back to Google Auth credentials when no API-key provider exists', async () => {
-    const { getChannelDefaultModel } = await import('@process/channels/actions/SystemActions');
+    const { getChannelDefaultModel } = await import('@server/channels/actions/SystemActions');
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'model.config') return Promise.resolve([]);

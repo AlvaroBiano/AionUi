@@ -8,8 +8,8 @@ import type { ConversationSideQuestionResult } from '@/common/adapter/ipcBridge'
 import { isSideQuestionSupported } from '@/common/chat/sideQuestion';
 import type { TChatConversation } from '@/common/config/storage';
 import type { AcpBackend, AcpPermissionRequest, AcpSessionUpdate } from '@/common/types/acpTypes';
-import { AcpConnection } from '@process/agent/acp/AcpConnection';
-import type { IConversationService } from '@process/services/IConversationService';
+import { AcpConnection } from '@server/agent/acp/AcpConnection';
+import type { IConversationService } from '@server/services/IConversationService';
 import { ProcessConfig } from '@process/utils/initStorage';
 import { ACP_BACKENDS_ALL } from '@/common/types/acpTypes';
 const ACP_SIDE_QUESTION_TIMEOUT_MS = 30_000;

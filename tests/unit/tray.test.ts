@@ -123,15 +123,15 @@ vi.mock('@/common', () => ({
   },
 }));
 
-vi.mock('@process/services/i18n', () => ({
+vi.mock('@server/services/i18n', () => ({
   default: { t: vi.fn((key: string) => key) },
 }));
 
-vi.mock('@process/task/workerTaskManagerSingleton', () => ({
+vi.mock('@server/task/workerTaskManagerSingleton', () => ({
   workerTaskManager: { listTasks: mockListTasks },
 }));
 
-vi.mock('@process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: mockGetDatabase,
 }));
 
@@ -298,7 +298,7 @@ describe('tray module', () => {
     const getTemplateFromRefresh = async () => {
       // Pre-import mocked modules to ensure mock is resolved before tray imports them
       await import('@/common/electronSafe');
-      await import('@process/services/database');
+      await import('@server/services/database');
       const { createOrUpdateTray, refreshTrayMenu } = await import('@process/utils/tray');
       createOrUpdateTray();
       const previousCalls = mockBuildFromTemplate.mock.calls.length;

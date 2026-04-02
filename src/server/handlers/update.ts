@@ -21,13 +21,13 @@ import type {
   UpdateReleaseInfo,
   GitHubReleaseAsset,
 } from '@/common/update/updateTypes';
-import type { AutoUpdateStatus } from '@process/services/autoUpdaterService';
+import type { AutoUpdateStatus } from '@server/services/autoUpdaterService';
 import { uuid } from '@/common/utils';
 import { getPlatformServices } from '@/common/platform';
 import * as fs from 'fs';
 import * as path from 'path';
 import semver from 'semver';
-import { autoUpdaterService } from '@process/services/autoUpdaterService';
+import { autoUpdaterService } from '@server/services/autoUpdaterService';
 
 type GitHubReleaseApiAsset = {
   name: string;

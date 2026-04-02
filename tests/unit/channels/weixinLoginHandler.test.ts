@@ -5,11 +5,11 @@ vi.mock('electron', () => ({ BrowserWindow: vi.fn() }));
 
 // Mock WeixinLogin — delegates to a test-level variable so each test can reassign it
 let mockStartLoginFn = vi.fn();
-vi.mock('@process/channels/plugins/weixin/WeixinLogin', () => ({
+vi.mock('@server/channels/plugins/weixin/WeixinLogin', () => ({
   startLogin: (...args: unknown[]) => mockStartLoginFn(...args),
 }));
 
-import { WeixinLoginHandler } from '@process/channels/plugins/weixin/WeixinLoginHandler';
+import { WeixinLoginHandler } from '@server/channels/plugins/weixin/WeixinLoginHandler';
 
 const FAKE_DATA_URL = 'data:image/png;base64,fakeqr==';
 

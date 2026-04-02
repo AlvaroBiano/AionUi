@@ -6,7 +6,7 @@ import {
   storeDeviceAuthToken,
   clearDeviceAuthToken,
   loadDeviceAuthToken,
-} from '@process/agent/openclaw/deviceAuthStore';
+} from '@server/agent/openclaw/deviceAuthStore';
 
 // Use a temp directory to avoid touching real filesystem
 let tmpDir: string;

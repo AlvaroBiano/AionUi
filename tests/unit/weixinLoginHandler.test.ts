@@ -42,11 +42,11 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('@process/channels/plugins/weixin/WeixinLogin', () => ({
+vi.mock('@server/channels/plugins/weixin/WeixinLogin', () => ({
   startLogin: mockStartLogin,
 }));
 
-import { WeixinLoginHandler } from '@process/channels/plugins/weixin/WeixinLoginHandler';
+import { WeixinLoginHandler } from '@server/channels/plugins/weixin/WeixinLoginHandler';
 
 describe('WeixinLoginHandler', () => {
   beforeEach(() => {

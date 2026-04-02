@@ -5,7 +5,7 @@ import path from 'path';
 
 const mockGetConversation = vi.fn();
 
-vi.mock('@process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn(async () => ({
     getConversation: mockGetConversation,
   })),
@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe('channelSendProtocol', () => {
   it('fails closed when the conversation workspace is missing', async () => {
-    const { resolveChannelSendProtocol } = await import('@process/channels/utils/channelSendProtocol');
+    const { resolveChannelSendProtocol } = await import('@server/channels/utils/channelSendProtocol');
     const externalFile = path.join(TEST_DIR, 'outside.txt');
     fs.writeFileSync(externalFile, 'secret');
     mockGetConversation.mockReturnValue({ success: false });
@@ -41,7 +41,7 @@ describe('channelSendProtocol', () => {
   });
 
   it('rejects symlink targets that escape the workspace root', async () => {
-    const { resolveChannelSendProtocol } = await import('@process/channels/utils/channelSendProtocol');
+    const { resolveChannelSendProtocol } = await import('@server/channels/utils/channelSendProtocol');
     const workspace = path.join(TEST_DIR, 'workspace');
     const externalFile = path.join(TEST_DIR, 'outside.txt');
     const symlinkPath = path.join(workspace, 'leak.txt');

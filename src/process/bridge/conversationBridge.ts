@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { CodexAgentManager } from '@process/agent/codex';
-import { GeminiAgent, GeminiApprovalStore } from '@process/agent/gemini';
+import type { CodexAgentManager } from '@server/agent/codex';
+import { GeminiAgent, GeminiApprovalStore } from '@server/agent/gemini';
 import type { TChatConversation } from '@/common/config/storage';
-import type { IAgentManager } from '@process/task/IAgentManager';
-import type { IConversationService } from '@process/services/IConversationService';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
+import type { IAgentManager } from '@server/task/IAgentManager';
+import type { IConversationService } from '@server/services/IConversationService';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
 import { ipcBridge } from '@/common';
 import { getSkillsDir, getBuiltinSkillsCopyDir, getSystemDir, ProcessChat } from '@process/utils/initStorage';
 import type AcpAgentManager from '../task/AcpAgentManager';
@@ -225,7 +225,7 @@ export function initConversationBridge(
       if (source && source !== 'aionui') {
         try {
           // Dynamic import to avoid circular dependency
-          const { getChannelManager } = await import('@process/channels/core/ChannelManager');
+          const { getChannelManager } = await import('@server/channels/core/ChannelManager');
           const channelManager = getChannelManager();
           if (channelManager.isInitialized()) {
             await channelManager.cleanupConversation(id);

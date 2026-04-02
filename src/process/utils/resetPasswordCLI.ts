@@ -10,7 +10,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { getDataPath } from '@process/utils';
-import { closeDatabase, getDatabase } from '@process/services/database/export';
+import { closeDatabase, getDatabase } from '@server/services/database/export';
 import path from 'path';
 
 // 颜色输出 / Color output

@@ -643,17 +643,17 @@ export const openclawConversation = {
 
 // Remote Agent configuration CRUD
 export const remoteAgent = {
-  list: bridge.buildProvider<import('@process/agent/remote/types').RemoteAgentConfig[], void>('remote-agent.list'),
-  get: bridge.buildProvider<import('@process/agent/remote/types').RemoteAgentConfig | null, { id: string }>(
+  list: bridge.buildProvider<import('@server/agent/remote/types').RemoteAgentConfig[], void>('remote-agent.list'),
+  get: bridge.buildProvider<import('@server/agent/remote/types').RemoteAgentConfig | null, { id: string }>(
     'remote-agent.get'
   ),
   create: bridge.buildProvider<
-    import('@process/agent/remote/types').RemoteAgentConfig,
-    import('@process/agent/remote/types').RemoteAgentInput
+    import('@server/agent/remote/types').RemoteAgentConfig,
+    import('@server/agent/remote/types').RemoteAgentInput
   >('remote-agent.create'),
   update: bridge.buildProvider<
     boolean,
-    { id: string; updates: Partial<import('@process/agent/remote/types').RemoteAgentInput> }
+    { id: string; updates: Partial<import('@server/agent/remote/types').RemoteAgentInput> }
   >('remote-agent.update'),
   delete: bridge.buildProvider<boolean, { id: string }>('remote-agent.delete'),
   testConnection: bridge.buildProvider<

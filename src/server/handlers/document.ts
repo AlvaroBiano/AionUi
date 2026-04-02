@@ -14,7 +14,7 @@
 
 import path from 'path';
 import type { DocumentConversionTarget } from '@/common/types/conversion';
-import { conversionService } from '@process/services/conversionService';
+import { conversionService } from '@server/services/conversionService';
 import type { WsRouter } from '../router/WsRouter';
 
 // Supported file extension sets

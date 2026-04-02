@@ -6,9 +6,9 @@
 
 import path from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getDatabase } from '@process/services/database';
+import { getDatabase } from '@server/services/database';
 
-vi.mock('@process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn(),
 }));
 

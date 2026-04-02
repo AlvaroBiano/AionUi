@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { IChannelPluginConfig } from '@process/channels/types';
-import { extractChannelSendProtocol } from '@process/channels/utils';
-import type { MonitorOptions } from '@process/channels/plugins/weixin/WeixinMonitor';
+import type { IChannelPluginConfig } from '@server/channels/types';
+import { extractChannelSendProtocol } from '@server/channels/utils';
+import type { MonitorOptions } from '@server/channels/plugins/weixin/WeixinMonitor';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
@@ -12,7 +12,7 @@ const TEST_DATA_DIR = path.join(os.tmpdir(), 'aionui-test-weixin');
 
 async function loadPluginClass() {
   vi.resetModules();
-  vi.doMock('@process/channels/plugins/weixin/WeixinMonitor', () => ({
+  vi.doMock('@server/channels/plugins/weixin/WeixinMonitor', () => ({
     startMonitor: (...args: unknown[]) => mockStartFn(...args),
   }));
   vi.doMock('@/common/platform', () => ({
@@ -22,7 +22,7 @@ async function loadPluginClass() {
       },
     }),
   }));
-  const mod = await import('@process/channels/plugins/weixin/WeixinPlugin');
+  const mod = await import('@server/channels/plugins/weixin/WeixinPlugin');
   return mod.WeixinPlugin;
 }
 

@@ -45,7 +45,7 @@ const registerMocks = () => {
     GeminiApprovalStore: { getInstance: vi.fn(() => ({})) },
   }));
 
-  vi.doMock('@process/services/database', () => ({
+  vi.doMock('@server/services/database', () => ({
     getDatabase: vi.fn(() => ({
       getUserConversations: vi.fn(() => ({ data: [] })),
     })),

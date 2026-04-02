@@ -12,7 +12,7 @@
  * src/process/bridge/workspaceSnapshotBridge.ts.
  */
 
-import { WorkspaceSnapshotService } from '@process/services/WorkspaceSnapshotService';
+import { WorkspaceSnapshotService } from '@server/services/WorkspaceSnapshotService';
 import type { WsRouter } from '../router/WsRouter';
 
 const snapshotService = new WorkspaceSnapshotService();

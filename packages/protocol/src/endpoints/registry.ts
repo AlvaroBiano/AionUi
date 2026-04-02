@@ -47,7 +47,7 @@ import type { SnapshotInfo, CompareResult, FileChangeOperation } from '../types/
 import type { IChannelPairingRequest, IChannelPluginStatus, IChannelSession, IChannelUser } from '../types/channel';
 import type { RemoteAgentConfig, RemoteAgentInput } from '../types/remoteAgent';
 // McpSource remains external - it's a process-layer type not part of the protocol
-import type { McpSource } from '@process/services/mcpServices/McpProtocol';
+import type { McpSource } from '@server/services/mcpServices/McpProtocol';
 
 /**
  * Type-safe map of all Provider endpoint names to { request, response } types.

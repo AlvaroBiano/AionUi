@@ -19,8 +19,8 @@ if (app.isPackaged) {
 import initStorage from './utils/initStorage';
 import './utils/initBridge';
 import './services/i18n'; // Initialize i18n for main process
-import { getChannelManager } from '@process/channels';
-import { ExtensionRegistry } from '@process/extensions';
+import { getChannelManager } from '@server/channels';
+import { ExtensionRegistry } from '@server/extensions';
 
 export const initializeProcess = async () => {
   const t0 = performance.now();

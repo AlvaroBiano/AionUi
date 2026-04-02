@@ -43,11 +43,11 @@ vi.mock('@/common', () => ({
   },
 }));
 
-vi.mock('@process/channels/agent/ChannelEventBus', () => ({
+vi.mock('@server/channels/agent/ChannelEventBus', () => ({
   channelEventBus: { emitAgentMessage: vi.fn() },
 }));
 
-vi.mock('@process/services/database', () => ({
+vi.mock('@server/services/database', () => ({
   getDatabase: vi.fn(async () => ({ updateConversation: vi.fn() })),
 }));
 
@@ -65,7 +65,7 @@ vi.mock('@process/utils/previewUtils', () => ({
   handlePreviewOpenEvent: vi.fn(),
 }));
 
-vi.mock('@process/services/cron/CronBusyGuard', () => ({
+vi.mock('@server/services/cron/CronBusyGuard', () => ({
   cronBusyGuard: { setProcessing: vi.fn() },
 }));
 
@@ -75,7 +75,7 @@ vi.mock('@process/utils/mainLogger', () => ({
   mainError: vi.fn(),
 }));
 
-vi.mock('@process/extensions', () => ({
+vi.mock('@server/extensions', () => ({
   ExtensionRegistry: { getInstance: () => ({ getAcpAdapters: () => [] }) },
 }));
 
@@ -84,16 +84,16 @@ vi.mock('@/common/utils', () => ({
   uuid: vi.fn(() => 'mock-uuid'),
 }));
 
-vi.mock('@process/task/MessageMiddleware', () => ({
+vi.mock('@server/task/MessageMiddleware', () => ({
   extractTextFromMessage: vi.fn(),
   processCronInMessage: vi.fn(),
 }));
 
-vi.mock('@process/task/ThinkTagDetector', () => ({
+vi.mock('@server/task/ThinkTagDetector', () => ({
   stripThinkTags: vi.fn((s: string) => s),
 }));
 
-vi.mock('@process/task/CronCommandDetector', () => ({
+vi.mock('@server/task/CronCommandDetector', () => ({
   hasCronCommands: vi.fn(() => false),
 }));
 
@@ -102,13 +102,13 @@ vi.mock('@process/utils/initAgent', () => ({
   setupAssistantWorkspace: vi.fn(),
 }));
 
-vi.mock('@process/task/agentUtils', () => ({
+vi.mock('@server/task/agentUtils', () => ({
   prepareFirstMessageWithSkillsIndex: vi.fn(async (c: string) => c),
   buildSystemInstructions: vi.fn(async () => undefined),
 }));
 
 // Mock AcpAgent: capture callbacks and return a fully stubbed agent
-vi.mock('@process/agent/acp', () => {
+vi.mock('@server/agent/acp', () => {
   const MockAcpAgent = vi.fn(function (this: Record<string, unknown>, config: Record<string, unknown>) {
     capturedCallbacks.onAvailableCommandsUpdate =
       config.onAvailableCommandsUpdate as typeof capturedCallbacks.onAvailableCommandsUpdate;
@@ -123,7 +123,7 @@ vi.mock('@process/agent/acp', () => {
   return { AcpAgent: MockAcpAgent };
 });
 
-import AcpAgentManager from '@process/task/AcpAgentManager';
+import AcpAgentManager from '@server/task/AcpAgentManager';
 
 function createManager(): InstanceType<typeof AcpAgentManager> {
   const data = {

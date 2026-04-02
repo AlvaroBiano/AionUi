@@ -10,7 +10,7 @@ import {
   stripThinkTags,
   extractThinkContent,
   extractAndStripThinkTags,
-} from '@process/task/ThinkTagDetector';
+} from '@server/task/ThinkTagDetector';
 
 describe('ThinkTagDetector', () => {
   describe('hasThinkTags', () => {

@@ -12,11 +12,11 @@
  * Note: shellBridge is replaced by shellBridgeStandalone (child_process-based).
  */
 import { logger } from '@office-ai/platform';
-import { acpDetector } from '@process/agent/acp/AcpDetector';
-import { SqliteChannelRepository } from '@process/services/database/SqliteChannelRepository';
-import { SqliteConversationRepository } from '@process/services/database/SqliteConversationRepository';
-import { ConversationServiceImpl } from '@process/services/ConversationServiceImpl';
-import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
+import { acpDetector } from '@server/agent/acp/AcpDetector';
+import { SqliteChannelRepository } from '@server/services/database/SqliteChannelRepository';
+import { SqliteConversationRepository } from '@server/services/database/SqliteConversationRepository';
+import { ConversationServiceImpl } from '@server/services/ConversationServiceImpl';
+import { workerTaskManager } from '@server/task/workerTaskManagerSingleton';
 import { initAcpConversationBridge } from '@process/bridge/acpConversationBridge';
 import { initAuthBridge } from '@process/bridge/authBridge';
 import { initBedrockBridge } from '@process/bridge/bedrockBridge';

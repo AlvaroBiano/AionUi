@@ -6,11 +6,11 @@
 
 import { logger } from '@office-ai/platform';
 import { initAllBridges } from '../bridge';
-import { SqliteChannelRepository } from '@process/services/database/SqliteChannelRepository';
-import { SqliteConversationRepository } from '@process/services/database/SqliteConversationRepository';
-import { ConversationServiceImpl } from '@process/services/ConversationServiceImpl';
-import { cronService } from '@process/services/cron/cronServiceSingleton';
-import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
+import { SqliteChannelRepository } from '@server/services/database/SqliteChannelRepository';
+import { SqliteConversationRepository } from '@server/services/database/SqliteConversationRepository';
+import { ConversationServiceImpl } from '@server/services/ConversationServiceImpl';
+import { cronService } from '@server/services/cron/cronServiceSingleton';
+import { workerTaskManager } from '@server/task/workerTaskManagerSingleton';
 
 logger.config({ print: true });
 

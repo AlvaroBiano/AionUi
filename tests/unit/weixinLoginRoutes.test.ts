@@ -7,7 +7,7 @@ const { mockStartLogin, mockAbort } = vi.hoisted(() => ({
   mockAbort: vi.fn(),
 }));
 
-vi.mock('@process/channels/plugins/weixin/WeixinLogin', () => ({
+vi.mock('@server/channels/plugins/weixin/WeixinLogin', () => ({
   startLogin: mockStartLogin,
 }));
 

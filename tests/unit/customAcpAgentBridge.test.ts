@@ -7,7 +7,7 @@ vi.mock('child_process', () => ({
 const mockConnect = vi.fn();
 const mockDisconnect = vi.fn();
 
-vi.mock('@process/agent/acp/AcpConnection', () => ({
+vi.mock('@server/agent/acp/AcpConnection', () => ({
   AcpConnection: vi.fn().mockImplementation(function () {
     return { connect: mockConnect, disconnect: mockDisconnect };
   }),

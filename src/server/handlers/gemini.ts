@@ -5,9 +5,9 @@
  */
 
 import type { WsRouter } from '../router/WsRouter';
-import type { GeminiAgentManager } from '@process/task/GeminiAgentManager';
-import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
-import { getGeminiSubscriptionStatus } from '@process/services/geminiSubscription';
+import type { GeminiAgentManager } from '@server/task/GeminiAgentManager';
+import type { IWorkerTaskManager } from '@server/task/IWorkerTaskManager';
+import { getGeminiSubscriptionStatus } from '@server/services/geminiSubscription';
 
 /**
  * Register Gemini endpoint handlers on the WsRouter.

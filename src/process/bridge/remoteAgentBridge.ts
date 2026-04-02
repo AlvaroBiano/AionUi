@@ -6,9 +6,9 @@
 
 import { ipcBridge } from '@/common';
 import { uuid } from '@/common/utils';
-import { getDatabase } from '@process/services/database';
-import { generateIdentity } from '@process/agent/openclaw/deviceIdentity';
-import { OpenClawGatewayConnection } from '@process/agent/openclaw/OpenClawGatewayConnection';
+import { getDatabase } from '@server/services/database';
+import { generateIdentity } from '@server/agent/openclaw/deviceIdentity';
+import { OpenClawGatewayConnection } from '@server/agent/openclaw/OpenClawGatewayConnection';
 import WebSocket from 'ws';
 
 /**
