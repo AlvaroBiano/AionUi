@@ -7,7 +7,10 @@ export function initHubBridge(): void {
   ipcBridge.hub.getExtensionList.provider(async () => {
     try {
       await hubIndexManager.loadIndexes();
-      return { success: true, data: await hubStateManager.getExtensionListWithStatus(hubIndexManager.getExtensionList()) };
+      return {
+        success: true,
+        data: await hubStateManager.getExtensionListWithStatus(hubIndexManager.getExtensionList()),
+      };
     } catch (error) {
       return { success: false, msg: String(error) };
     }

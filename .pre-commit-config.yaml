@@ -59,15 +59,15 @@ repos:
         files: \.(ts|tsx|js|jsx)$
         pass_filenames: false
 
-  # Oxfmt (replaces Prettier — auto-fixes then verifies)
+  # Oxfmt (replaces Prettier — auto-fixes staged files only)
   - repo: local
     hooks:
       - id: oxfmt
         name: Oxfmt
-        entry: bun run format
+        entry: oxfmt
         language: system
         files: \.(ts|tsx|js|jsx|json|css|md|yaml|yml|toml)$
-        pass_filenames: false
+        pass_filenames: true
 
   # i18n translation files validation
   - repo: local
