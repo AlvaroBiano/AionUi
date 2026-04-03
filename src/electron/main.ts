@@ -32,6 +32,7 @@ import { setInitialLanguage } from '@server/services/i18n';
 import { workerTaskManager } from '@server/task/workerTaskManagerSingleton';
 import { setupApplicationMenu } from './lifecycle/appMenu';
 import { startWebServer } from '@server/http';
+import { SERVER_CONFIG } from '@server/http/config/constants';
 import { applyZoomToWindow, initializeZoomFactor } from './utils/zoom';
 import {
   clearPendingDeepLinkUrl,
@@ -77,7 +78,7 @@ if (!acquireSingleInstanceLock()) {
         mainWindow,
         createWindow: () => {
           console.log('[AionUi] second-instance received with no active main window, recreating main window');
-          createWindow();
+          createWindow(`ws://localhost:${SERVER_CONFIG.DEFAULT_PORT}`);
         },
       });
     }
@@ -171,7 +172,7 @@ let isExplicitQuit = false;
 
 let mainWindow: BrowserWindow;
 
-const createWindow = (): void => {
+const createWindow = (serverUrl?: string): void => {
   console.log('[AionUi] Creating main window...');
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
@@ -195,6 +196,8 @@ const createWindow = (): void => {
     }
   }
 
+  const additionalArguments = serverUrl ? [`--server-url=${serverUrl}`] : [];
+
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
@@ -211,6 +214,7 @@ const createWindow = (): void => {
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       webviewTag: true,
+      additionalArguments,
     },
   });
   console.log(`[AionUi] Main window created (id=${mainWindow.id})`);
@@ -421,7 +425,18 @@ const handleAppReady = async (): Promise<void> => {
       }
     });
   } else {
-    createWindow();
+    // Start the internal WebSocket server for renderer ↔ backend communication
+    const embeddedPort = SERVER_CONFIG.DEFAULT_PORT;
+    try {
+      await startWebServer(embeddedPort, false);
+      mark('startEmbeddedWebServer');
+    } catch (err) {
+      console.error(`[AionUi] Failed to start embedded WebSocket server on port ${embeddedPort}:`, err);
+      app.exit(1);
+      return;
+    }
+
+    createWindow(`ws://localhost:${embeddedPort}`);
     mark('createWindow');
 
     acpDetector
@@ -573,7 +588,7 @@ app.on('activate', () => {
         void app.dock.show();
       }
     } else {
-      createWindow();
+      createWindow(`ws://localhost:${SERVER_CONFIG.DEFAULT_PORT}`);
     }
   }
 });
