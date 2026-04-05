@@ -1292,3 +1292,42 @@ Reviewer adjustment:
   - `waiting` 必须是显式 phase，而不是靠 `status === null` 猜测。
   - 等待态不能覆盖 live failure 语义。
   - 必须复用现有 `ThoughtDisplay` / header runtime dot，而不是新增一套重复 UI。
+
+## SC-033 ACP Thread Warmup Indicator Must Not Misfire On Hydrated Running Turns
+
+- Goal:
+  - 把 ACP 的 send-time waiting affordance 从 sendbox 内部抬到更靠近线程区的位置，做成更接近 Zed 的 thread-bottom pending cue。
+  - 同时保证它只服务“fresh pre-first-response waiting”，不能在重开/切回一个已经 mid-turn 的会话时误报 `Connecting to ...`。
+- User action:
+  - 用户发送一条新的 ACP 消息，等待首包。
+  - 或者用户切走再切回一个当前已经 `running` 的 ACP 历史会话。
+- Current failure:
+  - `SC-032` 虽然已经补了 `waiting` phase，但 affordance 还挂在 sendbox 内部，视觉重心仍偏底部。
+  - 更严重的是，hydration 时会把 `status === running` 同时恢复成 `running=true` 和 `aiProcessing=true`，导致切回 mid-turn 会话时也被误判成 send-time warmup。
+  - 结果是线程会短暂显示假的 `Processing / Connecting to {agent}`，这和 Zed 的 mid-turn resume 语义不一致。
+- Expected UI state:
+  - fresh send 且尚未首包：
+    - 在线程底部、输入框上方出现一条轻量 warmup row
+    - 文案仍是 `Processing / Connecting to {agent}`
+  - 如果 ACP 已经发出 inline `thinking`：
+    - warmup row 立即让位给 inline `thinking`
+  - 如果切回的是一个 hydrated `running` 会话：
+    - 输入框仍保持 busy/stop 语义
+    - 但不再显示 `Connecting to ...`
+    - runtime diagnostics phase 应直接视为 `streaming`
+- Automation plan:
+  - 在 ACP runtime diagnostics snapshot 中加入 `hasThinkingMessage`
+  - `AcpChat` 渲染一个新的 thread-bottom warmup indicator
+  - `AcpSendBox` 删除内部的 warmup `ThoughtDisplay`
+  - hydration `running` 只恢复 `running=true`，不再恢复 `aiProcessing=true`
+  - 补齐自动化：
+    - `useAcpMessage.dom.test.ts`
+    - `AcpSendBoxFlow.dom.test.tsx`
+- Exit criteria:
+  - fresh send 的 warmup affordance 更靠近线程区，而不是只停留在 sendbox 内。
+  - inline `thinking` 仍能接管等待态。
+  - reopen / switch-back 到 hydrated `running` 会话时，不会出现假的 `Connecting to ...`。
+- Reviewer focus:
+  - 不能把 hydrated `running` 和 fresh `waiting` 混成同一种 phase。
+  - 新的 thread-level warmup row 不能和 inline `thinking` 叠加成双重 loading。
+  - 修复 reviewer 指出的 remount 回归后，必须有自动化保护，不接受只靠人工记忆。

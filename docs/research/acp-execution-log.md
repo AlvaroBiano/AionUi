@@ -1961,3 +1961,81 @@
   - 当 ACP 更具体的 inline `thinking` 已出现时，fallback 自动退场，避免形成双重 loading 语义。
 - Next:
   - 继续评估是否需要在消息线程本身补更接近 Zed 的 generating affordance，还是把当前 `pulse dot + warmup thought` 维持为更克制的 AionUi 方案。
+
+### 2026-04-06 / Batch 30
+
+- 对应 SC:
+  - `SC-033`
+- Goal:
+  - 把 ACP send-time waiting affordance 从 sendbox 内部抬到更靠近线程区的位置，做成更接近 Zed 的 thread-bottom warmup row。
+  - 修掉 reviewer 指出的回归：重开或切回一个 hydrated `running` 会话时，不能错误显示 `Processing / Connecting to {agent}`。
+- Root cause:
+  - `SC-032` 之后，AionUi 的等待态已经不再“过于安静”，但它还挂在 `AcpSendBox` 内部，视觉重心仍偏输入区。
+  - 同时 `useAcpMessage` 在 hydration `status === running` 时，会把 `running` 和 `aiProcessing` 一起恢复为 `true`。
+  - 这意味着 thread-level warmup affordance 一旦改读 runtime diagnostics，就会把“已经 mid-turn 的历史会话”误判成“fresh pre-first-response waiting”。
+- Changes:
+  - `src/renderer/pages/conversation/platforms/acp/AcpWarmupIndicator.tsx`
+    - 新增轻量 thread-bottom warmup row
+    - 只在 `activityPhase === waiting && !hasThinkingMessage` 时显示
+    - 文案继续复用：
+      - `conversation.chat.processing`
+      - `acp.status.connecting`
+  - `src/renderer/pages/conversation/platforms/acp/acpRuntimeDiagnostics.ts`
+    - diagnostics snapshot 新增 `hasThinkingMessage`
+  - `src/renderer/pages/conversation/platforms/acp/useAcpMessage.ts`
+    - 发布 diagnostics snapshot 时同步带出 `hasThinkingMessage`
+    - hydration `running` 改成：
+      - `running = true`
+      - `aiProcessing = false`
+    - 这样 hydrated mid-turn 会直接进入 `streaming`，不会再误报 warmup
+  - `src/renderer/pages/conversation/platforms/acp/AcpChat.tsx`
+    - 在 MessageList 与 SendBox 之间接入 `AcpWarmupIndicator`
+  - `src/renderer/pages/conversation/platforms/acp/AcpSendBox.tsx`
+    - 删除旧的 sendbox 内部 warmup `ThoughtDisplay`
+  - `tests/unit/renderer/hooks/useAcpMessage.dom.test.ts`
+    - 新增合同：
+      - diagnostics snapshot 发布 `hasThinkingMessage`
+      - hydrated `running` 会话直接视为 `streaming`
+  - `tests/unit/renderer/components/AcpSendBoxFlow.dom.test.tsx`
+    - 新增合同：
+      - fresh send 会显示 thread-bottom warmup row
+      - inline `thinking` 会接管并收起 warmup row
+      - hydrated `running` 会话不会错误显示 warmup row
+- Reviewer:
+  - reviewer：`Boole`
+  - 第一轮 finding：
+    - hydrated `running` 会话会被错误渲染成 `Processing / Connecting`
+  - 修复后复审结论：
+    - `no remaining findings`
+- Verification:
+  - `bun run test tests/unit/renderer/hooks/useAcpMessage.dom.test.ts`
+    - 结果：`33 passed`
+  - `bun run test tests/unit/renderer/components/AcpSendBoxFlow.dom.test.tsx`
+    - 结果：`31 passed`
+  - `bunx tsc --noEmit`
+    - 通过
+  - `bun run test:acp:unit`
+    - 结果：`397 passed | 1 skipped`
+  - `bun run format:check`
+    - 通过
+  - `bun run verify:acp`
+    - 结果：
+      - lint：仍是仓库既有 warning-only，`0 errors`
+      - format / tsc：通过
+      - ACP unit：`397 passed | 1 skipped`
+      - ACP integration：`21 passed | 3 skipped`
+      - ACP e2e：`18 passed`
+      - `verify:acp`：通过
+- Product judgement:
+  - ACP 的等待态现在更接近 Zed 的视觉重心：
+    - waiting cue 不再躲在 sendbox 内部，而是上移到线程底部
+    - 但仍然没有插入假的 assistant 正文
+  - inline `thinking` 与 waiting affordance 的职责边界更清楚：
+    - 具体 thinking 出现后，由 thinking 接管
+    - waiting row 自动退场
+  - 历史 mid-turn resume 的状态语义也更准确：
+    - busy 仍然 busy
+    - 但不再把 mid-turn 错说成 `Connecting to ...`
+- Next:
+  - 继续评估是否需要把当前 warmup row 再向 Zed 的 generating row 靠近，例如更显式的 elapsed / token / tool waiting 语义
+  - 在保持当前 correctness 合同不退化的前提下，继续推进更底层 `queue / busy` runtime contract 收束

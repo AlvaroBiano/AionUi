@@ -50,6 +50,7 @@ export type AcpRuntimeDiagnosticsSnapshot = {
   statusSource: AcpRuntimeStatusSource | null;
   statusRevision: number;
   activityPhase: AcpRuntimeActivityPhase;
+  hasThinkingMessage?: boolean;
   logs: AcpLogEntry[];
 };
 
@@ -58,6 +59,7 @@ const EMPTY_ACP_RUNTIME_DIAGNOSTICS_SNAPSHOT: AcpRuntimeDiagnosticsSnapshot = Ob
   statusSource: null,
   statusRevision: 0,
   activityPhase: 'idle',
+  hasThinkingMessage: false,
   logs: [],
 });
 
@@ -85,6 +87,7 @@ export const publishAcpRuntimeDiagnosticsSnapshot = (
     currentSnapshot.statusSource === snapshot.statusSource &&
     currentSnapshot.statusRevision === snapshot.statusRevision &&
     currentSnapshot.activityPhase === snapshot.activityPhase &&
+    Boolean(currentSnapshot.hasThinkingMessage) === Boolean(snapshot.hasThinkingMessage) &&
     currentSnapshot.logs === snapshot.logs
   ) {
     return;
@@ -95,6 +98,7 @@ export const publishAcpRuntimeDiagnosticsSnapshot = (
     snapshot.statusSource === null &&
     snapshot.statusRevision === 0 &&
     snapshot.activityPhase === 'idle' &&
+    !snapshot.hasThinkingMessage &&
     snapshot.logs.length === 0
   ) {
     acpRuntimeDiagnosticsStore.delete(conversationId);

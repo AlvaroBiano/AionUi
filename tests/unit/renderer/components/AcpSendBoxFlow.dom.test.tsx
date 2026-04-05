@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import type { IMessageAgentStatus } from '@/common/chat/chatLib';
 import MessageAgentStatus from '@/renderer/pages/conversation/Messages/components/MessageAgentStatus';
 import AcpRuntimeStatusButton from '@/renderer/pages/conversation/components/ChatLayout/AcpRuntimeStatusButton';
+import AcpWarmupIndicator from '@/renderer/pages/conversation/platforms/acp/AcpWarmupIndicator';
 import AcpSendBox from '@/renderer/pages/conversation/platforms/acp/AcpSendBox';
 import { clearAcpRuntimeDiagnosticsSnapshot } from '@/renderer/pages/conversation/platforms/acp/acpRuntimeDiagnostics';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,6 +54,7 @@ const renderAcpSendBoxWithDiagnostics = (
         backend={props.backend}
         agentName={props.agentName}
       />
+      <AcpWarmupIndicator conversationId={props.conversation_id} backend={props.backend} agentName={props.agentName} />
       <AcpSendBox {...props} />
     </>
   );
@@ -346,6 +348,7 @@ vi.mock('@arco-design/web-react', () => ({
       popupVisible ? React.createElement('div', { 'data-testid': 'mock-popover-content' }, content) : null
     ),
   Space: ({ children, ...props }: { children?: React.ReactNode }) => React.createElement('div', props, children),
+  Spin: ({ ...props }: Record<string, unknown>) => React.createElement('span', { ...props }, 'Spin'),
   Tag: ({ children }: { children?: React.ReactNode }) => React.createElement('div', {}, children),
   Tooltip: ({ children }: { children?: React.ReactNode }) => React.createElement('div', {}, children),
   Typography: {
@@ -487,7 +490,7 @@ describe('AcpSendBox live ACP flow', () => {
     expect(screen.getByText('Stop requested')).toBeInTheDocument();
   });
 
-  it('shows an explicit connecting thought display while ACP is waiting for the first response', async () => {
+  it('shows an explicit thread warmup indicator while ACP is waiting for the first response', async () => {
     mockConversationGetInvoke.mockResolvedValue({
       id: CONVERSATION_ID,
       type: 'acp',
@@ -508,10 +511,32 @@ describe('AcpSendBox live ACP flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'trigger-send' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('thought-display')).toHaveAttribute('data-running', 'true');
+      expect(screen.getByTestId('acp-warmup-indicator')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('thought-subject')).toHaveTextContent('Processing');
-    expect(screen.getByTestId('thought-description')).toHaveTextContent('Connecting to Claude...');
+    expect(screen.getByTestId('acp-warmup-indicator')).toHaveTextContent('Processing');
+    expect(screen.getByTestId('acp-warmup-indicator')).toHaveTextContent('Connecting to Claude...');
+  });
+
+  it('does not show the warmup indicator when reopening a running ACP conversation mid-turn', async () => {
+    mockConversationGetInvoke.mockResolvedValue({
+      id: CONVERSATION_ID,
+      type: 'acp',
+      status: 'running',
+      extra: {},
+    });
+
+    renderAcpSendBoxWithDiagnostics({
+      conversation_id: CONVERSATION_ID,
+      backend: 'claude',
+      agentName: 'Claude',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sendbox-loading')).toHaveTextContent('true');
+    });
+
+    expect(screen.queryByTestId('acp-warmup-indicator')).not.toBeInTheDocument();
+    expect(screen.getByTestId('acp-runtime-status-dot')).not.toHaveClass('animate-pulse');
   });
 
   it('switches the sendbox placeholder to processing while ACP is busy', async () => {
@@ -553,6 +578,7 @@ describe('AcpSendBox live ACP flow', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sendbox-placeholder')).toHaveTextContent('Processing');
     });
+    expect(screen.queryByTestId('acp-warmup-indicator')).not.toBeInTheDocument();
 
     act(() => {
       emitAcpResponse({
@@ -568,7 +594,7 @@ describe('AcpSendBox live ACP flow', () => {
     });
   });
 
-  it('lets inline ACP thinking replace the fallback connecting affordance before the first content arrives', async () => {
+  it('lets inline ACP thinking replace the thread warmup indicator before the first content arrives', async () => {
     mockConversationGetInvoke.mockResolvedValue({
       id: CONVERSATION_ID,
       type: 'acp',
@@ -589,7 +615,7 @@ describe('AcpSendBox live ACP flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'trigger-send' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('thought-description')).toHaveTextContent('Connecting to Claude...');
+      expect(screen.getByTestId('acp-warmup-indicator')).toHaveTextContent('Connecting to Claude...');
     });
 
     act(() => {
@@ -605,7 +631,7 @@ describe('AcpSendBox live ACP flow', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByTestId('thought-display')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('acp-warmup-indicator')).not.toBeInTheDocument();
     });
     expect(mockAddOrUpdateMessage).toHaveBeenCalledWith(
       expect.objectContaining({

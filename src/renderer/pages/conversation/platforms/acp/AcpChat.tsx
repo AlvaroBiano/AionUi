@@ -13,6 +13,7 @@ import HOC from '@renderer/utils/ui/HOC';
 import React from 'react';
 import ConversationChatConfirm from '../../components/ConversationChatConfirm';
 import AcpSendBox from './AcpSendBox';
+import AcpWarmupIndicator from './AcpWarmupIndicator';
 import { sanitizeAcpTimelineMessages } from './useAcpMessage';
 
 const AcpChat: React.FC<{
@@ -46,6 +47,9 @@ const AcpChat: React.FC<{
         <FlexFullContainer>
           <MessageList className='flex-1'></MessageList>
         </FlexFullContainer>
+        {!hideSendBox && (
+          <AcpWarmupIndicator conversationId={conversation_id} backend={backend} agentName={agentName} />
+        )}
         {!hideSendBox && (
           <ConversationChatConfirm conversation_id={conversation_id}>
             <AcpSendBox

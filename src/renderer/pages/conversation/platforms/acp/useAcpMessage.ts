@@ -675,9 +675,19 @@ export const useAcpMessage = (conversation_id: string, options: UseAcpMessageOpt
       statusSource: acpStatusSource,
       statusRevision: acpStatusRevision,
       activityPhase,
+      hasThinkingMessage,
       logs: acpLogs,
     });
-  }, [acpLogs, acpStatus, acpStatusRevision, acpStatusSource, aiProcessing, conversation_id, running]);
+  }, [
+    acpLogs,
+    acpStatus,
+    acpStatusRevision,
+    acpStatusSource,
+    aiProcessing,
+    conversation_id,
+    hasThinkingMessage,
+    running,
+  ]);
 
   // Reset state when conversation changes and restore actual running status
   useEffect(() => {
@@ -725,8 +735,11 @@ export const useAcpMessage = (conversation_id: string, options: UseAcpMessageOpt
         const isRunning = res.status === 'running';
         setRunning(isRunning);
         runningRef.current = isRunning;
-        setAiProcessing(isRunning);
-        aiProcessingRef.current = isRunning;
+        // Hydrated running means the thread is already mid-turn, not that it is
+        // still waiting for its first response. Keep the turn busy via `running`
+        // but avoid re-entering the send-time warmup phase.
+        setAiProcessing(false);
+        aiProcessingRef.current = false;
       }
       setHasHydratedRunningState(true);
 

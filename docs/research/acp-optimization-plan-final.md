@@ -743,8 +743,9 @@ Zed 领先点已经比较稳定，可归纳为：
 
 - 发送按钮已经切到 `stop`
 - 右上角 runtime status dot 进入 waiting pulse
-- sendbox 上方出现 `Processing / Connecting to {agent}` affordance
+- 在线程底部、输入框上方出现一条 `Processing / Connecting to {agent}` warmup row
 - 如果 ACP 在首包前先发出 inline `thinking`，则由 inline `thinking` 接管这一段等待提示，避免双重过渡 UI
+- 如果切回的是一个已经 hydrated 的 `running` 会话，则保持 busy/stop 语义，但不会错误回到 `Connecting to {agent}`
 
 当前用户不会看到：
 
@@ -853,7 +854,7 @@ Zed 也有 ACP logs，但它是：
 当前剩余的主要差距更偏产品化：
 
 - AionUi 已将 `ACP logs` 收到二级入口，但 diagnostics status dot 仍比 Zed 更直接暴露在主线程 header 中
-- AionUi 的 send-time waiting affordance 已补上最小版，但仍没有 Zed 那种更完整的 thread-level generating row
+- AionUi 的 send-time waiting affordance 已上移到线程底部，但仍没有 Zed 那种更完整的 thread-level generating row / elapsed meta
 - AionUi 的 streaming reveal 已有最小版，但离 Zed 更细腻的观感调优仍有空间
 
 因此后续优先级应继续是：

@@ -77,7 +77,7 @@ describe('useAcpMessage', () => {
     });
 
     expect(result.current.running).toBe(true);
-    expect(result.current.aiProcessing).toBe(true);
+    expect(result.current.aiProcessing).toBe(false);
 
     act(() => {
       capturedResponseListener?.({
@@ -131,6 +131,7 @@ describe('useAcpMessage', () => {
         status: null,
         statusSource: null,
         activityPhase: 'idle',
+        hasThinkingMessage: false,
       })
     );
 
@@ -142,6 +143,7 @@ describe('useAcpMessage', () => {
       expect(readAcpRuntimeDiagnosticsSnapshot(CONVERSATION_ID)).toEqual(
         expect.objectContaining({
           activityPhase: 'waiting',
+          hasThinkingMessage: false,
         })
       );
     });
@@ -163,6 +165,7 @@ describe('useAcpMessage', () => {
           status: 'session_active',
           statusSource: 'live',
           activityPhase: 'streaming',
+          hasThinkingMessage: false,
         })
       );
     });
@@ -180,6 +183,80 @@ describe('useAcpMessage', () => {
       expect(readAcpRuntimeDiagnosticsSnapshot(CONVERSATION_ID)).toEqual(
         expect.objectContaining({
           activityPhase: 'idle',
+          hasThinkingMessage: false,
+        })
+      );
+    });
+  });
+
+  it('hydrates a running ACP conversation as streaming instead of re-entering the warmup phase', async () => {
+    mockConversationGetInvoke.mockResolvedValue({
+      id: CONVERSATION_ID,
+      type: 'acp',
+      status: 'running',
+      extra: {},
+    });
+
+    const { result } = renderHook(() => useAcpMessage(CONVERSATION_ID));
+
+    await waitFor(() => {
+      expect(result.current.hasHydratedRunningState).toBe(true);
+    });
+
+    expect(result.current.running).toBe(true);
+    expect(result.current.aiProcessing).toBe(false);
+    expect(readAcpRuntimeDiagnosticsSnapshot(CONVERSATION_ID)).toEqual(
+      expect.objectContaining({
+        activityPhase: 'streaming',
+        hasThinkingMessage: false,
+      })
+    );
+  });
+
+  it('publishes inline thinking presence so warmup UI can yield while ACP is still waiting', async () => {
+    mockConversationGetInvoke.mockResolvedValue({
+      id: CONVERSATION_ID,
+      type: 'acp',
+      status: 'finished',
+      extra: {},
+    });
+
+    const { result } = renderHook(() => useAcpMessage(CONVERSATION_ID));
+
+    await waitFor(() => {
+      expect(result.current.hasHydratedRunningState).toBe(true);
+    });
+
+    act(() => {
+      result.current.setAiProcessing(true);
+    });
+
+    await waitFor(() => {
+      expect(readAcpRuntimeDiagnosticsSnapshot(CONVERSATION_ID)).toEqual(
+        expect.objectContaining({
+          activityPhase: 'waiting',
+          hasThinkingMessage: false,
+        })
+      );
+    });
+
+    act(() => {
+      capturedResponseListener?.({
+        type: 'thinking',
+        conversation_id: CONVERSATION_ID,
+        msg_id: 'thinking-before-first-content',
+        data: {
+          content: 'Thinking through the request',
+          status: 'thinking',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(readAcpRuntimeDiagnosticsSnapshot(CONVERSATION_ID)).toEqual(
+        expect.objectContaining({
+          activityPhase: 'waiting',
+          hasThinkingMessage: true,
         })
       );
     });
