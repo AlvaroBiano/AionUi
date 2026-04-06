@@ -298,6 +298,7 @@ const AcpSendBox: React.FC<{
   const isBusy = running || aiProcessing;
   const actionableErrorLog = isActionableAcpErrorLog(acpLogs[0]) ? acpLogs[0] : null;
   const [acknowledgedQueueErrorLogId, setAcknowledgedQueueErrorLogId] = useState<string | null>(null);
+  const [dismissedErrorLogId, setDismissedErrorLogId] = useState<string | null>(null);
   const isAuthActionActive = authenticatingRevision !== null || pendingAuthReadyRevision !== null;
   const isRetryActionActive = retryingDisconnectedRevision !== null || pendingRetryReadyRevision !== null;
   const hasHydratedTerminalStatus = acpStatusSource === 'hydrated' && isTerminalAcpStatus(acpStatus);
@@ -616,6 +617,22 @@ Please check your local CLI tool authentication status`,
     setAcknowledgedQueueErrorLogId(null);
   }, [conversation_id]);
 
+  useEffect(() => {
+    setDismissedErrorLogId(null);
+  }, [conversation_id]);
+
+  useEffect(() => {
+    if (dismissedErrorLogId === null) {
+      return;
+    }
+
+    if (actionableErrorLog?.id === dismissedErrorLogId) {
+      return;
+    }
+
+    setDismissedErrorLogId(null);
+  }, [actionableErrorLog?.id, dismissedErrorLogId]);
+
   const handleResumeQueue = useCallback(() => {
     if (actionableErrorLog !== null) {
       setAcknowledgedQueueErrorLogId((currentId) =>
@@ -638,7 +655,11 @@ Please check your local CLI tool authentication status`,
     ((acpStatus === 'disconnected' && (!hasHydratedTerminalStatus || hasPendingCommands)) || isRetryActionActive);
   const isRetryingConnection = shouldShowDisconnectedBanner && isRetryActionActive;
   const shouldShowErrorBanner =
-    !isBusy && !shouldShowAuthBanner && !shouldShowDisconnectedBanner && actionableErrorLog !== null;
+    !isBusy &&
+    !shouldShowAuthBanner &&
+    !shouldShowDisconnectedBanner &&
+    actionableErrorLog !== null &&
+    actionableErrorLog.id !== dismissedErrorLogId;
 
   const onSendHandler = async (message: string) => {
     if (!isCommandQueueEnabled && isBusy) {
@@ -1019,7 +1040,14 @@ Please check your local CLI tool authentication status`,
           }}
         />
       )}
-      {shouldShowErrorBanner && <AcpErrorBanner entry={actionableErrorLog} />}
+      {shouldShowErrorBanner && (
+        <AcpErrorBanner
+          entry={actionableErrorLog}
+          onDismiss={() => {
+            setDismissedErrorLogId(actionableErrorLog.id);
+          }}
+        />
+      )}
       <CommandQueuePanel
         items={queuedCommands}
         paused={isQueuePaused}
