@@ -619,7 +619,7 @@ Please check your local CLI tool authentication status`,
       return;
     }
 
-    pause();
+    pause('barrier');
   }, [isQueuePaused, pause, queuedCommands.length, shouldBlockQueueOnLiveErrorBarrier]);
 
   useEffect(() => {

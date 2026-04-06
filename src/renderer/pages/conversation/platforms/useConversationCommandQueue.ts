@@ -12,9 +12,12 @@ export type ConversationCommandQueueItem = {
   createdAt: number;
 };
 
+export type QueuePauseReason = 'manual' | 'barrier' | 'execute_failed';
+
 export type ConversationCommandQueueState = {
   items: ConversationCommandQueueItem[];
   isPaused: boolean;
+  pauseReason: QueuePauseReason | null;
 };
 
 export const MAX_QUEUED_COMMANDS = 20;
@@ -60,6 +63,7 @@ const logCommandQueue = (conversationId: string, event: string, payload: Record<
 const createDefaultQueueState = (): ConversationCommandQueueState => ({
   items: [],
   isPaused: false,
+  pauseReason: null,
 });
 
 const queueStore = new Map<string, ConversationCommandQueueState>();
@@ -70,6 +74,16 @@ const measureQueueStateBytes = (state: ConversationCommandQueueState): number =>
 
 const uniqueFiles = (files: string[]): string[] => Array.from(new Set(files.filter(Boolean)));
 const isInputEmpty = (input: string): boolean => input.trim().length === 0;
+const normalizeQueuePauseReason = (reason: unknown): QueuePauseReason | null => {
+  switch (reason) {
+    case 'manual':
+    case 'barrier':
+    case 'execute_failed':
+      return reason;
+    default:
+      return null;
+  }
+};
 
 const normalizeQueueItem = (item: unknown): ConversationCommandQueueItem | null => {
   if (!item || typeof item !== 'object') {
@@ -112,16 +126,19 @@ export const normalizeQueueState = (state: unknown): ConversationCommandQueueSta
   }
 
   const candidate = state as Partial<ConversationCommandQueueState>;
+  const pauseReason = normalizeQueuePauseReason(candidate.pauseReason);
   const normalizedItems = Array.isArray(candidate.items)
     ? candidate.items.map(normalizeQueueItem).filter((item): item is ConversationCommandQueueItem => item !== null)
     : [];
   const items: ConversationCommandQueueItem[] = [];
+  const isPaused = candidate.isPaused === true;
 
   for (const item of normalizedItems.slice(0, MAX_QUEUED_COMMANDS)) {
     const nextItems = [...items, item];
     const nextState = {
       items: nextItems,
-      isPaused: Boolean(candidate.isPaused),
+      isPaused,
+      pauseReason: isPaused ? pauseReason : null,
     };
 
     if (measureQueueStateBytes(nextState) > MAX_QUEUED_COMMAND_STATE_BYTES) {
@@ -134,6 +151,7 @@ export const normalizeQueueState = (state: unknown): ConversationCommandQueueSta
   return {
     items,
     isPaused: items.length > 0 ? Boolean(candidate.isPaused) : false,
+    pauseReason: items.length > 0 && Boolean(candidate.isPaused) ? pauseReason : null,
   };
 };
 
@@ -304,6 +322,10 @@ export const shouldEnqueueConversationCommand = ({
   isBusy: boolean;
   hasPendingCommands: boolean;
 }): boolean => enabled && (isBusy || hasPendingCommands);
+
+const shouldAutoResumeQueueAfterMutation = (state: ConversationCommandQueueState): boolean => {
+  return state.isPaused && state.pauseReason === 'execute_failed';
+};
 
 type UseConversationCommandQueueOptions = {
   conversationId: string;
@@ -505,8 +527,10 @@ export const useConversationCommandQueue = ({
       }
 
       const nextItems = updateQueuedCommand(currentState.items, commandId, { input });
+      const shouldResumeAfterUpdate = shouldAutoResumeQueueAfterMutation(currentState);
       const nextState: ConversationCommandQueueState = {
-        isPaused: false,
+        isPaused: shouldResumeAfterUpdate ? false : currentState.isPaused,
+        pauseReason: shouldResumeAfterUpdate ? null : currentState.pauseReason,
         items: nextItems,
       };
       const failureReason = getQueueValidationFailureReason(nextState);
@@ -542,10 +566,12 @@ export const useConversationCommandQueue = ({
         commandId,
       });
       void updateState((state) => {
+        const shouldResumeAfterRemove = shouldAutoResumeQueueAfterMutation(state);
         const nextItems = removeQueuedCommand(state.items, commandId);
         return {
           items: nextItems,
-          isPaused: false,
+          isPaused: shouldResumeAfterRemove ? false : state.isPaused,
+          pauseReason: shouldResumeAfterRemove ? null : state.pauseReason,
         };
       });
     },
@@ -562,36 +588,45 @@ export const useConversationCommandQueue = ({
         activeCommandId,
         overCommandId,
       });
-      void updateState((state) => ({
-        isPaused: false,
-        items: reorderQueuedCommand(state.items, activeCommandId, overCommandId),
-      }));
+      void updateState((state) => {
+        const shouldResumeAfterReorder = shouldAutoResumeQueueAfterMutation(state);
+        return {
+          isPaused: shouldResumeAfterReorder ? false : state.isPaused,
+          pauseReason: shouldResumeAfterReorder ? null : state.pauseReason,
+          items: reorderQueuedCommand(state.items, activeCommandId, overCommandId),
+        };
+      });
     },
     [conversationId, enabled, updateState]
   );
 
-  const pause = useCallback(() => {
-    if (!enabled) {
-      return;
-    }
-
-    pausedRef.current = true;
-    waitingForTurnStartRef.current = false;
-    waitingForTurnCompletionRef.current = false;
-    logCommandQueue(conversationId, 'paused', {
-      itemCount: data.items.length,
-    });
-    void updateState((state) => {
-      if (state.items.length === 0) {
-        pausedRef.current = false;
-        return createDefaultQueueState();
+  const pause = useCallback(
+    (reason: QueuePauseReason = 'manual') => {
+      if (!enabled) {
+        return;
       }
-      return {
-        ...state,
-        isPaused: true,
-      };
-    });
-  }, [conversationId, data.items.length, enabled, updateState]);
+
+      pausedRef.current = true;
+      waitingForTurnStartRef.current = false;
+      waitingForTurnCompletionRef.current = false;
+      logCommandQueue(conversationId, 'paused', {
+        itemCount: data.items.length,
+        reason,
+      });
+      void updateState((state) => {
+        if (state.items.length === 0) {
+          pausedRef.current = false;
+          return createDefaultQueueState();
+        }
+        return {
+          ...state,
+          isPaused: true,
+          pauseReason: reason,
+        };
+      });
+    },
+    [conversationId, data.items.length, enabled, updateState]
+  );
 
   const resume = useCallback(() => {
     if (!enabled) {
@@ -602,10 +637,17 @@ export const useConversationCommandQueue = ({
     logCommandQueue(conversationId, 'resumed', {
       itemCount: data.items.length,
     });
-    void updateState((state) => ({
-      ...state,
-      isPaused: state.items.length > 0 ? false : state.isPaused,
-    }));
+    void updateState((state) => {
+      if (state.items.length === 0) {
+        return createDefaultQueueState();
+      }
+
+      return {
+        ...state,
+        isPaused: false,
+        pauseReason: null,
+      };
+    });
   }, [conversationId, data.items.length, enabled, updateState]);
 
   const lockInteraction = useCallback(() => {
@@ -675,6 +717,7 @@ export const useConversationCommandQueue = ({
     void updateState(() => ({
       items: remainingCommands,
       isPaused: false,
+      pauseReason: null,
     }));
 
     void onExecute(nextCommand).catch((error) => {
@@ -689,6 +732,7 @@ export const useConversationCommandQueue = ({
       void updateState((state) => ({
         items: restoreQueuedCommand(state.items, nextCommand),
         isPaused: true,
+        pauseReason: 'execute_failed',
       }));
       Message.warning(
         t('conversation.commandQueue.pausedAfterFailure', {
@@ -711,8 +755,9 @@ export const useConversationCommandQueue = ({
   ]);
 
   return {
-    items: enabled ? data.items : [],
-    isPaused: enabled ? data.isPaused : false,
+    items: data.items,
+    isPaused: data.isPaused,
+    pauseReason: data.pauseReason,
     isInteractionLocked,
     hasPendingCommands: enabled ? data.items.length > 0 : false,
     enqueue,

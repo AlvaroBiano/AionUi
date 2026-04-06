@@ -114,6 +114,7 @@ describe('conversation command queue helpers', () => {
     expect(normalizeQueueState({ items: [], isPaused: true })).toEqual({
       items: [],
       isPaused: false,
+      pauseReason: null,
     });
   });
 
@@ -149,6 +150,7 @@ describe('conversation command queue helpers', () => {
     expect(normalized).toEqual({
       items: [createItem('safe')],
       isPaused: true,
+      pauseReason: null,
     });
   });
 
@@ -191,7 +193,7 @@ describe('conversation command queue helpers', () => {
         input: 'x'.repeat(MAX_QUEUED_COMMAND_INPUT_LENGTH + 1),
         files: [],
       }),
-      { items: [], isPaused: false }
+      { items: [], isPaused: false, pauseReason: null }
     );
 
     expect(result).toEqual({ ok: false, reason: 'inputTooLong' });
@@ -203,7 +205,7 @@ describe('conversation command queue helpers', () => {
         input: '   ',
         files: [],
       }),
-      { items: [], isPaused: false }
+      { items: [], isPaused: false, pauseReason: null }
     );
 
     expect(result).toEqual({ ok: false, reason: 'emptyInput' });
@@ -215,7 +217,7 @@ describe('conversation command queue helpers', () => {
         input: 'hello',
         files: Array.from({ length: MAX_QUEUED_COMMAND_FILES + 1 }, (_, index) => `${index}.txt`),
       }),
-      { items: [], isPaused: false }
+      { items: [], isPaused: false, pauseReason: null }
     );
 
     expect(result).toEqual({ ok: false, reason: 'tooManyFiles' });
@@ -223,9 +225,10 @@ describe('conversation command queue helpers', () => {
 
   it('rejects queue states that exceed the storage budget', () => {
     const input = 'x'.repeat(MAX_QUEUED_COMMAND_INPUT_LENGTH);
-    const state: { items: ConversationCommandQueueItem[]; isPaused: boolean } = {
+    const state: { items: ConversationCommandQueueItem[]; isPaused: boolean; pauseReason: null } = {
       items: [],
       isPaused: false,
+      pauseReason: null,
     };
 
     for (let index = 0; index < MAX_QUEUED_COMMANDS; index += 1) {
