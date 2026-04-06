@@ -61,6 +61,11 @@ vi.mock('@/renderer/pages/conversation/platforms/openclaw/OpenClawChat', () => (
   default: () => React.createElement('div'),
 }));
 
+vi.mock('@/renderer/pages/conversation/platforms/gemini/GeminiChat', () => ({
+  __esModule: true,
+  default: () => React.createElement('div'),
+}));
+
 vi.mock('@/renderer/pages/conversation/platforms/remote/RemoteChat', () => ({
   __esModule: true,
   default: () => React.createElement('div'),
@@ -142,6 +147,10 @@ const createConversation = (overrides: Partial<TChatConversation> = {}): TChatCo
 describe('ChatConversation ACP runtime diagnostics backend identity', () => {
   beforeEach(() => {
     mockUsePresetAssistantInfo.mockReset();
+    mockUsePresetAssistantInfo.mockReturnValue({
+      info: null,
+      isLoading: false,
+    });
   });
 
   it('keeps Claude backend identity while preset assistant info is still loading', () => {
@@ -168,5 +177,58 @@ describe('ChatConversation ACP runtime diagnostics backend identity', () => {
     expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-backend', 'claude');
     expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-agent-name', 'Preset ACP Agent');
     expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-show-acp-runtime-diagnostics', 'true');
+  });
+
+  it('routes legacy Codex conversations through ACP with Codex backend identity', () => {
+    render(<ChatConversation conversation={createConversation({ type: 'codex' })} />);
+
+    expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-backend', 'codex');
+    expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-show-acp-runtime-diagnostics', 'true');
+    expect(screen.getByTestId('acp-chat')).toHaveAttribute('data-backend', 'codex');
+  });
+
+  it.each([
+    ['aionrs', 'aionrs', 'false'],
+    ['openclaw-gateway', 'openclaw-gateway', 'false'],
+    ['nanobot', 'nanobot', 'false'],
+    ['remote', 'remote', 'false'],
+  ] as const)(
+    'maps %s conversations to the %s backend without ACP diagnostics',
+    (conversationType, expectedBackend, showAcpRuntimeDiagnostics) => {
+      render(
+        <ChatConversation
+          conversation={createConversation({
+            type: conversationType as TChatConversation['type'],
+          })}
+        />
+      );
+
+      expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-backend', expectedBackend);
+      expect(screen.getByTestId('chat-layout')).toHaveAttribute(
+        'data-show-acp-runtime-diagnostics',
+        showAcpRuntimeDiagnostics
+      );
+    }
+  );
+
+  it('leaves backend identity empty when no conversation is selected', () => {
+    render(<ChatConversation />);
+
+    expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-backend', '');
+    expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-show-acp-runtime-diagnostics', 'false');
+  });
+
+  it('keeps Gemini conversations out of ACP diagnostics when backend resolution falls through', () => {
+    render(
+      <ChatConversation
+        conversation={
+          createConversation({
+            type: 'gemini' as TChatConversation['type'],
+          }) as TChatConversation
+        }
+      />
+    );
+
+    expect(screen.getByTestId('chat-layout')).toHaveAttribute('data-show-acp-runtime-diagnostics', 'false');
   });
 });
