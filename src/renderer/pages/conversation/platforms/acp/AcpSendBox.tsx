@@ -36,7 +36,12 @@ import { useSlashCommands } from '@/renderer/hooks/chat/useSlashCommands';
 import AcpAuthBanner from './AcpAuthBanner';
 import AcpConnectionBanner from './AcpConnectionBanner';
 import AcpErrorBanner from './AcpErrorBanner';
-import { setAcpRuntimeUiWarmupPending, useAcpRuntimeDiagnostics, type AcpLogEntry } from './acpRuntimeDiagnostics';
+import {
+  isAcpRuntimeBusySnapshot,
+  setAcpRuntimeUiWarmupPending,
+  useAcpRuntimeDiagnostics,
+  type AcpLogEntry,
+} from './acpRuntimeDiagnostics';
 import { useAcpMessage } from './useAcpMessage';
 import { useAcpInitialMessage } from './useAcpInitialMessage';
 
@@ -240,7 +245,6 @@ const AcpSendBox: React.FC<{
   agentSlotId?: string;
 }> = ({ conversation_id, backend, sessionMode, cachedConfigOptions, agentName, teamId, agentSlotId }) => {
   const {
-    running,
     hasHydratedRunningState,
     acpStatus,
     acpStatusSource,
@@ -250,7 +254,6 @@ const AcpSendBox: React.FC<{
     primeRequestTraceFallback,
     clearPendingRequestTraceFallback,
     acpLogs,
-    aiProcessing,
     setAiProcessing,
     resetState,
     tokenUsage,
@@ -296,8 +299,8 @@ const AcpSendBox: React.FC<{
     pendingRetryReadyRevision,
     sendNowPending,
   } = recoveryUiState;
-  const { uiWarmupPending } = useAcpRuntimeDiagnostics(conversation_id);
-  const isBusy = running || aiProcessing || uiWarmupPending;
+  const runtimeDiagnostics = useAcpRuntimeDiagnostics(conversation_id);
+  const isBusy = isAcpRuntimeBusySnapshot(runtimeDiagnostics);
   const actionableErrorLog = isActionableAcpErrorLog(acpLogs[0]) ? acpLogs[0] : null;
   const [acknowledgedQueueErrorLogId, setAcknowledgedQueueErrorLogId] = useState<string | null>(null);
   const [dismissedErrorLogId, setDismissedErrorLogId] = useState<string | null>(null);
