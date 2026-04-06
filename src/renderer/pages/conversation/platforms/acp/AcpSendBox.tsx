@@ -35,6 +35,8 @@ import { useTeamPermission } from '@/renderer/pages/team/hooks/TeamPermissionCon
 import { useSlashCommands } from '@/renderer/hooks/chat/useSlashCommands';
 import AcpAuthBanner from './AcpAuthBanner';
 import AcpConnectionBanner from './AcpConnectionBanner';
+import AcpErrorBanner from './AcpErrorBanner';
+import type { AcpLogEntry } from './acpRuntimeDiagnostics';
 import { useAcpMessage } from './useAcpMessage';
 import { useAcpInitialMessage } from './useAcpInitialMessage';
 
@@ -156,6 +158,23 @@ const updateStoredAcpRecoveryUiState = (
 const isTerminalAcpStatus = (status: string | null): status is 'auth_required' | 'disconnected' | 'error' =>
   status === 'auth_required' || status === 'disconnected' || status === 'error';
 
+const isActionableAcpErrorLog = (entry: AcpLogEntry | undefined): entry is AcpLogEntry => {
+  if (!entry || entry.source === 'hydrated') {
+    return false;
+  }
+
+  switch (entry.kind) {
+    case 'request_error':
+    case 'send_failed':
+    case 'retry_failed':
+      return true;
+    case 'status':
+      return entry.status === 'error';
+    default:
+      return false;
+  }
+};
+
 const clearConflictingRecoveryBarrierState = (
   currentState: AcpRecoveryUiState,
   nextStatus: 'auth_required' | 'disconnected' | 'error'
@@ -227,6 +246,7 @@ const AcpSendBox: React.FC<{
     appendAcpUiLog,
     primeRequestTraceFallback,
     clearPendingRequestTraceFallback,
+    acpLogs,
     aiProcessing,
     setAiProcessing,
     resetState,
@@ -577,13 +597,18 @@ Please check your local CLI tool authentication status`,
 
   const shouldShowAuthBanner =
     !isBusy &&
-    ((acpStatus === 'auth_required' && (!hasHydratedTerminalStatus || hasPendingCommands)) || isAuthActionActive);
+    ((acpStatus === 'auth_required' && (!hasHydratedTerminalStatus || hasPendingCommands)) ||
+      isAuthActionActive ||
+      acpLogs[0]?.kind === 'auth_failed');
   const isAuthenticating = shouldShowAuthBanner && isAuthActionActive;
   const shouldShowDisconnectedBanner =
     !isBusy &&
     !shouldShowAuthBanner &&
     ((acpStatus === 'disconnected' && (!hasHydratedTerminalStatus || hasPendingCommands)) || isRetryActionActive);
   const isRetryingConnection = shouldShowDisconnectedBanner && isRetryActionActive;
+  const actionableErrorLog = isActionableAcpErrorLog(acpLogs[0]) ? acpLogs[0] : null;
+  const shouldShowErrorBanner =
+    !isBusy && !shouldShowAuthBanner && !shouldShowDisconnectedBanner && actionableErrorLog !== null;
 
   const onSendHandler = async (message: string) => {
     if (!isCommandQueueEnabled && isBusy) {
@@ -964,6 +989,7 @@ Please check your local CLI tool authentication status`,
           }}
         />
       )}
+      {shouldShowErrorBanner && <AcpErrorBanner entry={actionableErrorLog} />}
       <CommandQueuePanel
         items={queuedCommands}
         paused={isQueuePaused}
