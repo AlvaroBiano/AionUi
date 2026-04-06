@@ -4,6 +4,8 @@
     "console_error": "ACP认证错误详情:",
     "failed_confirm": "ACP {{backend}} 认证失败：\n\n{{error}}\n\n是否现在前往设置页面配置？",
     "requiredHint": "{{agent}} 需要先完成认证才能继续此线程。现在进行认证，或先刷新本地 CLI 登录状态。",
+    "checkingHint": "正在检查 {{agent}} 的可用认证方式...",
+    "manualHint": "{{agent}} 需要先完成认证才能继续此线程。请先在本地 CLI 或浏览器中完成登录，然后回到这里重试。",
     "authenticate": "立即认证",
     "authenticating": "认证中...",
     "authenticatingHint": "正在启动 {{agent}} 的认证流程。请在 CLI 或浏览器中完成登录，然后回到这里。",

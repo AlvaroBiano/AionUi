@@ -9,6 +9,8 @@ type AcpAuthBannerProps = {
   agentName?: string;
   backend: string;
   authenticating?: boolean;
+  checkingSupport?: boolean;
+  showAuthenticateAction?: boolean;
   onAuthenticate: () => void;
 };
 
@@ -16,6 +18,8 @@ const AcpAuthBanner: React.FC<AcpAuthBannerProps> = ({
   agentName,
   backend,
   authenticating = false,
+  checkingSupport = false,
+  showAuthenticateAction = true,
   onAuthenticate,
 }) => {
   const { t } = useTranslation();
@@ -36,13 +40,19 @@ const AcpAuthBanner: React.FC<AcpAuthBannerProps> = ({
           <Text>
             {authenticating
               ? t('acp.auth.authenticatingHint', { agent: displayName })
-              : t('acp.auth.requiredHint', { agent: displayName })}
+              : checkingSupport
+                ? t('acp.auth.checkingHint', { agent: displayName })
+                : showAuthenticateAction
+                  ? t('acp.auth.requiredHint', { agent: displayName })
+                  : t('acp.auth.manualHint', { agent: displayName })}
           </Text>
-          <Space>
-            <Button type='primary' size='mini' loading={authenticating} onClick={onAuthenticate}>
-              {authenticating ? t('acp.auth.authenticating') : t('acp.auth.authenticate')}
-            </Button>
-          </Space>
+          {showAuthenticateAction && (
+            <Space>
+              <Button type='primary' size='mini' loading={authenticating} onClick={onAuthenticate}>
+                {authenticating ? t('acp.auth.authenticating') : t('acp.auth.authenticate')}
+              </Button>
+            </Space>
+          )}
         </Space>
       }
       style={{ marginBottom: 12 }}

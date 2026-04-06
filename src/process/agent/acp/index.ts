@@ -1565,6 +1565,17 @@ export class AcpAgent {
     return this.connection.currentSessionId;
   }
 
+  getAuthSupport(): { canAuthenticate: boolean } {
+    const initResponse = this.connection.getInitializeResponse();
+    const result = initResponse as unknown as InitializeResult | undefined;
+    const hasAcpAuthMethod = Boolean(result?.authMethods?.some((authMethod) => typeof authMethod.id === 'string'));
+    const hasBackendSpecificAuthFlow = this.extra.backend === 'claude' || this.extra.backend === 'qwen';
+
+    return {
+      canAuthenticate: hasAcpAuthMethod || hasBackendSpecificAuthFlow,
+    };
+  }
+
   /**
    * Create a new session or resume an existing one, and notify upper layer if session ID changed.
    * 创建新会话或恢复现有会话，如果 session ID 变化则通知上层。

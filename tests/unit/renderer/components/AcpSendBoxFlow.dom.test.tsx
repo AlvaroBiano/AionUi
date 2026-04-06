@@ -22,6 +22,7 @@ const mockConversationStopInvoke = vi.fn();
 const mockConversationWarmupInvoke = vi.fn();
 const mockAcpSendInvoke = vi.fn();
 const mockAcpAuthenticateInvoke = vi.fn();
+const mockAcpGetAuthSupportInvoke = vi.fn();
 const mockDatabaseMessagesInvoke = vi.fn();
 const mockAddOrUpdateMessage = vi.fn();
 const mockCheckAndUpdateTitle = vi.fn();
@@ -83,6 +84,11 @@ const openAcpDiagnostics = async (): Promise<void> => {
   });
 };
 
+const clickAuthenticateAction = async (): Promise<void> => {
+  const button = await screen.findByRole('button', { name: 'Authenticate' });
+  fireEvent.click(button);
+};
+
 vi.mock('@/common', () => ({
   ipcBridge: {
     conversation: {
@@ -93,6 +99,7 @@ vi.mock('@/common', () => ({
     acpConversation: {
       sendMessage: { invoke: (...args: unknown[]) => mockAcpSendInvoke(...args) },
       authenticate: { invoke: (...args: unknown[]) => mockAcpAuthenticateInvoke(...args) },
+      getAuthSupport: { invoke: (...args: unknown[]) => mockAcpGetAuthSupportInvoke(...args) },
       responseStream: {
         on: vi.fn((listener: (message: unknown) => void) => {
           responseListeners.add(listener);
@@ -458,6 +465,10 @@ vi.mock('react-i18next', () => ({
           return 'The ACP runtime stopped unexpectedly. Retry the connection now, or send another message to start a fresh session.';
         case 'acp.auth.requiredHint':
           return `${agent} needs authentication before this thread can continue. Authenticate now, or refresh the local CLI login.`;
+        case 'acp.auth.checkingHint':
+          return `Checking available sign-in options for ${agent}...`;
+        case 'acp.auth.manualHint':
+          return `${agent} needs authentication before this thread can continue. Complete sign-in in your local CLI or browser, then return here and try again.`;
         case 'acp.auth.authenticate':
           return 'Authenticate';
         case 'acp.auth.authenticating':
@@ -516,6 +527,7 @@ describe('AcpSendBox live ACP flow', () => {
     mockConversationWarmupInvoke.mockResolvedValue(true);
     mockAcpSendInvoke.mockResolvedValue({ success: true });
     mockAcpAuthenticateInvoke.mockResolvedValue({ success: true });
+    mockAcpGetAuthSupportInvoke.mockResolvedValue({ success: true, data: { canAuthenticate: true } });
     mockDatabaseMessagesInvoke.mockResolvedValue([]);
     mockCopyText.mockResolvedValue(undefined);
   });
@@ -2529,7 +2541,7 @@ describe('AcpSendBox live ACP flow', () => {
       )
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
@@ -2610,7 +2622,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
@@ -2646,6 +2658,111 @@ describe('AcpSendBox live ACP flow', () => {
     });
   });
 
+  it('hides the authenticate action when the current ACP thread has no supported auth handoff', async () => {
+    mockAcpGetAuthSupportInvoke.mockResolvedValueOnce({
+      success: true,
+      data: { canAuthenticate: false },
+    });
+
+    renderAcpSendBoxWithDiagnostics({
+      conversation_id: CONVERSATION_ID,
+      backend: 'auggie',
+      agentName: 'Augment Code',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sendbox-loading')).toHaveTextContent('true');
+    });
+
+    act(() => {
+      emitAcpResponse({
+        type: 'agent_status',
+        conversation_id: CONVERSATION_ID,
+        msg_id: 'status-auth-required-manual-only',
+        data: {
+          backend: 'auggie',
+          status: 'auth_required',
+          agentName: 'Augment Code',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockAcpGetAuthSupportInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Augment Code needs authentication before this thread can continue. Complete sign-in in your local CLI or browser, then return here and try again.'
+        )
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Authenticate' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows a checking hint instead of the manual-only hint while auth support is still resolving', async () => {
+    const authSupportDeferred = createDeferred<{
+      success: boolean;
+      data: { canAuthenticate: boolean };
+    }>();
+    mockAcpGetAuthSupportInvoke.mockReturnValueOnce(authSupportDeferred.promise);
+
+    renderAcpSendBoxWithDiagnostics({
+      conversation_id: CONVERSATION_ID,
+      backend: 'claude',
+      agentName: 'Claude',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sendbox-loading')).toHaveTextContent('true');
+    });
+
+    act(() => {
+      emitAcpResponse({
+        type: 'agent_status',
+        conversation_id: CONVERSATION_ID,
+        msg_id: 'status-auth-required-checking',
+        data: {
+          backend: 'claude',
+          status: 'auth_required',
+          agentName: 'Claude',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockAcpGetAuthSupportInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
+    });
+
+    expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
+    expect(screen.getByText('Checking available sign-in options for Claude...')).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Claude needs authentication before this thread can continue. Complete sign-in in your local CLI or browser, then return here and try again.'
+      )
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Authenticate' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      authSupportDeferred.resolve({
+        success: true,
+        data: { canAuthenticate: true },
+      });
+      await authSupportDeferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Claude needs authentication before this thread can continue. Authenticate now, or refresh the local CLI login.'
+        )
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Authenticate' })).toBeInTheDocument();
+  });
+
   it('keeps the auth banner visible while authenticate is still in flight through authenticated status noise', async () => {
     const authDeferred = createDeferred<{ success: boolean }>();
     mockAcpAuthenticateInvoke.mockReturnValueOnce(authDeferred.promise);
@@ -2677,7 +2794,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
@@ -2758,7 +2875,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
@@ -2826,7 +2943,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledTimes(1);
@@ -2920,7 +3037,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: conversationId });
@@ -3007,7 +3124,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: conversationId });
@@ -3078,7 +3195,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
@@ -3136,7 +3253,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });
@@ -3207,7 +3324,7 @@ describe('AcpSendBox live ACP flow', () => {
       expect(screen.getByTestId('sendbox-loading')).toHaveTextContent('false');
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Authenticate' }));
+    await clickAuthenticateAction();
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: CONVERSATION_ID });

@@ -657,7 +657,8 @@ Zed 领先点已经比较稳定，可归纳为：
 用户会看到：
 
 - thread-level 黄色 banner
-- `Authenticate` 按钮
+- 当当前 ACP thread 真支持 AionUi 触发认证时，会看到 `Authenticate` 按钮
+- 当当前 ACP thread 不支持 in-app auth handoff 时，只会看到 manual hint，不再出现点了没反应的假按钮
 
 但以下情况默认不会直接升格成这块 banner：
 
@@ -874,8 +875,13 @@ Zed 领先点已经比较稳定，可归纳为：
 用户会看到：
 
 - thread-level `Authentication Required` callout
-- `Authenticate` 按钮
+- capability-based 的 `Authenticate` 动作
 - 可复制错误信息的入口
+
+对 external agents，这个认证动作本身也是按 capability 决定的：
+
+- 如果 auth method 对应 terminal flow，Zed 会拉起可见的 terminal login task
+- 否则才走 ACP `authenticate()`
 
 ### 3. 一般错误
 
@@ -935,7 +941,8 @@ Zed 也有 ACP logs，但它是：
 
 当前剩余的主要差距更偏产品化：
 
-- AionUi 已将 `ACP logs` 收到二级入口；desktop idle diagnostics 也已退到 agent pill hover / focus 后才显现。与 Zed 的剩余差距主要不再是“常亮外露”，而是这个入口仍位于主 header / agent pill，而不是更深层调试 surface
+- AionUi 已将 `ACP logs` 收到二级入口；但考虑当前 ACP 服务仍不够稳定，desktop runtime status dot 目前重新保持常驻可见，以优先给用户透明状态反馈。与 Zed 的差距在这里已不再只是“遗漏没收起”，而是一个当前阶段仍刻意保留的产品取舍
+- AionUi 的 auth recovery CTA 已收成 capability-based：只有当前 thread 真支持 AionUi 触发认证时才显示 `Authenticate`；不支持的 backend/thread 会直接回落到 manual hint
 - AionUi 已补上轻量的 thread-level generating row / elapsed meta，并覆盖了 cold waiting 与普通 streaming；后续如果继续扩展 turn stats / token meta / tool-aware affordance，应视为 AionUi 的产品增强，而不是 Zed external-agent 的默认基线
 - AionUi 的 streaming reveal 已有最小版，但离 Zed 更细腻的观感调优仍有空间
 
@@ -952,6 +959,6 @@ Zed 也有 ACP logs，但它是：
 
 因此后续优先级应继续是：
 
-1. 再决定当前 agent-pill hover diagnostics 入口是否还要继续下沉到更深层调试入口；如果当前阶段以 merge-friendly 为先，也可以先保持现状
+1. 再决定当前常驻 status dot 是否还要在服务稳定后继续下沉到更深层调试入口；如果当前阶段以透明化和 merge-friendly 为先，可以先保持现状
 2. 再回到更深层 `runtime / queue-busy ownership` 收口，而不是继续把大量精力花在 header status 微调上
 3. 仅在确认仍有明确用户价值时，再继续打磨 generating row / reveal 的克制感与连贯性，而不是先假设必须补 token/tool stats

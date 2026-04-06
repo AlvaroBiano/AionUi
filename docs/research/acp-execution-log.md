@@ -3692,3 +3692,85 @@
     - 第一优先：评估是否还需要把 diagnostics 从当前 agent-pill hover 入口继续下沉
     - 第二优先：回到更深层 `runtime / queue-busy ownership`
     - 第三优先：仅在确认仍有明显用户价值时，再继续补更重的 turn stats / tool-aware affordance
+
+### 2026-04-07 / Batch 52
+
+- 对应 SC:
+  - `SC-055`
+- Goal:
+  - 把 ACP `Authentication Required` banner 的恢复动作收成 truthful CTA：
+    - 当前 thread 真支持 AionUi 触发认证时才显示 `Authenticate`
+    - 当前 thread 不支持 in-app handoff 时，直接去掉按钮，改成 manual hint
+    - support probe 未决时，用 checking hint，不能先闪错误的 manual 文案
+- Root cause:
+  - 第一版 `getAuthSupport` 只看 live cached task / 已初始化 agent：
+    - 冷线程、task reap、重开 app 后 reopen thread 时，会把本可认证的 thread 误判成 `canAuthenticate = false`
+    - 而真实 `authenticate()` 路径却会按需 build/init task，这导致 gating 比动作本身更保守
+  - renderer 侧首帧又直接把 `authActionAvailable === null` 当成 `false`：
+    - 支持认证的 thread 会先短暂显示 manual-only hint
+    - 然后才切回 `Authenticate`
+- Changes:
+  - `docs/research/acp-scenario-cards.md`
+    - 新增 `SC-055 ACP Auth Recovery Actions Must Match Real Thread Capability`
+  - `src/process/task/AcpAgentManager.ts`
+    - 修正 `initAgent()` 的 `bootstrapping` 清理，失败路径也会正确 reset
+    - 新增 async `probeAuthSupport()`：
+      - 对冷线程允许按需 init
+      - 让 support probe 不再比真实 `authenticate()` 更保守
+  - `src/process/bridge/acpConversationBridge.ts`
+    - `getAuthSupport` 改为 `getOrBuildTask + probeAuthSupport`
+    - 冷线程 reopened auth banner 不再默认落成 `canAuthenticate = false`
+  - `src/renderer/pages/conversation/platforms/acp/AcpAuthBanner.tsx`
+    - 新增 checking state
+    - banner 文案改成 `checking / supported / manual-only` 三态
+  - `src/renderer/pages/conversation/platforms/acp/AcpSendBox.tsx`
+    - auth banner 首帧改为 checking，不再先闪 manual hint
+  - `src/renderer/services/i18n/locales/*/acp.json`
+    - 新增 `acp.auth.checkingHint`
+  - `tests/unit/acpConversationBridge.test.ts`
+    - 改成覆盖 cold-thread build/probe 路径
+  - `tests/unit/renderer/components/AcpSendBoxFlow.dom.test.tsx`
+    - 新增 checking-state 回归
+    - 现有 authenticate CTA 测试改为显式等待 button，避免依赖时序偶然通过
+- Reviewer:
+  - 按 V2 复用了隔离 reviewer `Laplace`
+  - reviewer 给出 2 条有效发现：
+    - `Medium`：冷线程 support probe 比真实 `authenticate()` 更保守，会错删有效 CTA
+    - `Low`：supported path 首帧会先闪 manual-only hint
+  - 本轮已按 reviewer 口径修复：
+    - cold thread support probe 改为按需 init
+    - 首帧增加 checking state，不再误导用户离开 AionUi
+- Verification:
+  - `bunx vitest run tests/unit/acpConversationBridge.test.ts tests/unit/renderer/components/AcpSendBoxFlow.dom.test.tsx tests/unit/renderer/components/AcpSendBoxQueueFlow.dom.test.tsx tests/unit/renderer/platformSendBoxes.dom.test.tsx tests/unit/acpCodexPassiveAuth.test.ts`
+    - 结果：`105 passed`
+  - `bunx tsc --noEmit`
+    - 通过
+  - `bun run i18n:types`
+    - 通过
+  - `node scripts/check-i18n.js`
+    - 通过
+    - 补充说明：
+      - `31` 条 unknown literal i18n key warning 仍为仓库既有 warning-only 基线
+  - `bun run test`
+    - 通过
+    - 结果：`3253 passed | 17 skipped (3270 tests)`
+- Product judgement:
+  - 这轮不是在“让所有 ACP 都支持认证”，而是在先把 CTA 做真。
+  - 当前用户不会再在 unsupported auth thread 上看到一个点了没反应的 `Authenticate`。
+  - 同时，supported auth thread 也不会因为冷线程 / task reap / reopen 而被错误降级成 manual-only。
+- Open risks:
+  - 这轮仍然没有补 terminal/browser auth handoff 的显式前台 UX；对某些 backend，点击 `Authenticate` 后依然主要依赖外部 CLI / 浏览器完成登录。
+  - `Authenticate` 的 truthful CTA 已收口，但“认证现场是否足够可见”仍是下一阶段才值得单独开的产品问题。
+- Plan review:
+  - 本轮已回看并更新 `docs/research/acp-optimization-plan-final.md`
+  - 调整点：
+    - 明确 AionUi 的 auth CTA 已收成 capability-based：只有 thread 真支持 AionUi 触发认证时才显示 `Authenticate`
+    - 修正文档中已过时的 diagnostics 描述：当前 desktop runtime status dot 重新保持常驻可见，这是“服务仍不稳定时优先透明化”的产品取舍，不再描述为 hover-only 现状
+  - 本轮 Zed 对照依据继续保持代码事实：
+    - `/Users/veryliu/Documents/GitHub/zed/crates/agent_ui/src/conversation_view.rs`
+    - `/Users/veryliu/Documents/GitHub/zed/crates/agent_servers/src/acp.rs`
+- Next:
+  - 当前这条 auth CTA truthful 修复已经足够 merge-friendly，可以直接随本分支一起合入 `main`
+  - 如果 ACP 还要继续打磨，下一优先级更适合是：
+    - 第一优先：决定是否要单独补 terminal/browser auth handoff 的显式前台 UX
+    - 第二优先：再回到更深层 `runtime / queue-busy ownership`

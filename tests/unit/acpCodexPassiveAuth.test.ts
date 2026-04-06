@@ -97,7 +97,7 @@ type AcpAgentWithPerformAuthentication = AcpAgent & {
 };
 
 function makeAgent(
-  backend: 'codex' | 'custom',
+  backend: 'codex' | 'custom' | 'claude',
   options: {
     acpSessionId?: string;
   } = {}
@@ -205,5 +205,27 @@ describe('AcpAgent.performAuthentication() codex passive ACP authenticate', () =
     expect(emitStatusMessage).toHaveBeenCalledWith('authenticated');
     expect(emitStatusMessage).toHaveBeenCalledWith('error');
     expect(emitStatusMessage).not.toHaveBeenCalledWith('auth_required');
+  });
+
+  it('reports explicit authenticate support when ACP auth methods are available', () => {
+    const agent = makeAgent('custom');
+
+    expect(agent.getAuthSupport()).toEqual({ canAuthenticate: true });
+  });
+
+  it('reports explicit authenticate support for Claude fallback login even without ACP auth methods', () => {
+    mockGetInitializeResponse.mockReturnValueOnce(null);
+
+    const agent = makeAgent('claude');
+
+    expect(agent.getAuthSupport()).toEqual({ canAuthenticate: true });
+  });
+
+  it('reports no authenticate support when neither ACP auth methods nor backend fallback login exist', () => {
+    mockGetInitializeResponse.mockReturnValueOnce(null);
+
+    const agent = makeAgent('custom');
+
+    expect(agent.getAuthSupport()).toEqual({ canAuthenticate: false });
   });
 });

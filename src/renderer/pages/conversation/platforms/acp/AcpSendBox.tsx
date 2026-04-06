@@ -301,6 +301,7 @@ const AcpSendBox: React.FC<{
   const [acknowledgedQueueErrorLogId, setAcknowledgedQueueErrorLogId] = useState<string | null>(null);
   const [dismissedErrorLogId, setDismissedErrorLogId] = useState<string | null>(null);
   const [retryGenerationPending, setRetryGenerationPending] = useState(false);
+  const [authActionAvailable, setAuthActionAvailable] = useState<boolean | null>(null);
   const isAuthActionActive = authenticatingRevision !== null || pendingAuthReadyRevision !== null;
   const isRetryActionActive = retryingDisconnectedRevision !== null || pendingRetryReadyRevision !== null;
   const hasHydratedTerminalStatus = acpStatusSource === 'hydrated' && isTerminalAcpStatus(acpStatus);
@@ -628,6 +629,7 @@ Please check your local CLI tool authentication status`,
   useEffect(() => {
     setDismissedErrorLogId(null);
     setRetryGenerationPending(false);
+    setAuthActionAvailable(null);
     lastExecutedCommandRef.current = null;
   }, [conversation_id]);
 
@@ -659,6 +661,8 @@ Please check your local CLI tool authentication status`,
       isAuthActionActive ||
       acpLogs[0]?.kind === 'auth_failed');
   const isAuthenticating = shouldShowAuthBanner && isAuthActionActive;
+  const showAuthenticateAction = isAuthenticating || authActionAvailable === true;
+  const isCheckingAuthSupport = shouldShowAuthBanner && !isAuthenticating && authActionAvailable === null;
   const shouldShowDisconnectedBanner =
     !isBusy &&
     !shouldShowAuthBanner &&
@@ -671,6 +675,39 @@ Please check your local CLI tool authentication status`,
     actionableErrorLog !== null &&
     actionableErrorLog.id !== dismissedErrorLogId;
   const canRetryErrorBanner = shouldShowErrorBanner && lastExecutedCommandRef.current !== null;
+
+  useEffect(() => {
+    if (!shouldShowAuthBanner) {
+      setAuthActionAvailable(null);
+      return;
+    }
+
+    if (isAuthActionActive) {
+      setAuthActionAvailable(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    void ipcBridge.acpConversation.getAuthSupport
+      .invoke({ conversationId: conversation_id })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAuthActionAvailable(result.success ? result.data?.canAuthenticate === true : false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAuthActionAvailable(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversation_id, isAuthActionActive, shouldShowAuthBanner]);
 
   const onSendHandler = async (message: string) => {
     if (!isCommandQueueEnabled && isBusy) {
@@ -1061,6 +1098,8 @@ Please check your local CLI tool authentication status`,
           agentName={agentName}
           backend={backend}
           authenticating={isAuthenticating}
+          checkingSupport={isCheckingAuthSupport}
+          showAuthenticateAction={showAuthenticateAction}
           onAuthenticate={() => {
             void handleAuthenticate();
           }}

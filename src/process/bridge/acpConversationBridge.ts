@@ -208,6 +208,19 @@ export function initAcpConversationBridge(workerTaskManager: IWorkerTaskManager)
     }
   });
 
+  ipcBridge.acpConversation.getAuthSupport.provider(async ({ conversationId }) => {
+    try {
+      const task = await workerTaskManager.getOrBuildTask(conversationId);
+      if (!task || !(task instanceof AcpAgentManager)) {
+        return { success: true, data: { canAuthenticate: false } };
+      }
+
+      return { success: true, data: await task.probeAuthSupport() };
+    } catch {
+      return { success: true, data: { canAuthenticate: false } };
+    }
+  });
+
   // Get model info for ACP/Codex agents
   // 获取 ACP/Codex 代理的模型信息
   // Use getTaskById (cache-only) to avoid spawning a worker process on read-only queries

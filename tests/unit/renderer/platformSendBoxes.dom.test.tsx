@@ -41,6 +41,7 @@ const mockConversationWarmupInvoke = vi.fn();
 const mockConversationSendInvoke = vi.fn();
 const mockAcpSendInvoke = vi.fn();
 const mockAcpAuthenticateInvoke = vi.fn();
+const mockAcpGetAuthSupportInvoke = vi.fn();
 const mockGeminiSendInvoke = vi.fn();
 const mockOpenClawSendInvoke = vi.fn();
 const mockOpenClawRuntimeInvoke = vi.fn();
@@ -106,6 +107,7 @@ vi.mock('@/common', () => ({
     acpConversation: {
       sendMessage: { invoke: (...args: unknown[]) => mockAcpSendInvoke(...args) },
       authenticate: { invoke: (...args: unknown[]) => mockAcpAuthenticateInvoke(...args) },
+      getAuthSupport: { invoke: (...args: unknown[]) => mockAcpGetAuthSupportInvoke(...args) },
     },
     geminiConversation: {
       sendMessage: { invoke: (...args: unknown[]) => mockGeminiSendInvoke(...args) },
@@ -529,6 +531,7 @@ describe('platform send box queue integration', () => {
     mockConversationSendInvoke.mockResolvedValue({ success: true });
     mockAcpSendInvoke.mockResolvedValue({ success: true });
     mockAcpAuthenticateInvoke.mockResolvedValue({ success: true });
+    mockAcpGetAuthSupportInvoke.mockResolvedValue({ success: true, data: { canAuthenticate: true } });
     mockGeminiSendInvoke.mockResolvedValue({ success: true });
     mockOpenClawSendInvoke.mockResolvedValue({ success: true });
     mockOpenClawRuntimeInvoke.mockResolvedValue({

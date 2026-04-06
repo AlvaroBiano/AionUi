@@ -2360,3 +2360,58 @@ Reviewer adjustment:
   - 不能为了“更克制”而让 diagnostics 实际不可达
   - 不能引入 pill 宽度跳变、点击穿透、popover / dropdown 冲突
   - 不能把一个纯 UI 收敛问题演变成底层 runtime 重构
+
+## SC-055 ACP Auth Recovery Actions Must Match Real Thread Capability
+
+- Goal:
+  - 把 ACP 的 `Authentication Required` banner 从“看起来有动作”收成“只有真的能动作时才给动作”。
+  - 当前用户点 `立即认证` 没反应，本质上有两种问题：
+    - 某些 backend/thread 根本没有 AionUi 可触发的 in-app auth handoff，却仍然显示 `Authenticate`
+    - 支持认证的 thread 在 renderer 刚拿到 `auth_required` 时，又会先短暂闪成“请去外部手动登录”，文案也不真实
+  - 这轮要把 banner 收成三态：
+    - 正在检查 support：中性 checking hint
+    - 支持 in-app auth handoff：显示 `Authenticate`
+    - 不支持 in-app handoff：移除按钮，只保留 manual hint
+- User action:
+  - 用户进入一个显示 `Authentication Required` 的 ACP 会话。
+  - 如果该 backend 支持 AionUi 直接触发认证，就应看到 `Authenticate` 按钮。
+  - 如果该 backend 不支持 AionUi 直接触发认证，就不该再看到一个点了没反应的按钮。
+  - 用户重开 app 或切走回来后再打开这个会话，button contract 也不能退化。
+- Current failure:
+  - 当前 `Authenticate` CTA 的可见性取决于 renderer 侧一个过于保守的 live task probe：
+    - 冷线程 / task reap 之后，即使真实 `authenticate()` 路径会按需 build/init task，也可能被误判成 `canAuthenticate = false`
+    - 相反，在 support probe 尚未返回前，banner 首帧又会先显示 manual-only hint，误导用户离开 AionUi
+  - 结果是：
+    - 有的 thread 明明还能认证，按钮却没了
+    - 有的 thread 明明不能认证，按钮却像假入口
+- Expected UI state:
+  - `auth_required` banner 出现时：
+    - support 未决：显示 checking hint，不先闪 manual-only 文案
+    - support 为 `true`：显示 `Authenticate`
+    - support 为 `false`：不显示 button，只保留 manual hint
+  - reopen / remount / cold thread 也必须守住相同合同，不能因为 task 不在缓存里就误判
+- Architecture guardrails:
+  - 不能引入新的全局 store 或额外持久化，只允许沿用现有 `workerTaskManager -> bridge -> AcpSendBox` 路径
+  - 不把这个问题扩大成 terminal auth UX 重做；本轮只先保证 CTA truthful
+  - 不允许让 auth support probe 比真实 `authenticate()` 路径更保守
+- Automation plan:
+  - `src/process/bridge/acpConversationBridge.ts`
+    - `getAuthSupport` 改为按需 build task，并走与真实认证更一致的 support probe
+  - `src/process/task/AcpAgentManager.ts`
+    - 增加 async probe，允许冷线程在判定支持度前先按需 init
+  - `src/renderer/pages/conversation/platforms/acp/AcpAuthBanner.tsx`
+    - 引入 checking / supported / manual-only 三态文案
+  - `src/renderer/pages/conversation/platforms/acp/AcpSendBox.tsx`
+    - banner 首帧改为 checking，不再先闪 manual-only
+  - 回归覆盖：
+    - `tests/unit/acpConversationBridge.test.ts`
+    - `tests/unit/renderer/components/AcpSendBoxFlow.dom.test.tsx`
+    - 保留既有 queue / platform sendbox 相关 ACP 回归
+- Exit criteria:
+  - unsupported auth threads 不再显示点了没反应的 `Authenticate`
+  - supported auth threads 不因冷线程 / task reap 而丢失 `Authenticate`
+  - banner 首帧不再错误显示“请去外部登录”
+- Reviewer focus:
+  - 冷线程路径不能比真实 `authenticate()` 更保守
+  - 不能出现 supported path 先闪 manual hint、再切回 button 的误导性文案
+  - 不能把一个 truthful CTA 修复变成更大范围的 auth/runtime 重构

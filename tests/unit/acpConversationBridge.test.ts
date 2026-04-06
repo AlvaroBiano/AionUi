@@ -24,6 +24,7 @@ vi.mock('../../src/common', () => ({
       checkAgentHealth: makeChannel('checkAgentHealth'),
       getMode: makeChannel('getMode'),
       authenticate: makeChannel('authenticate'),
+      getAuthSupport: makeChannel('getAuthSupport'),
       getModelInfo: makeChannel('getModelInfo'),
       probeModelInfo: makeChannel('probeModelInfo'),
       setModel: makeChannel('setModel'),
@@ -139,6 +140,28 @@ describe('acpConversationBridge', () => {
       success: false,
       msg: 'Conversation not found or not an ACP agent',
     });
+  });
+
+  it('getAuthSupport returns false when the conversation cannot be built', async () => {
+    vi.mocked(taskManager.getOrBuildTask).mockRejectedValue(new Error('missing'));
+
+    const result = await handlers['getAuthSupport']({ conversationId: 'missing' });
+
+    expect(result).toEqual({ success: true, data: { canAuthenticate: false } });
+  });
+
+  it('getAuthSupport probes the ACP task support state', async () => {
+    const probeAuthSupport = vi.fn().mockResolvedValue({ canAuthenticate: true });
+    const { default: AcpAgentManager } = await import('../../src/process/task/AcpAgentManager');
+    const task = new AcpAgentManager() as any;
+    task.probeAuthSupport = probeAuthSupport;
+    vi.mocked(taskManager.getOrBuildTask).mockResolvedValue(task);
+
+    const result = await handlers['getAuthSupport']({ conversationId: 'c-auth-support' });
+
+    expect(taskManager.getOrBuildTask).toHaveBeenCalledWith('c-auth-support');
+    expect(probeAuthSupport).toHaveBeenCalled();
+    expect(result).toEqual({ success: true, data: { canAuthenticate: true } });
   });
 
   // --- refreshCustomAgents ---

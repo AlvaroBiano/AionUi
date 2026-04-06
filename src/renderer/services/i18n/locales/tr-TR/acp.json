@@ -4,6 +4,8 @@
     "console_error": "ACP kimlik doğrulama hatası detayları:",
     "failed_confirm": "ACP {{backend}} kimlik doğrulaması başarısız:\n\n{{error}}\n\nŞimdi yapılandırmak için ayarlar sayfasına gitmek ister misiniz?",
     "requiredHint": "Bu iş parçacığının devam etmesi için {{agent}} kimlik doğrulaması gerekiyor. Şimdi doğrulayın veya yerel CLI oturumunu yenileyin.",
+    "checkingHint": "{{agent}} için kullanılabilir oturum açma seçenekleri denetleniyor...",
+    "manualHint": "Bu iş parçacığının devam etmesi için {{agent}} kimlik doğrulaması gerekiyor. Yerel CLI veya tarayıcıda oturum açmayı tamamlayıp buraya geri dönün ve tekrar deneyin.",
     "authenticate": "Doğrula",
     "authenticating": "Doğrulanıyor...",
     "authenticatingHint": "{{agent}} kimlik doğrulama akışı başlatılıyor. CLI veya tarayıcıda oturum açmayı tamamlayıp buraya geri dönün.",

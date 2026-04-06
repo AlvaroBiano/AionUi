@@ -16,6 +16,7 @@ const mockConversationGetInvoke = vi.fn();
 const mockConversationStopInvoke = vi.fn();
 const mockConversationWarmupInvoke = vi.fn();
 const mockAcpAuthenticateInvoke = vi.fn();
+const mockAcpGetAuthSupportInvoke = vi.fn();
 const mockAcpSendInvoke = vi.fn();
 const mockDatabaseMessagesInvoke = vi.fn();
 const mockAddOrUpdateMessage = vi.fn();
@@ -51,11 +52,17 @@ const emitAcpResponse = (message: unknown): void => {
   });
 };
 
-const clickBannerAction = (testId: string): void => {
+const clickBannerAction = async (testId: string): Promise<void> => {
+  await waitFor(() => {
+    const actionButton = screen.getByTestId(testId).querySelector('button');
+    expect(actionButton instanceof HTMLButtonElement).toBe(true);
+  });
+
   const actionButton = screen.getByTestId(testId).querySelector('button');
   if (!(actionButton instanceof HTMLButtonElement)) {
     throw new Error(`No action button found for ${testId}`);
   }
+
   fireEvent.click(actionButton);
 };
 
@@ -89,6 +96,7 @@ vi.mock('@/common', () => ({
     },
     acpConversation: {
       authenticate: { invoke: (...args: unknown[]) => mockAcpAuthenticateInvoke(...args) },
+      getAuthSupport: { invoke: (...args: unknown[]) => mockAcpGetAuthSupportInvoke(...args) },
       sendMessage: { invoke: (...args: unknown[]) => mockAcpSendInvoke(...args) },
       responseStream: {
         on: vi.fn((listener: (message: unknown) => void) => {
@@ -446,6 +454,7 @@ describe('AcpSendBox queue flow', () => {
     mockConversationStopInvoke.mockResolvedValue(undefined);
     mockConversationWarmupInvoke.mockResolvedValue(true);
     mockAcpAuthenticateInvoke.mockResolvedValue({ success: true });
+    mockAcpGetAuthSupportInvoke.mockResolvedValue({ success: true, data: { canAuthenticate: true } });
     mockAcpSendInvoke.mockResolvedValue({ success: true });
     mockDatabaseMessagesInvoke.mockResolvedValue([]);
   });
@@ -1265,7 +1274,7 @@ describe('AcpSendBox queue flow', () => {
       expect(screen.queryByTestId('queue-send-now')).not.toBeInTheDocument();
     });
 
-    clickBannerAction('acp-auth-banner');
+    await clickBannerAction('acp-auth-banner');
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: conversationId });
@@ -1341,7 +1350,7 @@ describe('AcpSendBox queue flow', () => {
       expect(screen.getByTestId('acp-auth-banner')).toBeInTheDocument();
     });
 
-    clickBannerAction('acp-auth-banner');
+    await clickBannerAction('acp-auth-banner');
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: conversationId });
@@ -1453,7 +1462,7 @@ describe('AcpSendBox queue flow', () => {
     expect(screen.getByTestId('queue-panel')).toHaveTextContent('2');
     expect(mockAcpSendInvoke).not.toHaveBeenCalled();
 
-    clickBannerAction('acp-auth-banner');
+    await clickBannerAction('acp-auth-banner');
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: conversationId });
@@ -1672,7 +1681,7 @@ describe('AcpSendBox queue flow', () => {
     await flushMicrotasks();
     expect(mockAcpSendInvoke).not.toHaveBeenCalled();
 
-    clickBannerAction('acp-auth-banner');
+    await clickBannerAction('acp-auth-banner');
 
     await waitFor(() => {
       expect(mockAcpAuthenticateInvoke).toHaveBeenCalledWith({ conversationId: conversationId });

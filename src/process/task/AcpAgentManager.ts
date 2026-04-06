@@ -217,7 +217,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
     }
 
     this.bootstrapping = true;
-    this.bootstrap = (async () => {
+    const bootstrap = (async () => {
       let cliPath = data.cliPath;
       let customArgs: string[] | undefined;
       let customEnv: Record<string, string> | undefined;
@@ -766,10 +766,12 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         if (modelInfo && modelInfo.availableModels?.length > 0) {
           void this.cacheModelList(modelInfo);
         }
-        this.bootstrapping = false;
         return this.agent;
       });
     })();
+    this.bootstrap = bootstrap.finally(() => {
+      this.bootstrapping = false;
+    });
     return this.bootstrap;
   }
 
@@ -1088,6 +1090,28 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
    */
   getMode(): { mode: string; initialized: boolean } {
     return { mode: this.currentMode, initialized: !!this.agent };
+  }
+
+  getAuthSupport(): { canAuthenticate: boolean } {
+    if (!this.agent) {
+      return { canAuthenticate: false };
+    }
+
+    return this.agent.getAuthSupport();
+  }
+
+  async probeAuthSupport(): Promise<{ canAuthenticate: boolean }> {
+    if (!this.agent || !this.agent.isConnected) {
+      try {
+        await this.initAgent(this.options);
+      } catch {
+        // Probing support should not fail the banner flow. If initialization
+        // already produced an ACP agent instance, its initialize metadata still
+        // tells us whether an in-app authenticate handoff exists.
+      }
+    }
+
+    return this.getAuthSupport();
   }
 
   /**

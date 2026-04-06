@@ -480,6 +480,11 @@ export const acpConversation = {
   // Trigger an explicit ACP authentication flow for the current thread
   // 为当前 ACP 线程触发显式鉴权流程
   authenticate: bridge.buildProvider<IBridgeResponse, { conversationId: string }>('acp.authenticate'),
+  // Check whether the current ACP thread supports a user-triggered authenticate action
+  // 检查当前 ACP 线程是否支持用户触发的鉴权动作
+  getAuthSupport: bridge.buildProvider<IBridgeResponse<{ canAuthenticate: boolean }>, { conversationId: string }>(
+    'acp.get-auth-support'
+  ),
   // Get model info for ACP agents (model name and available models)
   // 获取 ACP 代理的模型信息（模型名称和可用模型）
   getModelInfo: bridge.buildProvider<IBridgeResponse<{ modelInfo: AcpModelInfo | null }>, { conversationId: string }>(
