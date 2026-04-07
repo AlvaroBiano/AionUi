@@ -9,6 +9,7 @@ import type { IMcpServer } from '@/common/config/storage';
 import { extractAtPaths, parseAllAtCommands, reconstructQuery } from '@/common/chat/atCommandParser';
 import type { TMessage } from '@/common/chat/chatLib';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
+import { team as teamIpcBridge } from '@/common/adapter/ipcBridge';
 import { NavigationInterceptor } from '@/common/chat/navigation';
 import type { SlashCommandItem } from '@/common/chat/slash/types';
 import { uuid } from '@/common/utils';
@@ -1512,47 +1513,92 @@ export class AcpAgent {
     const resumeConversationId = this.extra.acpSessionConversationId;
     const mcpServers = await this.loadBuiltinSessionMcpServers();
 
-    // Validate session ownership: only resume if the stored session belongs to this conversation.
-    if (resumeSessionId && resumeConversationId && resumeConversationId !== this.id) {
-      console.warn(
-        `[AcpAgent] Session ${resumeSessionId} belongs to conversation ${resumeConversationId}, ` +
-          `but current conversation is ${this.id}. Discarding stale session and starting fresh.`
-      );
-    } else if (resumeSessionId) {
-      try {
-        let response: { sessionId?: string };
+    // Derive teamId from injected team MCP server name (format: aionui-team-<teamId>).
+    // Only emit MCP status events when running inside a team session.
+    const teamMcpName = this.extra.teamMcpStdioConfig?.name;
+    const teamId = teamMcpName?.startsWith('aionui-team-') ? teamMcpName.slice('aionui-team-'.length) : undefined;
+    const slotId = this.id;
 
-        if (this.extra.backend === 'codex') {
-          // Codex ACP bridge implements session/load (load_session) which calls
-          // resume_thread_from_rollout internally to restore full conversation history.
-          // Codex ignores resumeSessionId in session/new, so we must use session/load.
-          response = await this.connection.loadSession(resumeSessionId, this.extra.workspace);
-        } else {
-          // Claude/CodeBuddy use _meta in session/new; others use generic resumeSessionId
-          response = await this.connection.newSession(this.extra.workspace, {
-            resumeSessionId,
-            forkSession: false,
-            mcpServers,
-          });
+    const emitMcpStatus = teamId
+      ? (
+          phase: import('@/common/types/teamTypes').TeamMcpPhase,
+          opts?: { serverCount?: number; error?: string }
+        ) => {
+          teamIpcBridge.mcpStatus.emit({ teamId: teamId!, slotId, phase, ...opts });
         }
-        if (response.sessionId && response.sessionId !== resumeSessionId) {
-          this.extra.acpSessionId = response.sessionId;
-          this.onSessionIdUpdate?.(response.sessionId);
-        }
-        return;
-      } catch (resumeError) {
+      : null;
+
+    const doSession = async (): Promise<void> => {
+      // Validate session ownership: only resume if the stored session belongs to this conversation.
+      if (resumeSessionId && resumeConversationId && resumeConversationId !== this.id) {
         console.warn(
-          `[AcpAgent] Failed to resume session ${resumeSessionId}, creating fresh session:`,
-          resumeError instanceof Error ? resumeError.message : String(resumeError)
+          `[AcpAgent] Session ${resumeSessionId} belongs to conversation ${resumeConversationId}, ` +
+            `but current conversation is ${this.id}. Discarding stale session and starting fresh.`
         );
-      }
-    }
+      } else if (resumeSessionId) {
+        try {
+          let response: { sessionId?: string };
 
-    // No stored session or resume failed — create a brand new session
-    const response = await this.connection.newSession(this.extra.workspace, { mcpServers });
-    if (response.sessionId) {
-      this.extra.acpSessionId = response.sessionId;
-      this.onSessionIdUpdate?.(response.sessionId);
+          if (mcpServers.length > 0) {
+            emitMcpStatus?.('session_injecting', { serverCount: mcpServers.length });
+          }
+
+          if (this.extra.backend === 'codex') {
+            // Codex ACP bridge implements session/load (load_session) which calls
+            // resume_thread_from_rollout internally to restore full conversation history.
+            // Codex ignores resumeSessionId in session/new, so we must use session/load.
+            response = await this.connection.loadSession(resumeSessionId, this.extra.workspace, { mcpServers });
+          } else {
+            // Claude/CodeBuddy use _meta in session/new; others use generic resumeSessionId
+            response = await this.connection.newSession(this.extra.workspace, {
+              resumeSessionId,
+              forkSession: false,
+              mcpServers,
+            });
+          }
+
+          if (mcpServers.length === 0) {
+            emitMcpStatus?.('degraded');
+          } else {
+            emitMcpStatus?.('session_ready', { serverCount: mcpServers.length });
+          }
+
+          if (response.sessionId && response.sessionId !== resumeSessionId) {
+            this.extra.acpSessionId = response.sessionId;
+            this.onSessionIdUpdate?.(response.sessionId);
+          }
+          return;
+        } catch (resumeError) {
+          const error = resumeError instanceof Error ? resumeError.message : String(resumeError);
+          console.warn(`[AcpAgent] Failed to resume session ${resumeSessionId}, creating fresh session:`, error);
+          emitMcpStatus?.('session_error', { error });
+        }
+      }
+
+      // No stored session or resume failed — create a brand new session
+      if (mcpServers.length > 0) {
+        emitMcpStatus?.('session_injecting', { serverCount: mcpServers.length });
+      }
+      const response = await this.connection.newSession(this.extra.workspace, { mcpServers });
+
+      if (mcpServers.length === 0) {
+        emitMcpStatus?.('degraded');
+      } else {
+        emitMcpStatus?.('session_ready', { serverCount: mcpServers.length });
+      }
+
+      if (response.sessionId) {
+        this.extra.acpSessionId = response.sessionId;
+        this.onSessionIdUpdate?.(response.sessionId);
+      }
+    };
+
+    try {
+      await doSession();
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      emitMcpStatus?.('session_error', { error });
+      throw err;
     }
   }
 

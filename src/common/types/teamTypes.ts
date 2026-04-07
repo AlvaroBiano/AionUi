@@ -74,3 +74,24 @@ export type ITeamMessageEvent = {
   msg_id: string;
   conversation_id: string;
 };
+
+/** Phase of the MCP injection pipeline */
+export type TeamMcpPhase =
+  | 'tcp_ready'
+  | 'tcp_error'
+  | 'session_injecting'
+  | 'session_ready'
+  | 'session_error'
+  | 'load_failed'
+  | 'degraded'
+  | 'config_write_failed';
+
+/** IPC event pushed to renderer to report MCP injection status per team/agent */
+export type ITeamMcpStatusEvent = {
+  teamId: string;
+  slotId: string;
+  phase: TeamMcpPhase;
+  serverCount?: number;
+  port?: number;
+  error?: string;
+};

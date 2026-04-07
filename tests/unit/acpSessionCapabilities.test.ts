@@ -155,7 +155,11 @@ describe('AcpAgent.createOrResumeSession — Codex routing', () => {
 
     await (agent as any).createOrResumeSession();
 
-    expect(loadSession).toHaveBeenCalledWith('session-codex-1', expect.any(String));
+    expect(loadSession).toHaveBeenCalledWith(
+      'session-codex-1',
+      expect.any(String),
+      expect.objectContaining({ mcpServers: expect.any(Array) })
+    );
     expect(newSession).not.toHaveBeenCalled();
   });
 
