@@ -249,6 +249,15 @@ const ChatConversation: React.FC<{
   const isAionrsConversation = conversation?.type === 'aionrs';
   const conversationBackend = resolveConversationBackend(conversation);
 
+  // 使用统一的 Hook 获取预设助手信息（ACP/Codex 会话）
+  // Use unified hook for preset assistant info (ACP/Codex conversations)
+  const { info: presetAssistantInfo, isLoading: isLoadingPreset } = usePresetAssistantInfo(
+    isGeminiConversation || isAionrsConversation ? undefined : conversation
+  );
+
+  const conversationAgentName = (conversation?.extra as { agentName?: string } | undefined)?.agentName;
+  const assistantDisplayName = presetAssistantInfo?.name || conversationAgentName;
+
   const conversationNode = useMemo(() => {
     if (!conversation || isGeminiConversation || isAionrsConversation) return null;
     switch (conversation.type) {
@@ -261,7 +270,7 @@ const ChatConversation: React.FC<{
             backend={conversationBackend || 'claude'}
             sessionMode={conversation.extra?.sessionMode}
             cachedConfigOptions={conversation.extra?.cachedConfigOptions}
-            agentName={(conversation.extra as { agentName?: string })?.agentName}
+            agentName={assistantDisplayName}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
             hideSendBox={hideSendBox}
           ></AcpChat>
@@ -273,6 +282,7 @@ const ChatConversation: React.FC<{
             conversation_id={conversation.id}
             workspace={conversation.extra?.workspace}
             backend={conversationBackend || 'codex'}
+            agentName={assistantDisplayName}
             cachedConfigOptions={
               (
                 conversation.extra as {
@@ -313,13 +323,7 @@ const ChatConversation: React.FC<{
       default:
         return null;
     }
-  }, [conversation, conversationBackend, isGeminiConversation, isAionrsConversation, hideSendBox]);
-
-  // 使用统一的 Hook 获取预设助手信息（ACP/Codex 会话）
-  // Use unified hook for preset assistant info (ACP/Codex conversations)
-  const { info: presetAssistantInfo, isLoading: isLoadingPreset } = usePresetAssistantInfo(
-    isGeminiConversation || isAionrsConversation ? undefined : conversation
-  );
+  }, [conversation, conversationBackend, isGeminiConversation, isAionrsConversation, assistantDisplayName, hideSendBox]);
 
   const sliderTitle = useMemo(() => {
     return (
@@ -380,7 +384,7 @@ const ChatConversation: React.FC<{
       ? { backend: conversationBackend } // Still loading custom agents — keep runtime identity stable
       : {
           backend: conversationBackend,
-          agentName: (conversation?.extra as { agentName?: string })?.agentName,
+          agentName: conversationAgentName,
         };
 
   const headerExtraNode = (

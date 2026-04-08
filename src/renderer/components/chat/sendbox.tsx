@@ -891,7 +891,7 @@ const SendBox: React.FC<{
   );
 
   // 使用共享的输入法合成处理
-  const { compositionHandlers, createKeyDownHandler } = useCompositionInput();
+  const { compositionHandlers, isComposingState, createKeyDownHandler } = useCompositionInput();
 
   // 使用共享的PasteService集成
   const { onPaste, onFocus: handlePasteFocus } = usePasteService({
@@ -1394,7 +1394,7 @@ const SendBox: React.FC<{
               <div className='flex-shrink-0 mt-2px' style={{ lineHeight: 0 }}>
                 <Quote theme='filled' size='16' fill='rgb(var(--primary-6))' />
               </div>
-              <div className='flex-1 min-w-0 text-13px c-text-2 line-clamp-3 lh-20px whitespace-pre-wrap break-all'>
+              <div className='flex-1 min-w-0 text-13px text-t-primary line-clamp-3 lh-20px whitespace-pre-wrap break-all'>
                 {replyQuote.content}
               </div>
               <div
@@ -1476,6 +1476,7 @@ const SendBox: React.FC<{
               aria-hidden='true'
               className={`sendbox-highlight-layer text-14px ${isMobile ? 'sendbox-input--mobile' : ''} ${isSingleLine ? 'sendbox-highlight-layer--single' : ''}`}
               data-testid='sendbox-highlight-layer'
+              style={isComposingState ? { visibility: 'hidden' } : undefined}
             >
               {renderHighlightedInputValue()}
             </div>
@@ -1484,7 +1485,7 @@ const SendBox: React.FC<{
               disabled={disabled}
               value={input}
               placeholder={placeholder}
-              className={`sendbox-highlight-textarea pl-0 pr-0 !b-none focus:shadow-none m-0 !bg-transparent !focus:bg-transparent !hover:bg-transparent lh-[20px] !resize-none text-14px ${isMobile ? 'sendbox-input--mobile' : ''}`}
+              className={`${isComposingState ? '' : 'sendbox-highlight-textarea '}pl-0 pr-0 !b-none focus:shadow-none m-0 !bg-transparent !focus:bg-transparent !hover:bg-transparent lh-[20px] !resize-none text-14px ${isMobile ? 'sendbox-input--mobile' : ''}`}
               style={{
                 width: isSingleLine ? 'auto' : '100%',
                 flex: isSingleLine ? 1 : 'none',
