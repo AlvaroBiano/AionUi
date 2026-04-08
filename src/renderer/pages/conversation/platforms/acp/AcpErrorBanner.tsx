@@ -2,7 +2,7 @@ import { copyText } from '@/renderer/utils/ui/clipboard';
 import { Alert, Button, Message, Space, Typography } from '@arco-design/web-react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatAcpLogEntry } from './AcpLogsPanel';
+import { formatAcpLogEntry } from './acpLogFormatter';
 import type { AcpLogEntry } from './acpRuntimeDiagnostics';
 
 const { Text } = Typography;
@@ -61,7 +61,7 @@ const AcpErrorBanner: React.FC<AcpErrorBannerProps> = ({ entry, retrying = false
           </Space>
         </Space>
       }
-      style={{ marginBottom: 12 }}
+      className='mb-12px'
     />
   );
 };

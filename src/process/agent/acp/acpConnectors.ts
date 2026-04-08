@@ -201,7 +201,7 @@ export function ensureMinNodeVersion(
 
       // Verify the corrected PATH actually resolves to a good node (npx uses the same PATH)
       try {
-        const correctedVersion = execFileSync(isWindows ? 'node.exe' : 'node', ['--version'], {
+        const _correctedVersion = execFileSync(isWindows ? 'node.exe' : 'node', ['--version'], {
           env: cleanEnv,
           encoding: 'utf-8',
           timeout: 5000,

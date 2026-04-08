@@ -69,6 +69,12 @@ const EMPTY_ACP_RECOVERY_UI_STATE: AcpRecoveryUiState = {
 const acpRecoveryUiStateStore = new Map<string, AcpRecoveryUiState>();
 const acpRecoveryUiStateListeners = new Map<string, Set<() => void>>();
 
+/** Clean up recovery UI state for a deleted conversation to prevent memory leaks. */
+export const clearAcpRecoveryUiState = (conversationId: string): void => {
+  acpRecoveryUiStateStore.delete(conversationId);
+  acpRecoveryUiStateListeners.delete(conversationId);
+};
+
 const readAcpRecoveryUiState = (conversationId: string): AcpRecoveryUiState => {
   return acpRecoveryUiStateStore.get(conversationId) ?? EMPTY_ACP_RECOVERY_UI_STATE;
 };
@@ -752,6 +758,15 @@ Please check your local CLI tool authentication status`,
       setAtPath(merged as Array<string | FileOrFolderItem>);
     }
   });
+
+  // Clean up module-level recovery UI state when a conversation is deleted
+  useAddEventListener(
+    'conversation.deleted',
+    (deletedConversationId: string) => {
+      clearAcpRecoveryUiState(deletedConversationId);
+    },
+    []
+  );
 
   // Stop conversation handler
   const handleStop = useCallback(

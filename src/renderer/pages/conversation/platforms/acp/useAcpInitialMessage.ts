@@ -60,8 +60,14 @@ export const useAcpInitialMessage = ({
 
     const sendInitialMessage = async () => {
       try {
-        const initialMessage = JSON.parse(storedMessage);
-        const { input, files } = initialMessage;
+        const parsed = JSON.parse(storedMessage);
+        const input = typeof parsed?.input === 'string' ? parsed.input : null;
+        const files = Array.isArray(parsed?.files) ? parsed.files : [];
+
+        if (!input) {
+          console.warn('[ACP-FRONTEND] Invalid initial message payload — missing input');
+          return;
+        }
 
         // ACP: don't use buildDisplayMessage, pass raw input directly
         // File references are added by the backend ACP agent (using actual copied paths)

@@ -1,4 +1,4 @@
-import { ACP_BACKENDS_ALL } from '@/common/types/acpTypes';
+import { resolveAcpDisplayName } from '@/renderer/pages/conversation/utils/resolveConversationBackend';
 import { Alert, Button, Space, Typography } from '@arco-design/web-react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,10 +24,7 @@ const AcpAuthBanner: React.FC<AcpAuthBannerProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  const displayName =
-    agentName ||
-    ACP_BACKENDS_ALL[backend as keyof typeof ACP_BACKENDS_ALL]?.name ||
-    backend.charAt(0).toUpperCase() + backend.slice(1);
+  const displayName = resolveAcpDisplayName(backend, agentName);
 
   return (
     <Alert
@@ -55,7 +52,7 @@ const AcpAuthBanner: React.FC<AcpAuthBannerProps> = ({
           )}
         </Space>
       }
-      style={{ marginBottom: 12 }}
+      className='mb-12px'
     />
   );
 };

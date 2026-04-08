@@ -1413,6 +1413,13 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   }
 
   async markWarmupReadyStatus(): Promise<void> {
+    // Only mark session_active when the agent is genuinely connected.
+    // A stale warmup that resolves after a disconnect must not overwrite
+    // the persisted terminal status (D-018).
+    if (!this.agent?.isConnected || !this.agent?.hasActiveSession) {
+      return;
+    }
+
     await this.saveAcpRuntimeStatus({
       backend: this.options.backend,
       status: 'session_active',
@@ -1516,7 +1523,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
    * An idempotent doKill() guard prevents double super.kill() when the hard
    * timeout and graceful path race against each other.
    */
-  kill(reason?: AgentKillReason) {
+  kill(_reason?: AgentKillReason) {
     this.flushBufferedStreamTextMessages();
     this.flushThinkingToDb(undefined, 'done');
 
