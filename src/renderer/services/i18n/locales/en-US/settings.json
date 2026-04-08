@@ -36,7 +36,9 @@
     "customPathLabel": "Skill Directory Path",
     "customPathPlaceholder": "e.g. C:\\Users\\me\\.mytools\\skills",
     "searchPlaceholder": "Search skills...",
-    "noSearchResults": "No matching skills found"
+    "noSearchResults": "No matching skills found",
+    "allAlreadyImported": "All skills are already imported",
+    "importAllFailed": "Failed to import skills"
   },
   "authMethod": "Authentication",
   "geminiApiKey": "Gemini API Key",

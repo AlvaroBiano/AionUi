@@ -36,7 +36,9 @@
     "customPathLabel": "Beceri Dizin Yolu",
     "customPathPlaceholder": "Örn: C:\\Users\\me\\.mytools\\skills",
     "searchPlaceholder": "Beceri ara...",
-    "noSearchResults": "İlgili beceri bulunamadı"
+    "noSearchResults": "İlgili beceri bulunamadı",
+    "allAlreadyImported": "Tüm beceriler zaten içe aktarılmış",
+    "importAllFailed": "Beceriler içe aktarılamadı"
   },
   "authMethod": "Kimlik Doğrulama",
   "geminiApiKey": "Gemini API Anahtarı",

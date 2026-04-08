@@ -36,7 +36,9 @@
     "customPathLabel": "스킬 디렉토리 경로",
     "customPathPlaceholder": "예: C:\\Users\\me\\.mytools\\skills",
     "searchPlaceholder": "스킬 검색...",
-    "noSearchResults": "관련 스킬을 찾을 수 없습니다"
+    "noSearchResults": "관련 스킬을 찾을 수 없습니다",
+    "allAlreadyImported": "모든 스킬이 이미 가져오기되었습니다",
+    "importAllFailed": "스킬 가져오기 실패"
   },
   "authMethod": "인증",
   "geminiApiKey": "Gemini API 키",

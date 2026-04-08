@@ -16,6 +16,7 @@ import { ipcBridge } from '@/common';
 import { getSystemDir, getAssistantsDir, getSkillsDir, getBuiltinSkillsCopyDir } from '@process/utils/initStorage';
 import { readDirectoryRecursive } from '@process/utils';
 import type { IWorkspaceFlatFile } from '@/common/adapter/ipcBridge';
+import { sanitizeSkillName } from './skillUtils';
 
 // ============================================================================
 // Helper functions for builtin resource directory resolution
@@ -1487,8 +1488,12 @@ export function initFsBridge(): void {
         if (nameMatch) skillName = nameMatch[1].trim();
       }
 
+      // Sanitize skill name for use as a directory name
+      const sanitizedName = sanitizeSkillName(skillName);
+      const dirName = sanitizedName || path.basename(skillPath);
+
       const userSkillsDir = getSkillsDir();
-      const targetDir = path.join(userSkillsDir, skillName);
+      const targetDir = path.join(userSkillsDir, dirName);
 
       await fs.mkdir(userSkillsDir, { recursive: true });
 
@@ -1500,10 +1505,10 @@ export function initFsBridge(): void {
       }
 
       await fs.symlink(skillPath, targetDir, 'junction');
-      console.log(`[fsBridge] Created symlink for skill "${skillName}" at ${targetDir}`);
+      console.log(`[fsBridge] Created symlink for skill "${skillName}" (dir: ${dirName}) at ${targetDir}`);
       return {
         success: true,
-        data: { skillName },
+        data: { skillName: dirName },
         msg: `Skill "${skillName}" imported successfully`,
       };
     } catch (error) {

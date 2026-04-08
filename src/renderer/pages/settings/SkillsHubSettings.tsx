@@ -108,12 +108,20 @@ const SkillsHubSettings: React.FC = () => {
 
   const handleImportAll = async (skills: Array<{ name: string; path: string }>) => {
     let successCount = 0;
+    let alreadyExistsCount = 0;
+    let errorCount = 0;
     for (const skill of skills) {
       try {
         const result = await ipcBridge.fs.importSkillWithSymlink.invoke({ skillPath: skill.path });
-        if (result.success) successCount++;
+        if (result.success) {
+          successCount++;
+        } else if (result.msg?.includes('already exists')) {
+          alreadyExistsCount++;
+        } else {
+          errorCount++;
+        }
       } catch {
-        // continue
+        errorCount++;
       }
     }
     if (successCount > 0) {
@@ -123,8 +131,20 @@ const SkillsHubSettings: React.FC = () => {
           defaultValue: `${successCount} skills imported`,
         })
       );
-      void fetchData();
+    } else if (alreadyExistsCount === skills.length) {
+      Message.info(
+        t('settings.skillsHub.allAlreadyImported', {
+          defaultValue: 'All skills are already imported',
+        })
+      );
+    } else if (errorCount > 0) {
+      Message.error(
+        t('settings.skillsHub.importAllFailed', {
+          defaultValue: 'Failed to import skills',
+        })
+      );
     }
+    void fetchData();
   };
 
   const handleDelete = async (skillName: string) => {

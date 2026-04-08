@@ -36,7 +36,9 @@
     "customPathLabel": "Путь к директории навыков",
     "customPathPlaceholder": "например, C:\\Users\\me\\.mytools\\skills",
     "searchPlaceholder": "Поиск навыков...",
-    "noSearchResults": "Навыки не найдены"
+    "noSearchResults": "Навыки не найдены",
+    "allAlreadyImported": "Все навыки уже импортированы",
+    "importAllFailed": "Не удалось импортировать навыки"
   },
   "authMethod": "Аутентификация",
   "geminiApiKey": "API-ключ Gemini",
