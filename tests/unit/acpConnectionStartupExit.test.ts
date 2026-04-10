@@ -137,6 +137,20 @@ describe('AcpConnection - startup exit error messages', () => {
     );
   });
 
+  it('should route hermes backend through connectGenericBackend', async () => {
+    const child = createFakeChild(0);
+    mockSpawnGenericBackend.mockResolvedValue({ child, isDetached: false });
+
+    await expect(conn.connect('hermes', '/usr/local/bin/hermes', '/tmp/workspace')).rejects.toThrow();
+    expect(mockSpawnGenericBackend).toHaveBeenCalledWith(
+      'hermes',
+      '/usr/local/bin/hermes',
+      '/tmp/workspace',
+      undefined,
+      undefined
+    );
+  });
+
   it('should not cause unhandled rejection when CLI binary is missing (ENOENT)', async () => {
     // Regression test for ELECTRON-GC: when spawn emits 'error' with ENOENT,
     // the processExitPromise was rejected with no handler, causing an

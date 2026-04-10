@@ -26,7 +26,7 @@ describe('acpTypes — skillsDirs integration', () => {
     });
 
     it('should NOT have skillsDirs for backends that use prompt injection', () => {
-      const promptInjectionBackends = ['opencode', 'auggie', 'copilot', 'nanobot', 'qoder', 'kiro'];
+      const promptInjectionBackends = ['opencode', 'auggie', 'copilot', 'nanobot', 'qoder', 'kiro', 'hermes'];
       for (const backend of promptInjectionBackends) {
         const config = ACP_BACKENDS_ALL[backend as keyof typeof ACP_BACKENDS_ALL];
         if (config) {

@@ -19,6 +19,7 @@ vi.mock('@/renderer/assets/logos/ai-major/mistral.svg', () => ({ default: 'mistr
 vi.mock('@/renderer/assets/logos/tools/nanobot.svg', () => ({ default: 'nanobot.svg' }));
 vi.mock('@/renderer/assets/logos/tools/coding/qoder.png', () => ({ default: 'qoder.png' }));
 vi.mock('@/renderer/assets/logos/tools/coding/cursor.png', () => ({ default: 'cursor.png' }));
+vi.mock('@/renderer/assets/logos/brand/hermes.svg', () => ({ default: 'hermes.svg' }));
 
 import { getAgentLogo, resolveAgentLogo } from '../../src/renderer/utils/model/agentLogo';
 
@@ -46,6 +47,11 @@ describe('agentLogo', () => {
       expect(getAgentLogo('auggie')).toBe('auggie.svg');
       expect(getAgentLogo('goose')).toBe('goose.svg');
       expect(getAgentLogo('copilot')).toBe('github.svg');
+    });
+
+    it('should return hermes logo for hermes backend', () => {
+      expect(getAgentLogo('hermes')).toBe('hermes.svg');
+      expect(getAgentLogo('Hermes')).toBe('hermes.svg');
     });
   });
 
