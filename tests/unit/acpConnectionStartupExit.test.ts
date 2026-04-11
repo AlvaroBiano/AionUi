@@ -114,7 +114,7 @@ describe('AcpConnection - startup exit error messages', () => {
     mockSpawnGenericBackend.mockResolvedValue({ child, isDetached: false });
 
     await expect(conn.connect('qwen', '/usr/local/bin/qwen', '/tmp/workspace')).rejects.toThrow(
-      /does not support ACP mode/
+      /did not start ACP mode/
     );
   });
 
@@ -123,7 +123,7 @@ describe('AcpConnection - startup exit error messages', () => {
     mockSpawnGenericBackend.mockResolvedValue({ child, isDetached: false });
 
     await expect(conn.connect('qwen', '/usr/local/bin/qwen', '/tmp/workspace')).rejects.toThrow(
-      /ACP process exited during startup \(code: 0\)/
+      /failed to start \(code: 0\)/
     );
   });
 

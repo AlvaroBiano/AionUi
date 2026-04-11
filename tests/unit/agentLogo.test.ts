@@ -54,13 +54,13 @@ describe('agentLogo', () => {
       expect(resolveAgentLogo({ icon: '/my/icon.png', backend: 'claude' })).toBe('/my/icon.png');
     });
 
-    it('should extract adapter ID from customAgentId for extension agents', () => {
+    it('should return null for extension agents without explicit icon (avatar is extension author responsibility)', () => {
       const logo = resolveAgentLogo({
         backend: 'custom',
         customAgentId: 'ext:aionext-claude:claude',
         isExtension: true,
       });
-      expect(logo).toBe('claude.svg');
+      expect(logo).toBeNull();
     });
 
     it('should fall back to backend logo when not an extension', () => {
@@ -76,24 +76,24 @@ describe('agentLogo', () => {
       expect(resolveAgentLogo({ backend: 'unknown-thing' })).toBeNull();
     });
 
-    it('should try adapter ID before falling back to backend', () => {
-      // Extension agent with custom backend but recognizable adapter ID
+    it('should return null for extension agents even with recognizable adapter ID', () => {
+      // Extension agent: avatar is the extension author's responsibility, not built-in logo map
       const logo = resolveAgentLogo({
         backend: 'custom',
         customAgentId: 'ext:aionext-auggie:auggie',
         isExtension: true,
       });
-      expect(logo).toBe('auggie.svg');
+      expect(logo).toBeNull();
     });
 
-    it('should fall back to backend when adapter ID is unrecognized', () => {
+    it('should return explicit icon for extension agents when provided', () => {
       const logo = resolveAgentLogo({
+        icon: 'aion-asset://asset/extensions/aionext-auggie/resources/avatar.svg',
         backend: 'custom',
-        customAgentId: 'ext:my-ext:unknown-adapter',
+        customAgentId: 'ext:aionext-auggie:auggie',
         isExtension: true,
       });
-      // 'unknown-adapter' not in logo map, 'custom' not in logo map → null
-      expect(logo).toBeNull();
+      expect(logo).toBe('aion-asset://asset/extensions/aionext-auggie/resources/avatar.svg');
     });
   });
 });

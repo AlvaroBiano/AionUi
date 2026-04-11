@@ -31,7 +31,10 @@ vi.mock('fs', async () => {
 vi.mock('child_process', () => ({ exec: vi.fn() }));
 vi.mock('util', () => ({ promisify: () => vi.fn(async () => ({ stdout: '', stderr: '' })) }));
 
-vi.mock('@process/utils', () => ({ getDataPath: () => '/data' }));
+vi.mock('@process/utils', () => ({
+  getDataPath: () => '/data',
+  getAgentInstallBasePath: () => '/agents',
+}));
 
 vi.mock('@process/extensions/constants', () => ({
   EXTENSION_MANIFEST_FILE: 'aion-extension.json',
@@ -40,8 +43,17 @@ vi.mock('@process/extensions/constants', () => ({
   getInstallTargetDir: vi.fn(() => '/ext-install-dir'),
 }));
 
+vi.mock('@process/extensions/lifecycle/contentHash', () => ({
+  computeContentHash: vi.fn(() => 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789'),
+}));
+
 vi.mock('../../src/process/extensions/ExtensionRegistry', () => ({
-  ExtensionRegistry: { hotReload: vi.fn(async () => {}) },
+  ExtensionRegistry: {
+    hotReload: vi.fn(async () => {}),
+    getInstance: vi.fn(() => ({
+      getLoadedExtensions: () => mocks.loadedExtensions,
+    })),
+  },
 }));
 
 const mocks = vi.hoisted(() => ({
@@ -53,6 +65,15 @@ const mocks = vi.hoisted(() => ({
     kind?: string;
     isExtension?: boolean;
     customAgentId?: string;
+  }>,
+  loadedExtensions: [] as Array<{
+    manifest: {
+      name: string;
+      version: string;
+      contributes?: { acpAdapters?: Array<{ id: string; installedBinaryPath?: string }> };
+    };
+    directory: string;
+    source: string;
   }>,
 }));
 
@@ -75,7 +96,6 @@ vi.mock('../../src/process/extensions/hub/HubStateManager', () => ({
 
 vi.mock('@process/agent/AgentRegistry', () => ({
   agentRegistry: {
-    refreshExtensionAgents: vi.fn(async () => {}),
     refreshAll: vi.fn(async () => {}),
     getDetectedAgents: () => mocks.detectedAgents,
   },
@@ -107,6 +127,7 @@ describe('HubInstaller', () => {
     mocks.getExtensionResult = undefined;
     mocks.setTransientCalls = [];
     mocks.detectedAgents = [];
+    mocks.loadedExtensions = [];
   });
 
   describe('install', () => {
@@ -127,9 +148,11 @@ describe('HubInstaller', () => {
         return false;
       });
 
+      // Remote fails (default mockFetch rejects), then falls back to bundled zip
       await hubInstaller.install('bundled-ext');
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      // Remote should have been attempted first before falling back to bundled
+      expect(mockFetch).toHaveBeenCalled();
       expect(mocks.setTransientCalls.at(-1)).toEqual(['bundled-ext', 'installed']);
     });
 
@@ -237,33 +260,53 @@ describe('HubInstaller', () => {
   });
 
   describe('post-install verification', () => {
-    it('should fail when contributed acpAdapters are not detected after install', async () => {
-      mocks.getExtensionResult = {
-        ...makeExtInfo('acp-ext', true),
-        contributes: { acpAdapters: ['myagent'] },
-      };
-      mocks.detectedAgents = []; // CLI not detected
+    // Content hash mock returns 'abcdef01...' so hash prefix is 'abcdef01'
+    // Managed install dir: /agents/{name}/{version}_abcdef01/
+
+    it('should fail when installed binary is not found in managed directory', async () => {
+      mocks.getExtensionResult = makeExtInfo('acp-ext', true);
+      mocks.loadedExtensions = [
+        {
+          manifest: {
+            name: 'acp-ext',
+            version: '1.0.0',
+            contributes: { acpAdapters: [{ id: 'myagent', installedBinaryPath: 'node_modules/.bin/myagent' }] },
+          },
+          directory: '/ext-install-dir/acp-ext',
+          source: 'local',
+        },
+      ];
       mockedExistsSync.mockImplementation((p) => {
         const s = String(p);
         if (s.includes('acp-ext.zip') && s.includes('resources')) return true;
         if (s.includes('aion-extension.json')) return true;
+        // Binary does NOT exist in managed dir
         return false;
       });
 
-      await expect(hubInstaller.install('acp-ext')).rejects.toThrow('ACP adapters not detected');
+      await expect(hubInstaller.install('acp-ext')).rejects.toThrow('Agent binaries not found');
       expect(mocks.setTransientCalls.at(-1)?.[1]).toBe('install_failed');
     });
 
-    it('should succeed when contributed acpAdapters are detected after install', async () => {
-      mocks.getExtensionResult = {
-        ...makeExtInfo('acp-ok-ext', true),
-        contributes: { acpAdapters: ['claude'] },
-      };
-      mocks.detectedAgents = [{ backend: 'claude', name: 'Claude Code' }];
+    it('should succeed when installed binary exists in managed directory', async () => {
+      mocks.getExtensionResult = makeExtInfo('acp-ok-ext', true);
+      mocks.loadedExtensions = [
+        {
+          manifest: {
+            name: 'acp-ok-ext',
+            version: '1.0.0',
+            contributes: { acpAdapters: [{ id: 'claude', installedBinaryPath: 'node_modules/.bin/claude' }] },
+          },
+          directory: '/ext-install-dir/acp-ok-ext',
+          source: 'local',
+        },
+      ];
       mockedExistsSync.mockImplementation((p) => {
         const s = String(p);
         if (s.includes('acp-ok-ext.zip') && s.includes('resources')) return true;
         if (s.includes('aion-extension.json')) return true;
+        // Binary exists in managed dir
+        if (s.includes('/agents/acp-ok-ext/') && s.includes('node_modules/.bin/claude')) return true;
         return false;
       });
 
@@ -273,7 +316,7 @@ describe('HubInstaller', () => {
 
     it('should pass verification when extension has no contributes', async () => {
       mocks.getExtensionResult = makeExtInfo('no-contrib-ext', true);
-      mocks.detectedAgents = [];
+      mocks.loadedExtensions = [];
       mockedExistsSync.mockImplementation((p) => {
         const s = String(p);
         if (s.includes('no-contrib-ext.zip') && s.includes('resources')) return true;
@@ -285,45 +328,58 @@ describe('HubInstaller', () => {
       expect(mocks.setTransientCalls.at(-1)).toEqual(['no-contrib-ext', 'installed']);
     });
 
-    it('should fail when only some contributed acpAdapters are detected', async () => {
-      mocks.getExtensionResult = {
-        ...makeExtInfo('partial-ext', true),
-        contributes: { acpAdapters: ['claude', 'missing-agent'] },
-      };
-      mocks.detectedAgents = [{ backend: 'claude', name: 'Claude Code' }];
-      mockedExistsSync.mockImplementation((p) => {
-        const s = String(p);
-        if (s.includes('partial-ext.zip') && s.includes('resources')) return true;
-        if (s.includes('aion-extension.json')) return true;
-        return false;
-      });
-
-      await expect(hubInstaller.install('partial-ext')).rejects.toThrow('ACP adapters not detected');
-    });
-    it('should succeed when custom adapter ID is detected via extension agent customAgentId', async () => {
-      mocks.getExtensionResult = {
-        ...makeExtInfo('custom-acp-ext', true),
-        contributes: { acpAdapters: ['my-custom-agent'] },
-      };
-      // Extension agent with backend 'custom' but adapter ID in customAgentId
-      mocks.detectedAgents = [
+    it('should fail when only some adapter binaries are found', async () => {
+      mocks.getExtensionResult = makeExtInfo('partial-ext', true);
+      mocks.loadedExtensions = [
         {
-          backend: 'custom',
-          name: 'My Custom',
-          kind: 'acp',
-          isExtension: true,
-          customAgentId: 'ext:custom-acp-ext:my-custom-agent',
+          manifest: {
+            name: 'partial-ext',
+            version: '1.0.0',
+            contributes: {
+              acpAdapters: [
+                { id: 'claude', installedBinaryPath: 'node_modules/.bin/claude' },
+                { id: 'missing-agent', installedBinaryPath: 'node_modules/.bin/missing' },
+              ],
+            },
+          },
+          directory: '/ext-install-dir/partial-ext',
+          source: 'local',
         },
       ];
       mockedExistsSync.mockImplementation((p) => {
         const s = String(p);
-        if (s.includes('custom-acp-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('partial-ext.zip') && s.includes('resources')) return true;
+        if (s.includes('aion-extension.json')) return true;
+        // Only claude binary exists
+        if (s.includes('node_modules/.bin/claude')) return true;
+        return false;
+      });
+
+      await expect(hubInstaller.install('partial-ext')).rejects.toThrow('Agent binaries not found');
+    });
+
+    it('should skip verification for adapters without installedBinaryPath', async () => {
+      mocks.getExtensionResult = makeExtInfo('no-binary-ext', true);
+      mocks.loadedExtensions = [
+        {
+          manifest: {
+            name: 'no-binary-ext',
+            version: '1.0.0',
+            contributes: { acpAdapters: [{ id: 'myagent' }] },
+          },
+          directory: '/ext-install-dir/no-binary-ext',
+          source: 'local',
+        },
+      ];
+      mockedExistsSync.mockImplementation((p) => {
+        const s = String(p);
+        if (s.includes('no-binary-ext.zip') && s.includes('resources')) return true;
         if (s.includes('aion-extension.json')) return true;
         return false;
       });
 
-      await hubInstaller.install('custom-acp-ext');
-      expect(mocks.setTransientCalls.at(-1)).toEqual(['custom-acp-ext', 'installed']);
+      await hubInstaller.install('no-binary-ext');
+      expect(mocks.setTransientCalls.at(-1)).toEqual(['no-binary-ext', 'installed']);
     });
   });
 });
