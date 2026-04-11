@@ -102,6 +102,18 @@ export const getDataPath = (): string => {
 };
 
 /**
+ * Get agent install base path, using CLI-safe symlink on macOS.
+ * Release builds use ~/.aionui-agents; dev builds use ~/.aionui-agents-dev.
+ * Agents installed by Hub extensions are placed under:
+ *   {basePath}/{extensionName}/{version}_{contentHashPrefix}/
+ */
+export const getAgentInstallBasePath = (): string => {
+  const rootPath = getElectronPathOrFallback('userData');
+  const agentsPath = path.join(rootPath, 'agents');
+  return ensureCliSafeSymlink(agentsPath, getEnvAwareName('.aionui-agents'));
+};
+
+/**
  * Get config path, using CLI-safe symlink on macOS.
  * Release builds use ~/.aionui-config; dev builds use ~/.aionui-config-dev.
  * 获取配置目录路径，macOS 上使用符号链接。

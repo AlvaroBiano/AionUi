@@ -137,6 +137,12 @@ export const ExtensionMetaSchema = z
         events: z.boolean().default(true),
       })
       .optional(),
+    /** Distribution metadata stamped by HubInstaller for update detection */
+    dist: z
+      .object({
+        integrity: z.string().optional(),
+      })
+      .optional(),
   })
   .strict();
 
@@ -177,6 +183,18 @@ export const ExtAcpAdapterSchema = z
      * Example: [{ key: "ANTHROPIC_API_KEY", label: "API Key", type: "password", required: true }]
      */
     apiKeyFields: z.array(ExtFieldSchema).optional(),
+    /**
+     * Relative path to the installed binary inside AIONUI_AGENT_INSTALL_DIR.
+     * Used by HubInstaller to verify that onInstall produced the expected executable.
+     * Example: "node_modules/.bin/auggie" or "goose"
+     */
+    installedBinaryPath: z.string().optional(),
+    /**
+     * Native skill discovery directories (relative to workspace root).
+     * Only CLIs with this field support native skill discovery.
+     * Example: [".claude/skills"]
+     */
+    skillsDirs: z.array(z.string()).optional(),
     yoloMode: z
       .object({
         type: z.enum(['session', 'global']),
@@ -384,7 +402,7 @@ export const ExtSettingsTabSchema = z.object({
 
 // ============ Contributes Schema ============
 
-function validateContributeIds(contributes: z.infer<typeof ExtContributesSchemaBase>): string | true {
+function findContributeDuplicateError(contributes: z.infer<typeof ExtContributesSchemaBase>): string | undefined {
   if (contributes.acpAdapters) {
     const ids = contributes.acpAdapters.map((a) => a.id);
     const duplicates = ids.filter((id, idx) => ids.indexOf(id) !== idx);
@@ -477,7 +495,7 @@ function validateContributeIds(contributes: z.infer<typeof ExtContributesSchemaB
       return `Duplicate model provider IDs: ${[...new Set(duplicates)].join(', ')}`;
     }
   }
-  return true;
+  return undefined;
 }
 
 const ExtContributesSchemaBase = z.object({
@@ -495,9 +513,10 @@ const ExtContributesSchemaBase = z.object({
   modelProviders: z.array(ExtModelProviderSchema).optional(),
 });
 
-export const ExtContributesSchema = ExtContributesSchemaBase.refine(validateContributeIds, {
-  message: 'Duplicate IDs found in contributions',
-});
+export const ExtContributesSchema = ExtContributesSchemaBase.refine(
+  (contributes) => !findContributeDuplicateError(contributes),
+  (contributes) => ({ message: findContributeDuplicateError(contributes) ?? 'Duplicate IDs found in contributions' })
+);
 
 // ============ Full Manifest Schema ============
 

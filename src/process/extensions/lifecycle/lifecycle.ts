@@ -8,9 +8,11 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { fork, type ChildProcess } from 'child_process';
 import { getEnhancedEnv } from '@process/utils/shellEnv';
+import { getAgentInstallBasePath } from '@process/utils';
 import type { LoadedExtension } from '../types';
 import { isPathWithinDirectory } from '../sandbox/pathSafety';
 import { extensionEventBus, ExtensionSystemEvents, type ExtensionLifecyclePayload } from './ExtensionEventBus';
+import { computeContentHash } from './contentHash';
 
 /**
  * Lifecycle hook scripts that an extension can declare in its manifest.
@@ -140,10 +142,27 @@ async function runLifecycleHook(
 
     const runnerScript = path.join(__dirname, 'lifecycleRunner.js');
 
+    // Compute managed install directory for the extension and inject as env var.
+    // install.ts reads AIONUI_AGENT_INSTALL_DIR to know where to place binaries.
+    const hashPrefix = computeContentHash(extension.directory).substring(0, 8);
+    const installDir = path.join(
+      getAgentInstallBasePath(),
+      extension.manifest.name,
+      `${extension.manifest.version}_${hashPrefix}`
+    );
+    fs.mkdirSync(installDir, { recursive: true });
+
     try {
+      console.log(
+        `[Extension Lifecycle] Starting ${hookName} hook for "${extension.manifest.name}" with timeout ${timeout}ms`
+      );
+      console.log(`[Extension Lifecycle] installDir: ${installDir}`);
       child = fork(runnerScript, [], {
         cwd: extension.directory,
-        env: getEnhancedEnv(),
+        env: {
+          ...getEnhancedEnv(),
+          AIONUI_AGENT_INSTALL_DIR: installDir,
+        },
         silent: false, // inherit stdio so hook console.log is visible
       });
     } catch (error) {

@@ -40,11 +40,15 @@ function convertAcpAdapter(adapter: ExtAcpAdapter, ext: LoadedExtension): Record
     yoloMode: adapter.yoloMode,
     healthCheck: adapter.healthCheck,
     apiKeyFields: adapter.apiKeyFields,
+    // Runtime fields for managed install resolution and skill discovery
+    installedBinaryPath: adapter.installedBinaryPath,
+    skillsDirs: adapter.skillsDirs,
     isPreset: false,
     isBuiltin: false,
     enabled: true,
     _source: 'extension',
     _extensionName: ext.manifest.name,
+    _extensionVersion: ext.manifest.version,
   };
 }
 

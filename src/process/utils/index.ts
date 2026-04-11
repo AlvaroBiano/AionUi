@@ -8,6 +8,7 @@ export {
   getTempPath,
   getDataPath,
   getConfigPath,
+  getAgentInstallBasePath,
   generateHashWithFullName,
   readDirectoryRecursive,
   copyDirectoryRecursively,
