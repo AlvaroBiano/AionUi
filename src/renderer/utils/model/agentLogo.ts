@@ -96,9 +96,13 @@ export function getAgentLogo(agent: string | undefined | null): string | null {
  *
  * Priority:
  *   1. Explicit icon/avatar (if provided)
- *   2. Adapter ID from customAgentId (format `ext:extensionName:adapterId`) → built-in logo map
- *   3. Backend ID → built-in logo map
- *   4. null (caller renders its own fallback)
+ *   2. For builtin agents only: backend ID → built-in logo map
+ *   3. null (caller renders its own fallback)
+ *
+ * Extension agents intentionally skip the built-in logo map. The extension
+ * author is responsible for providing an avatar via the `icon` field in the
+ * manifest; when absent, the caller should render a generic fallback (emoji
+ * or icon) so that extension agents are visually distinguishable from builtins.
  */
 export function resolveAgentLogo(opts: {
   icon?: string | null;
@@ -108,12 +112,9 @@ export function resolveAgentLogo(opts: {
 }): string | null {
   if (opts.icon) return opts.icon;
 
-  // For extension agents, extract adapter ID from customAgentId
-  if (opts.isExtension && opts.customAgentId) {
-    const adapterId = opts.customAgentId.split(':').pop();
-    const logo = getAgentLogo(adapterId);
-    if (logo) return logo;
-  }
+  // Extension agents: do not fall back to built-in logo map.
+  // Avatar is the extension author's responsibility.
+  if (opts.isExtension) return null;
 
   return getAgentLogo(opts.backend);
 }

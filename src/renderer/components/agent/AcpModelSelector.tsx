@@ -53,10 +53,15 @@ const AcpModelSelector: React.FC<{
   conversationId: string;
   /** ACP backend name for loading cached models (e.g., 'claude', 'qwen') */
   backend?: string;
+  /** Custom agent ID — used as cache key for custom/extension agents */
+  customAgentId?: string;
   /** Pre-selected model ID from Guid page */
   initialModelId?: string;
-}> = ({ conversationId, backend, initialModelId }) => {
+}> = ({ conversationId, backend, customAgentId, initialModelId }) => {
   const { t } = useTranslation();
+  // Cache key matching process-side AcpAgentManager.cacheKey:
+  // customAgentId for custom/extension agents, backend for builtins.
+  const cacheKey = (backend === 'custom' && customAgentId) ? customAgentId : backend;
   const [modelInfo, setModelInfo] = useState<AcpModelInfo | null>(null);
   // Track whether user has manually switched model via dropdown
   const hasUserChangedModel = useRef(false);
@@ -126,11 +131,11 @@ const AcpModelSelector: React.FC<{
         }
       }
 
-      if (backend) {
-        await loadCachedModelInfo(backend, options);
+      if (cacheKey) {
+        await loadCachedModelInfo(cacheKey, options);
       }
     },
-    [backend, conversationId, initialModelId, loadCachedModelInfo, updateModelInfo]
+    [cacheKey, conversationId, initialModelId, loadCachedModelInfo, updateModelInfo]
   );
 
   // Fetch initial model info on mount, fallback to cached models if manager not ready
@@ -147,7 +152,7 @@ const AcpModelSelector: React.FC<{
     void reloadModelInfo({ preserveInitialModel: true }).catch(() => {
       // loadCachedModelInfo is already handled inside reloadModelInfo
     });
-  }, [conversationId, backend, initialModelId, reloadModelInfo]);
+  }, [conversationId, cacheKey, initialModelId, reloadModelInfo]);
 
   useEffect(() => {
     if (backend !== 'claude') return;

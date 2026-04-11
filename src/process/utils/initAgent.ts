@@ -16,6 +16,7 @@ import { existsSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import { getSkillsDir, getBuiltinSkillsCopyDir, getAutoSkillsDir, getSystemDir } from './initStorage';
+import { ExtensionRegistry } from '@process/extensions';
 import { computeOpenClawIdentityHash } from './openclawUtils';
 
 /**
@@ -41,11 +42,13 @@ export async function setupAssistantWorkspace(
     excludeBuiltinSkills?: string[];
     /** Absolute paths to extra skill directories to symlink (e.g. cron job skill dirs) */
     extraSkillPaths?: string[];
+    /** Explicit skill directories override (e.g. from extension manifest) */
+    skillsDirs?: string[];
   }
 ): Promise<void> {
-  // Determine skills directories from ACP_BACKENDS_ALL config
+  // Use explicit skillsDirs if provided (from extension manifest), otherwise fall back to ACP_BACKENDS_ALL
   const key = options.backend || options.agentType || '';
-  const skillsDirs = getSkillsDirsForBackend(key);
+  const skillsDirs = options.skillsDirs ?? getSkillsDirsForBackend(key);
 
   // If no native skill directory is known for this CLI, skip symlink setup.
   // The caller should use prompt injection as fallback.
@@ -230,6 +233,26 @@ export const createAcpAgent = async (options: ICreateConversationParams): Promis
     extra.customWorkspace
   );
 
+  // For extension agents, resolve skillsDirs from the manifest adapter
+  let extensionSkillsDirs: string[] | undefined;
+  if (extra.backend === 'custom' && extra.customAgentId?.startsWith('ext:')) {
+    const [, extensionName, ...idParts] = extra.customAgentId.split(':');
+    const adapterId = idParts.join(':');
+    try {
+      const adapter = ExtensionRegistry.getInstance()
+        .getAcpAdapters()
+        .find((item) => {
+          const r = item as Record<string, unknown>;
+          return r._extensionName === extensionName && r.id === adapterId;
+        }) as Record<string, unknown> | undefined;
+      if (adapter && Array.isArray(adapter.skillsDirs)) {
+        extensionSkillsDirs = adapter.skillsDirs.filter((v): v is string => typeof v === 'string');
+      }
+    } catch {
+      // ExtensionRegistry may not be initialized yet — skip
+    }
+  }
+
   // 对 temp workspace 设置 skill symlinks（原生发现）
   if (!customWorkspace) {
     await setupAssistantWorkspace(workspace, {
@@ -237,6 +260,7 @@ export const createAcpAgent = async (options: ICreateConversationParams): Promis
       enabledSkills: extra.enabledSkills,
       extraSkillPaths: extra.extraSkillPaths,
       excludeBuiltinSkills: extra.excludeBuiltinSkills,
+      skillsDirs: extensionSkillsDirs,
     });
   }
 

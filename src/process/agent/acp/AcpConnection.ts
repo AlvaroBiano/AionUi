@@ -22,11 +22,11 @@ import type {
 } from '@/common/types/acpTypes';
 import { ACP_METHODS, JSONRPC_VERSION, parseInitializeResult } from '@/common/types/acpTypes';
 import type { ChildProcess } from 'child_process';
-import type { AcpSessionMcpServer } from './mcpSessionConfig';
+import type { AcpSessionMcpServer } from '@process/agent/acp/mcpSessionConfig';
 import path from 'path';
-import { connectClaude, connectCodebuddy, connectCodex, spawnGenericBackend } from './acpConnectors';
-import type { SpawnResult } from './acpConnectors';
-import { killChild, readTextFile, writeJsonRpcMessage, writeTextFile } from './utils';
+import { connectClaude, connectCodebuddy, connectCodex, spawnGenericBackend } from '@process/agent/acp/acpConnectors';
+import type { SpawnResult } from '@process/agent/acp/acpConnectors';
+import { killChild, readTextFile, writeJsonRpcMessage, writeTextFile } from '@process/agent/acp/utils';
 
 // Re-export for unit tests that import from this module
 export { createGenericSpawnConfig } from './acpConnectors';

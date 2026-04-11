@@ -35,12 +35,7 @@ import { getEnhancedEnv, normalizeNpxArgsForBundledBun, resolveNpxPath } from '@
 import { readClaudeModelInfoFromCcSwitch } from '@process/services/ccSwitchModelSource';
 import { AcpConnection } from './AcpConnection';
 import { AcpApprovalStore, createAcpApprovalKey } from './ApprovalStore';
-import {
-  CLAUDE_YOLO_SESSION_MODE,
-  CODEBUDDY_YOLO_SESSION_MODE,
-  IFLOW_YOLO_SESSION_MODE,
-  QWEN_YOLO_SESSION_MODE,
-} from './constants';
+import { resolveYoloMode } from './constants';
 import { buildAcpModelInfo } from './modelInfo';
 import { buildBuiltinAcpSessionMcpServers, buildTeamMcpServer, type AcpSessionMcpServer } from './mcpSessionConfig';
 import { getClaudeModelSlot } from './utils';
@@ -273,6 +268,15 @@ export class AcpAgent {
   async start(): Promise<void> {
     const startTotal = Date.now();
     try {
+      // Ensure workspace directory exists before spawning the CLI subprocess.
+      // Temp workspaces (e.g. codex-temp-*) may have been removed by OS cleanup
+      // or manually deleted between sessions, causing spawn to fail with ENOENT
+      // on the cwd — which is misleadingly reported as "CLI not found".
+      // Same defensive pattern as GeminiAgent.initialize() (Sentry ELECTRON-6W).
+      if (this.extra.workspace) {
+        await fs.mkdir(this.extra.workspace, { recursive: true });
+      }
+
       this.emitStatusMessage('connecting');
 
       const connectStart = Date.now();
@@ -340,13 +344,7 @@ export class AcpAgent {
 
       // YOLO mode: bypass all permission checks for supported backends
       if (this.extra.yoloMode) {
-        const yoloModeMap: Partial<Record<AcpBackend, string>> = {
-          claude: CLAUDE_YOLO_SESSION_MODE,
-          codebuddy: CODEBUDDY_YOLO_SESSION_MODE,
-          qwen: QWEN_YOLO_SESSION_MODE,
-          iflow: IFLOW_YOLO_SESSION_MODE,
-        };
-        const sessionMode = yoloModeMap[this.extra.backend];
+        const sessionMode = resolveYoloMode(this.extra.backend, this.connection.getConfigOptions());
         if (sessionMode) {
           await this.applySessionMode(sessionMode, true, `${this.extra.backend} YOLO mode`);
         }
@@ -486,11 +484,7 @@ export class AcpAgent {
     this.extra.yoloMode = true;
 
     if (this.connection.isConnected && this.connection.hasActiveSession) {
-      const yoloModeMap: Partial<Record<AcpBackend, string>> = {
-        claude: CLAUDE_YOLO_SESSION_MODE,
-        qwen: QWEN_YOLO_SESSION_MODE,
-      };
-      const sessionMode = yoloModeMap[this.extra.backend];
+      const sessionMode = resolveYoloMode(this.extra.backend, this.connection.getConfigOptions());
       if (sessionMode) {
         await this.connection.setSessionMode(sessionMode);
       }
@@ -526,6 +520,14 @@ export class AcpAgent {
     const all = this.connection.getConfigOptions();
     if (!all) return [];
     return all.filter((opt) => opt.category !== 'model' && opt.category !== 'mode');
+  }
+
+  /**
+   * Get ALL config options from ACP connection, including mode and model categories.
+   * Used for caching the full set so renderer can dynamically discover available modes/models.
+   */
+  getAllConfigOptions(): AcpSessionConfigOption[] {
+    return this.connection.getConfigOptions() || [];
   }
 
   /**

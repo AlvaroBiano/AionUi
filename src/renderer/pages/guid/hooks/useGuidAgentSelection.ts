@@ -329,7 +329,7 @@ export const useGuidAgentSelection = ({
     const backend = isPresetAgent
       ? currentEffectiveAgentInfo.agentType
       : selectedAgentKey.startsWith('custom:')
-        ? 'custom'
+        ? selectedAgentKey.slice(7)
         : selectedAgentKey;
     if (!backend) return;
     let isActive = true;
@@ -362,7 +362,7 @@ export const useGuidAgentSelection = ({
     const backend = isPresetAgent
       ? currentEffectiveAgentInfo.agentType
       : selectedAgentKey.startsWith('custom:')
-        ? 'custom'
+        ? selectedAgentKey.slice(7)
         : selectedAgentKey;
 
     let cancelled = false;
@@ -394,8 +394,14 @@ export const useGuidAgentSelection = ({
   // Read preferred mode or fallback to legacy yoloMode config
   useEffect(() => {
     _setSelectedMode('default');
-    // For preset agents, use the effective backend type for config lookup and mode saving
-    const configKey = isPresetAgent ? currentEffectiveAgentInfo.agentType : selectedAgent;
+    // For preset agents, use the effective backend type for config lookup and mode saving.
+    // For custom/extension agents, use the customAgentId (matches process-side cacheKey).
+    const configKey = isPresetAgent
+      ? currentEffectiveAgentInfo.agentType
+      : selectedAgentKey.startsWith('custom:')
+        ? selectedAgentKey.slice(7)
+        : selectedAgent;
+    console.log('[Guid] Selected agent changed:', { selectedAgentKey, configKey, isPresetAgent, effectiveType: currentEffectiveAgentInfo.agentType });
     selectedAgentRef.current = configKey;
     if (!configKey) return;
 
@@ -425,7 +431,7 @@ export const useGuidAgentSelection = ({
 
         // 1. Use preferredMode if valid
         if (preferred) {
-          const modes = getAgentModes(configKey);
+          const modes = getAgentModes(configKey, cachedConfigOptions);
           if (modes.some((m) => m.value === preferred)) {
             _setSelectedMode(preferred);
             return;
@@ -453,14 +459,14 @@ export const useGuidAgentSelection = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedAgent, isPresetAgent, currentEffectiveAgentInfo.agentType]);
+  }, [selectedAgent, selectedAgentKey, isPresetAgent, currentEffectiveAgentInfo.agentType, cachedConfigOptions]);
 
   const currentAcpCachedModelInfo = useMemo(() => {
     // For preset agents, resolve to the actual backend type for model list lookup
     const backend = isPresetAgent
       ? currentEffectiveAgentInfo.agentType
       : selectedAgentKey.startsWith('custom:')
-        ? 'custom'
+        ? selectedAgentKey.slice(7)
         : selectedAgentKey;
     const cached = acpCachedModels[backend];
     if (cached) return cached;

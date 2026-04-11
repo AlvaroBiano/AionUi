@@ -1515,6 +1515,9 @@ ${collectedResponses.join('\n')}`;
    * Save non-model/mode config options to database for resume support.
    * Allows AcpConfigSelector to render immediately from cached data
    * even when the ACP session has expired.
+   *
+   * Also caches the FULL config options (including mode/model categories)
+   * to ProcessConfig so the Guid page can dynamically discover available modes.
    */
   private async saveConfigOptions(configOptions: AcpSessionConfigOption[]): Promise<void> {
     try {
@@ -1528,6 +1531,21 @@ ${collectedResponses.join('\n')}`;
       }
     } catch (error) {
       mainError('[AcpAgentManager]', 'Failed to save config options', error);
+    }
+
+    // Cache full configOptions (including mode/model) to ProcessConfig per agent.
+    // This allows the Guid page to dynamically discover modes via acp.cachedConfigOptions.
+    try {
+      const fullOptions = this.agent?.getAllConfigOptions() ?? [];
+      if (fullOptions.length > 0) {
+        const cached = (await ProcessConfig.get('acp.cachedConfigOptions')) || {};
+        await ProcessConfig.set('acp.cachedConfigOptions', {
+          ...cached,
+          [this.cacheKey]: fullOptions,
+        });
+      }
+    } catch {
+      // Silent — ConfigStorage cache is best-effort
     }
   }
 
@@ -1582,24 +1600,37 @@ ${collectedResponses.join('\n')}`;
   }
 
   /**
+   * Unique cache key for this agent's model/config data.
+   * Builtin agents use their backend ID (e.g. 'claude', 'codex').
+   * Custom and extension agents use customAgentId so each agent
+   * maintains its own independent cache entry.
+   */
+  private get cacheKey(): string {
+    return this.options.backend === 'custom' && this.options.customAgentId
+      ? this.options.customAgentId
+      : this.options.backend;
+  }
+
+  /**
    * Cache model list to storage for Guid page pre-selection.
-   * Keyed by backend name (e.g., 'claude', 'qwen').
+   * Keyed per agent — see {@link cacheKey}.
    */
   private async cacheModelList(modelInfo: AcpModelInfo): Promise<void> {
     try {
+      const key = this.cacheKey;
       const cached = (await ProcessConfig.get('acp.cachedModels')) || {};
       const nextCachedInfo = {
         ...modelInfo,
         // Keep the original default from initial session, not from user switches
-        currentModelId: cached[this.options.backend]?.currentModelId ?? modelInfo.currentModelId,
-        currentModelLabel: cached[this.options.backend]?.currentModelLabel ?? modelInfo.currentModelLabel,
+        currentModelId: cached[key]?.currentModelId ?? modelInfo.currentModelId,
+        currentModelLabel: cached[key]?.currentModelLabel ?? modelInfo.currentModelLabel,
       };
       // Cache the available model list only. Don't overwrite currentModelId from
       // session-level switches — that should not affect the Guid page default.
       // The Guid page default is managed separately via acp.config[backend].preferredModelId.
       await ProcessConfig.set('acp.cachedModels', {
         ...cached,
-        [this.options.backend]: nextCachedInfo,
+        [key]: nextCachedInfo,
       });
     } catch (error) {
       mainWarn('[AcpAgentManager]', 'Failed to cache model list', error);

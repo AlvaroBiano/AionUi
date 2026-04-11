@@ -353,11 +353,12 @@ const ChatConversation: React.FC<{
   const modelSelector = useMemo(() => {
     if (!conversation || isGeminiConversation || isAionrsConversation) return undefined;
     if (conversation.type === 'acp') {
-      const extra = conversation.extra as { backend?: string; currentModelId?: string };
+      const extra = conversation.extra as { backend?: string; customAgentId?: string; currentModelId?: string };
       return (
         <AcpModelSelector
           conversationId={conversation.id}
           backend={extra.backend}
+          customAgentId={extra.customAgentId}
           initialModelId={extra.currentModelId}
         />
       );
