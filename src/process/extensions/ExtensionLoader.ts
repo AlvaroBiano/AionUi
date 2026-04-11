@@ -102,8 +102,7 @@ export class ExtensionLoader {
     try {
       parsed = JSON.parse(jsonStr);
     } catch (error) {
-      console.warn(`[Extensions] Invalid JSON in ${manifestPath}:`, error instanceof Error ? error.message : error);
-      return null;
+      throw new Error(`Invalid JSON in ${manifestPath}: ${error instanceof Error ? error.message : error}`);
     }
 
     const fileResolved = await resolveFileRefs(parsed, extensionDir);
@@ -112,8 +111,7 @@ export class ExtensionLoader {
     const result = ExtensionManifestSchema.safeParse(resolved);
     if (!result.success) {
       const errors = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
-      console.warn(`[Extensions] Schema validation failed for ${manifestPath}: ${errors}`);
-      return null;
+      throw new Error(`Schema validation failed for ${manifestPath}: ${errors}`);
     }
 
     return {

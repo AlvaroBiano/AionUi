@@ -78,8 +78,7 @@ class HubIndexManagerImpl {
   private isSchemaCompatible(data: IHubIndex, source: string): boolean {
     if (data.schemaVersion > HUB_SUPPORTED_SCHEMA_VERSION) {
       console.warn(
-        `[HubIndexManager] ${source} index schemaVersion ${data.schemaVersion} ` +
-          `> supported ${HUB_SUPPORTED_SCHEMA_VERSION}, skipping`
+        `[HubIndexManager] ${source} index schemaVersion ${data.schemaVersion} > supported ${HUB_SUPPORTED_SCHEMA_VERSION}, skipping`
       );
       return false;
     }
