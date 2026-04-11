@@ -90,7 +90,6 @@ function makeExtAdapter(opts: {
   acpArgs?: string[];
   connectionType?: string;
   defaultCliPath?: string;
-  installedBinaryPath?: string;
 }) {
   return {
     id: opts.id,
@@ -100,7 +99,6 @@ function makeExtAdapter(opts: {
     acpArgs: opts.acpArgs ?? ['--acp'],
     _extensionName: opts.extensionName,
     defaultCliPath: opts.defaultCliPath,
-    installedBinaryPath: opts.installedBinaryPath,
   };
 }
 

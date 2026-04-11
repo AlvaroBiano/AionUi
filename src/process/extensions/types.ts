@@ -184,12 +184,6 @@ export const ExtAcpAdapterSchema = z
      */
     apiKeyFields: z.array(ExtFieldSchema).optional(),
     /**
-     * Relative path to the installed binary inside AIONUI_AGENT_INSTALL_DIR.
-     * Used by HubInstaller to verify that onInstall produced the expected executable.
-     * Example: "node_modules/.bin/auggie" or "goose"
-     */
-    installedBinaryPath: z.string().optional(),
-    /**
      * Native skill discovery directories (relative to workspace root).
      * Only CLIs with this field support native skill discovery.
      * Example: [".claude/skills"]

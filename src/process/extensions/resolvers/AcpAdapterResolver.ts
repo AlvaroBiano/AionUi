@@ -40,8 +40,7 @@ function convertAcpAdapter(adapter: ExtAcpAdapter, ext: LoadedExtension): Record
     yoloMode: adapter.yoloMode,
     healthCheck: adapter.healthCheck,
     apiKeyFields: adapter.apiKeyFields,
-    // Runtime fields for managed install resolution and skill discovery
-    installedBinaryPath: adapter.installedBinaryPath,
+    // Runtime fields for skill discovery
     skillsDirs: adapter.skillsDirs,
     isPreset: false,
     isBuiltin: false,

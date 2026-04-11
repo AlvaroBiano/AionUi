@@ -70,7 +70,7 @@ const mocks = vi.hoisted(() => ({
     manifest: {
       name: string;
       version: string;
-      contributes?: { acpAdapters?: Array<{ id: string; installedBinaryPath?: string }> };
+      contributes?: { acpAdapters?: Array<{ id: string; cliCommand?: string }> };
     };
     directory: string;
     source: string;
@@ -270,7 +270,7 @@ describe('HubInstaller', () => {
           manifest: {
             name: 'acp-ext',
             version: '1.0.0',
-            contributes: { acpAdapters: [{ id: 'myagent', installedBinaryPath: 'node_modules/.bin/myagent' }] },
+            contributes: { acpAdapters: [{ id: 'myagent', cliCommand: 'myagent' }] },
           },
           directory: '/ext-install-dir/acp-ext',
           source: 'local',
@@ -295,7 +295,7 @@ describe('HubInstaller', () => {
           manifest: {
             name: 'acp-ok-ext',
             version: '1.0.0',
-            contributes: { acpAdapters: [{ id: 'claude', installedBinaryPath: 'node_modules/.bin/claude' }] },
+            contributes: { acpAdapters: [{ id: 'claude', cliCommand: 'claude' }] },
           },
           directory: '/ext-install-dir/acp-ok-ext',
           source: 'local',
@@ -305,8 +305,8 @@ describe('HubInstaller', () => {
         const s = String(p);
         if (s.includes('acp-ok-ext.zip') && s.includes('resources')) return true;
         if (s.includes('aion-extension.json')) return true;
-        // Binary exists in managed dir
-        if (s.includes('/agents/acp-ok-ext/') && s.includes('node_modules/.bin/claude')) return true;
+        // Binary exists in managed dir at bin/{cliCommand}
+        if (s.includes('/agents/acp-ok-ext/') && s.endsWith('/bin/claude')) return true;
         return false;
       });
 
@@ -337,8 +337,8 @@ describe('HubInstaller', () => {
             version: '1.0.0',
             contributes: {
               acpAdapters: [
-                { id: 'claude', installedBinaryPath: 'node_modules/.bin/claude' },
-                { id: 'missing-agent', installedBinaryPath: 'node_modules/.bin/missing' },
+                { id: 'claude', cliCommand: 'claude' },
+                { id: 'missing-agent', cliCommand: 'missing' },
               ],
             },
           },
@@ -350,15 +350,15 @@ describe('HubInstaller', () => {
         const s = String(p);
         if (s.includes('partial-ext.zip') && s.includes('resources')) return true;
         if (s.includes('aion-extension.json')) return true;
-        // Only claude binary exists
-        if (s.includes('node_modules/.bin/claude')) return true;
+        // Only claude binary exists at bin/claude
+        if (s.endsWith('/bin/claude')) return true;
         return false;
       });
 
       await expect(hubInstaller.install('partial-ext')).rejects.toThrow('Agent binaries not found');
     });
 
-    it('should skip verification for adapters without installedBinaryPath', async () => {
+    it('should skip verification for adapters without cliCommand', async () => {
       mocks.getExtensionResult = makeExtInfo('no-binary-ext', true);
       mocks.loadedExtensions = [
         {

@@ -263,67 +263,6 @@ describe('Manifest Fuzz — deeply nested / oversized inputs', () => {
   });
 });
 
-describe('Manifest Fuzz — installedBinaryPath security', () => {
-  it('accepts valid relative binary path', () => {
-    const m = validManifest({
-      contributes: {
-        acpAdapters: [
-          {
-            id: 'agent',
-            name: 'Agent',
-            cliCommand: 'agent',
-            connectionType: 'cli',
-            installedBinaryPath: 'node_modules/.bin/agent',
-          },
-        ],
-      },
-    });
-    const result = ExtensionManifestSchema.safeParse(m);
-    expect(result.success).toBe(true);
-  });
-
-  // NOTE: The schema itself does NOT validate installedBinaryPath for path traversal.
-  // This is documented in the cross-review findings. The path is only used in
-  // verifyInstallation() with path.join() under a managed directory, so the risk is limited.
-  it('schema accepts installedBinaryPath with path traversal (schema-level, no path validation)', () => {
-    const m = validManifest({
-      contributes: {
-        acpAdapters: [
-          {
-            id: 'agent',
-            name: 'Agent',
-            cliCommand: 'agent',
-            connectionType: 'cli',
-            installedBinaryPath: '../../etc/passwd',
-          },
-        ],
-      },
-    });
-    const result = ExtensionManifestSchema.safeParse(m);
-    // Schema allows it — path safety is enforced at runtime in verifyInstallation
-    expect(result.success).toBe(true);
-  });
-
-  it('schema accepts installedBinaryPath pointing to absolute path', () => {
-    const m = validManifest({
-      contributes: {
-        acpAdapters: [
-          {
-            id: 'agent',
-            name: 'Agent',
-            cliCommand: 'agent',
-            connectionType: 'cli',
-            installedBinaryPath: '/usr/bin/rm',
-          },
-        ],
-      },
-    });
-    const result = ExtensionManifestSchema.safeParse(m);
-    // Schema allows it — no absolute path validation in schema
-    expect(result.success).toBe(true);
-  });
-});
-
 describe('Manifest Fuzz — lifecycle hooks', () => {
   it('accepts valid string lifecycle hook', () => {
     const result = ExtensionManifestSchema.safeParse(

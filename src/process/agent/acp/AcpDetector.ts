@@ -183,14 +183,13 @@ class AcpDetector {
           : undefined;
         const extensionName = typeof adapter._extensionName === 'string' ? adapter._extensionName : 'unknown-extension';
         const connectionType = typeof adapter.connectionType === 'string' ? adapter.connectionType : 'unknown';
-        const installedBinaryPath =
-          typeof adapter.installedBinaryPath === 'string' ? adapter.installedBinaryPath : undefined;
+        const cliCommand = typeof adapter.cliCommand === 'string' ? adapter.cliCommand : undefined;
 
         if (connectionType !== 'cli' && connectionType !== 'stdio') continue;
-        if (!defaultCliPath && !installedBinaryPath) continue;
+        if (!defaultCliPath && !cliCommand) continue;
 
-        // Priority 1: Check managed install directory
-        const managed = resolveManagedBinary(extensionName, installedBinaryPath);
+        // Priority 1: Check managed install directory (convention: bin/{cliCommand})
+        const managed = resolveManagedBinary(extensionName, cliCommand);
         if (managed) {
           agents.push({
             id,

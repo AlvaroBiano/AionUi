@@ -29,10 +29,9 @@ type VerifyResult = { ok: boolean; reason?: string };
 /**
  * Verify that an extension's ACP adapter binaries exist in the managed install directory.
  *
- * Checks each adapter's `installedBinaryPath` under the managed directory
- * ({basePath}/{extName}/{version}_{hashPrefix}/). This replaces the previous
- * approach of AcpDetector.refreshAll() + `which`, which was unreliable
- * when multiple versions coexist.
+ * Convention: install.ts must place the executable at bin/{cliCommand}.
+ * Checks each adapter's `bin/{cliCommand}` under the managed directory
+ * ({basePath}/{extName}/{version}_{hashPrefix}/).
  */
 function verifyInstallation(extName: string, extDir: string): VerifyResult {
   const loadedExtension = ExtensionRegistry.getInstance()
@@ -52,10 +51,10 @@ function verifyInstallation(extName: string, extDir: string): VerifyResult {
 
   const missing: string[] = [];
   for (const adapter of adapters) {
-    if (!adapter.installedBinaryPath) continue;
-    const binaryPath = path.join(installDir, adapter.installedBinaryPath);
+    if (!adapter.cliCommand) continue;
+    const binaryPath = path.join(installDir, 'bin', adapter.cliCommand);
     if (!fs.existsSync(binaryPath)) {
-      missing.push(`${adapter.id} (${adapter.installedBinaryPath})`);
+      missing.push(`${adapter.id} (bin/${adapter.cliCommand})`);
     }
   }
 

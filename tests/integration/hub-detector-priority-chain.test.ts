@@ -97,7 +97,6 @@ function makeExtAdapter(opts: {
   acpArgs?: string[];
   connectionType?: string;
   defaultCliPath?: string;
-  installedBinaryPath?: string;
   env?: Record<string, string>;
   skillsDirs?: string[];
   avatar?: string;
@@ -110,7 +109,6 @@ function makeExtAdapter(opts: {
     acpArgs: opts.acpArgs ?? ['--acp'],
     _extensionName: opts.extensionName,
     defaultCliPath: opts.defaultCliPath,
-    installedBinaryPath: opts.installedBinaryPath,
     env: opts.env,
     skillsDirs: opts.skillsDirs,
     avatar: opts.avatar,
@@ -141,7 +139,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
 
       // But also installed via Hub (managed directory)
       mockResolveManagedBinary.mockReturnValue({
-        binaryPath: '/home/user/.aionui-agents/aionext-goose/1.0.0_a1b2c3d4/goose',
+        binaryPath: '/home/user/.aionui-agents/aionext-goose/1.0.0_a1b2c3d4/bin/goose',
         versionDir: '1.0.0_a1b2c3d4',
       });
 
@@ -151,7 +149,6 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
           name: 'Goose (Hub)',
           cliCommand: 'goose',
           extensionName: 'aionext-goose',
-          installedBinaryPath: 'goose',
           env: { GOOSE_HOME: '/custom/goose' },
           acpArgs: ['--acp', '--mode=team'],
         }),
@@ -166,7 +163,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
       expect(hubGoose).toBeDefined();
 
       // Managed path should be used, NOT system 'goose'
-      expect(hubGoose!.cliPath).toBe('/home/user/.aionui-agents/aionext-goose/1.0.0_a1b2c3d4/goose');
+      expect(hubGoose!.cliPath).toBe('/home/user/.aionui-agents/aionext-goose/1.0.0_a1b2c3d4/bin/goose');
       expect(hubGoose!.resolvedFrom).toBe('managed');
 
       // env and acpArgs should be passed through
@@ -183,7 +180,6 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
           id: 'auggie',
           name: 'Auggie',
           extensionName: 'aionext-auggie',
-          installedBinaryPath: 'node_modules/.bin/auggie',
           defaultCliPath: 'bunx @anthropic/auggie-cli@latest',
         }),
       ]);
@@ -208,7 +204,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
           name: 'Custom Agent',
           cliCommand: 'custom-agent',
           extensionName: 'ext-custom',
-          // no defaultCliPath, no installedBinaryPath → skipped
+          // no defaultCliPath → skipped
         }),
       ]);
 
@@ -216,7 +212,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
       await detector.initialize();
       const agents = detector.getDetectedAgents();
 
-      // Extension agents without defaultCliPath or installedBinaryPath are skipped
+      // Extension agents without defaultCliPath or cliCommand are skipped
       expect(agents.find((a) => a.name === 'Custom Agent')).toBeUndefined();
     });
 
@@ -230,7 +226,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
           name: 'Unavailable Agent',
           cliCommand: 'no-such-cli',
           extensionName: 'ext-unavailable',
-          // no defaultCliPath, no installedBinaryPath
+          // no defaultCliPath
         }),
       ]);
 
@@ -250,10 +246,10 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
       setAvailableClis(['system-agent']);
 
       // Agent A: managed install available
-      mockResolveManagedBinary.mockImplementation((extName: string, binaryPath: string | undefined) => {
-        if (extName === 'ext-managed-agent' && binaryPath === 'bin/agent') {
+      mockResolveManagedBinary.mockImplementation((extName: string, cliCommand: string | undefined) => {
+        if (extName === 'ext-managed-agent' && cliCommand === 'managed-cli') {
           return {
-            binaryPath: '/home/user/.aionui-agents/ext-managed-agent/2.0.0_ff001122/bin/agent',
+            binaryPath: '/home/user/.aionui-agents/ext-managed-agent/2.0.0_ff001122/bin/managed-cli',
             versionDir: '2.0.0_ff001122',
           };
         }
@@ -261,13 +257,12 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
       });
 
       mockGetAcpAdapters.mockReturnValue([
-        // Agent A: has installedBinaryPath -> resolves via managed
+        // Agent A: has cliCommand -> resolves via managed (bin/{cliCommand})
         makeExtAdapter({
           id: 'agent-a',
           name: 'Agent A (Managed)',
           cliCommand: 'managed-cli',
           extensionName: 'ext-managed-agent',
-          installedBinaryPath: 'bin/agent',
         }),
         // Agent B: has defaultCliPath -> resolves via bunx fallback
         makeExtAdapter({
@@ -329,7 +324,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
 
       // Extension's managed binary resolves to absolute path
       mockResolveManagedBinary.mockReturnValue({
-        binaryPath: '/home/user/.aionui-agents/aionext-goose/1.0.0_abc/goose',
+        binaryPath: '/home/user/.aionui-agents/aionext-goose/1.0.0_abc/bin/goose',
         versionDir: '1.0.0_abc',
       });
 
@@ -339,7 +334,6 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
           name: 'Goose (Hub)',
           cliCommand: 'goose',
           extensionName: 'aionext-goose',
-          installedBinaryPath: 'goose',
         }),
       ]);
 
@@ -354,7 +348,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
       // Only the managed extension goose should exist
       const extGoose = agents.find((a) => a.isExtension && a.extensionName === 'aionext-goose');
       expect(extGoose).toBeDefined();
-      expect(extGoose!.cliPath).toBe('/home/user/.aionui-agents/aionext-goose/1.0.0_abc/goose');
+      expect(extGoose!.cliPath).toBe('/home/user/.aionui-agents/aionext-goose/1.0.0_abc/bin/goose');
       expect(extGoose!.resolvedFrom).toBe('managed');
     });
   });
@@ -375,15 +369,15 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
 
       // User installs an extension via Hub
       mockResolveManagedBinary.mockReturnValue({
-        binaryPath: '/home/user/.aionui-agents/aionext-auggie/1.0.0_abc/node_modules/.bin/auggie',
+        binaryPath: '/home/user/.aionui-agents/aionext-auggie/1.0.0_abc/bin/auggie',
         versionDir: '1.0.0_abc',
       });
       mockGetAcpAdapters.mockReturnValue([
         makeExtAdapter({
           id: 'auggie',
           name: 'Auggie',
+          cliCommand: 'auggie',
           extensionName: 'aionext-auggie',
-          installedBinaryPath: 'node_modules/.bin/auggie',
           env: { NODE_OPTIONS: '--max-old-space-size=4096' },
         }),
       ]);
@@ -407,7 +401,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
     it('managed agent should have all required fields for spawning', async () => {
       setAvailableClis([]);
       mockResolveManagedBinary.mockReturnValue({
-        binaryPath: '/home/user/.aionui-agents/aionext-codebuddy/3.1.0_deadbeef/codebuddy',
+        binaryPath: '/home/user/.aionui-agents/aionext-codebuddy/3.1.0_deadbeef/bin/codebuddy',
         versionDir: '3.1.0_deadbeef',
       });
 
@@ -415,8 +409,8 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
         makeExtAdapter({
           id: 'codebuddy',
           name: 'CodeBuddy',
+          cliCommand: 'codebuddy',
           extensionName: 'aionext-codebuddy',
-          installedBinaryPath: 'codebuddy',
           acpArgs: ['--acp', '--no-color'],
           env: { CB_MODE: 'acp', CB_LOG_LEVEL: 'debug' },
           avatar: 'https://example.com/avatar.png',
@@ -432,7 +426,7 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
 
       // All fields needed by AcpConnection for spawning:
       expect(cb!.backend).toBe('custom');
-      expect(cb!.cliPath).toBe('/home/user/.aionui-agents/aionext-codebuddy/3.1.0_deadbeef/codebuddy');
+      expect(cb!.cliPath).toBe('/home/user/.aionui-agents/aionext-codebuddy/3.1.0_deadbeef/bin/codebuddy');
       expect(cb!.acpArgs).toEqual(['--acp', '--no-color']);
       expect(cb!.env).toEqual({ CB_MODE: 'acp', CB_LOG_LEVEL: 'debug' });
       expect(cb!.resolvedFrom).toBe('managed');
@@ -457,8 +451,8 @@ describe('L1 Hub Install → AcpDetector Priority Chain', () => {
         makeExtAdapter({
           id: 'agent-a',
           name: 'Agent A',
+          cliCommand: 'agent-a',
           extensionName: 'ext-a',
-          installedBinaryPath: 'bin/agent',
         }),
       ]);
       mockCleanOldVersions.mockResolvedValue(['/managed/ext-a/0.1.0_old']);

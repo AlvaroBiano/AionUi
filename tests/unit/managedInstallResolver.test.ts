@@ -36,14 +36,14 @@ describe('ManagedInstallResolver', () => {
   });
 
   describe('resolveManagedBinary', () => {
-    it('returns null when installedBinaryPath is undefined', () => {
+    it('returns null when cliCommand is undefined', () => {
       const result = resolveManagedBinary('aionext-auggie', undefined);
       expect(result).toBeNull();
     });
 
     it('returns null when extension directory does not exist', () => {
       mockExistsSync.mockReturnValue(false);
-      const result = resolveManagedBinary('aionext-auggie', 'node_modules/.bin/auggie');
+      const result = resolveManagedBinary('aionext-auggie', 'auggie');
       expect(result).toBeNull();
     });
 
@@ -53,7 +53,7 @@ describe('ManagedInstallResolver', () => {
         return p === path.join('/mock-agents', 'aionext-auggie');
       });
       mockReaddirSync.mockReturnValue([]);
-      const result = resolveManagedBinary('aionext-auggie', 'node_modules/.bin/auggie');
+      const result = resolveManagedBinary('aionext-auggie', 'auggie');
       expect(result).toBeNull();
     });
 
@@ -62,15 +62,15 @@ describe('ManagedInstallResolver', () => {
       mockExistsSync.mockImplementation((p: string) => {
         if (p === extDir) return true;
         // Binary exists in 1.2.0 version
-        if (p === path.join(extDir, '1.2.0_b2c3d4e5', 'node_modules/.bin/auggie')) return true;
+        if (p === path.join(extDir, '1.2.0_b2c3d4e5', 'bin', 'auggie')) return true;
         return false;
       });
       mockReaddirSync.mockReturnValue(['1.0.0_a1b2c3d4', '1.1.0_f0e1d2c3', '1.2.0_b2c3d4e5']);
       mockStatSync.mockReturnValue({ isDirectory: () => true });
 
-      const result = resolveManagedBinary('aionext-auggie', 'node_modules/.bin/auggie');
+      const result = resolveManagedBinary('aionext-auggie', 'auggie');
       expect(result).toEqual({
-        binaryPath: path.join(extDir, '1.2.0_b2c3d4e5', 'node_modules/.bin/auggie'),
+        binaryPath: path.join(extDir, '1.2.0_b2c3d4e5', 'bin', 'auggie'),
         versionDir: '1.2.0_b2c3d4e5',
       });
     });
@@ -84,7 +84,7 @@ describe('ManagedInstallResolver', () => {
       mockReaddirSync.mockReturnValue(['1.0.0_a1b2c3d4']);
       mockStatSync.mockReturnValue({ isDirectory: () => true });
 
-      const result = resolveManagedBinary('aionext-auggie', 'node_modules/.bin/auggie');
+      const result = resolveManagedBinary('aionext-auggie', 'auggie');
       expect(result).toBeNull();
     });
 
@@ -92,7 +92,7 @@ describe('ManagedInstallResolver', () => {
       const extDir = path.join('/mock-agents', 'aionext-goose');
       mockExistsSync.mockImplementation((p: string) => {
         if (p === extDir) return true;
-        if (p === path.join(extDir, '1.0.0_7e2d4f01', 'goose')) return true;
+        if (p === path.join(extDir, '1.0.0_7e2d4f01', 'bin', 'goose')) return true;
         return false;
       });
       mockReaddirSync.mockReturnValue(['.DS_Store', 'temp', '1.0.0_7e2d4f01']);
@@ -105,16 +105,16 @@ describe('ManagedInstallResolver', () => {
 
       const result = resolveManagedBinary('aionext-goose', 'goose');
       expect(result).toEqual({
-        binaryPath: path.join(extDir, '1.0.0_7e2d4f01', 'goose'),
+        binaryPath: path.join(extDir, '1.0.0_7e2d4f01', 'bin', 'goose'),
         versionDir: '1.0.0_7e2d4f01',
       });
     });
 
-    it('handles binary-type agents (direct executable)', () => {
+    it('handles binary-type agents (direct executable in bin/)', () => {
       const extDir = path.join('/mock-agents', 'aionext-goose');
       mockExistsSync.mockImplementation((p: string) => {
         if (p === extDir) return true;
-        if (p === path.join(extDir, '1.0.0_7e2d4f01', 'goose')) return true;
+        if (p === path.join(extDir, '1.0.0_7e2d4f01', 'bin', 'goose')) return true;
         return false;
       });
       mockReaddirSync.mockReturnValue(['1.0.0_7e2d4f01']);
@@ -122,7 +122,7 @@ describe('ManagedInstallResolver', () => {
 
       const result = resolveManagedBinary('aionext-goose', 'goose');
       expect(result).toEqual({
-        binaryPath: path.join(extDir, '1.0.0_7e2d4f01', 'goose'),
+        binaryPath: path.join(extDir, '1.0.0_7e2d4f01', 'bin', 'goose'),
         versionDir: '1.0.0_7e2d4f01',
       });
     });

@@ -415,10 +415,11 @@ describe('L1 Hub Lifecycle -> Install -> Managed Directory', () => {
         '/home/user/.aionui-agents',
         'ext-managed',
         `1.0.0_${hashPrefix}`,
-        'node_modules/.bin/managed-agent'
+        'bin',
+        'managed-agent'
       );
 
-      // Simulate loaded extension with acpAdapters including installedBinaryPath
+      // Simulate loaded extension with acpAdapters including cliCommand
       mockGetLoadedExtensions.mockReturnValue([
         {
           manifest: {
@@ -428,7 +429,7 @@ describe('L1 Hub Lifecycle -> Install -> Managed Directory', () => {
               acpAdapters: [
                 {
                   id: 'ext-managed-agent',
-                  installedBinaryPath: 'node_modules/.bin/managed-agent',
+                  cliCommand: 'managed-agent',
                 },
               ],
             },

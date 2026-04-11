@@ -26,22 +26,24 @@ export interface ManagedInstallResult {
 /**
  * Resolve the installed binary for a given extension from the managed directory.
  *
+ * Convention: install.ts must place the executable at bin/{cliCommand}.
+ *
  * Directory structure:
  *   {basePath}/{extensionName}/{version}_{hash}/
- *     └── {installedBinaryPath}   (e.g. "node_modules/.bin/auggie" or "goose")
+ *     └── bin/{cliCommand}   (e.g. "bin/auggie" or "bin/goose")
  *
  * When multiple version directories exist, the latest one is selected
  * (lexicographic sort by directory name — semver + hash ensures correct ordering).
  *
  * @param extensionName - The extension name (e.g. "aionext-auggie")
- * @param installedBinaryPath - Relative path to the binary inside the version dir
+ * @param cliCommand - The CLI command name (e.g. "auggie", "goose")
  * @returns ManagedInstallResult if found, null otherwise
  */
 export function resolveManagedBinary(
   extensionName: string,
-  installedBinaryPath: string | undefined
+  cliCommand: string | undefined
 ): ManagedInstallResult | null {
-  if (!installedBinaryPath) return null;
+  if (!cliCommand) return null;
 
   let basePath: string;
   try {
@@ -77,7 +79,7 @@ export function resolveManagedBinary(
   versionDirs.sort();
   const latestVersionDir = versionDirs[versionDirs.length - 1];
 
-  const binaryPath = path.join(extDir, latestVersionDir, installedBinaryPath);
+  const binaryPath = path.join(extDir, latestVersionDir, 'bin', cliCommand);
   if (!existsSync(binaryPath)) return null;
 
   return { binaryPath, versionDir: latestVersionDir };

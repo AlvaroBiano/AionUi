@@ -222,13 +222,40 @@ index.json 的 `dist.integrity` 改为 `sha256-{contentHash}`。AionUi 侧 `veri
 
 所有扩展的 install.ts 改为使用 `process.env.AIONUI_AGENT_INSTALL_DIR`：
 
-**npm 包类**（auggie、qwen、codebuddy、copilot 等）：
+**npm 包类 — binary 名 = cliCommand**（auggie、qwen、codebuddy、opencode 等）：
+
+```typescript
+import { $} from 'bun';
+import { mkdirSync, symlinkSync, existsSync } from 'fs';
+import { join } from 'path';
+
+const dir = process.env.AIONUI_AGENT_INSTALL_DIR!;
+await $`bun install --cwd ${dir} @augmentcode/auggie`;
+
+// 约定: bin/{cliCommand} 必须存在
+const binDir = join(dir, 'bin');
+mkdirSync(binDir, { recursive: true });
+const link = join(binDir, 'auggie'); // = cliCommand
+if (!existsSync(link)) symlinkSync(join(dir, 'node_modules', '.bin', 'auggie'), link);
+// 可执行文件产出: ${dir}/bin/auggie → node_modules/.bin/auggie
+```
+
+**npm 包类 — binary 名 ≠ cliCommand**（claude、codex）：
 
 ```typescript
 import { $ } from 'bun';
+import { mkdirSync, symlinkSync, existsSync } from 'fs';
+import { join } from 'path';
+
 const dir = process.env.AIONUI_AGENT_INSTALL_DIR!;
-await $`bun install --cwd ${dir} @augmentcode/auggie`;
-// 可执行文件产出: ${dir}/node_modules/.bin/auggie
+await $`bun install --cwd ${dir} @anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp`;
+
+// 约定: bin/{cliCommand}，npm binary 名 (claude-agent-acp) ≠ cliCommand (claude)
+const binDir = join(dir, 'bin');
+mkdirSync(binDir, { recursive: true });
+const link = join(binDir, 'claude'); // = cliCommand
+if (!existsSync(link)) symlinkSync(join(dir, 'node_modules', '.bin', 'claude-agent-acp'), link);
+// 可执行文件产出: ${dir}/bin/claude → node_modules/.bin/claude-agent-acp
 ```
 
 **binary 下载类**（goose、kimi、kiro 等）：
@@ -236,18 +263,13 @@ await $`bun install --cwd ${dir} @augmentcode/auggie`;
 ```typescript
 import { $ } from 'bun';
 const dir = process.env.AIONUI_AGENT_INSTALL_DIR!;
-await $`curl -fsSL https://github.com/block/goose/releases/latest/download/goose-darwin-arm64 -o ${dir}/goose`;
-await $`chmod +x ${dir}/goose`;
-// 可执行文件产出: ${dir}/goose
-```
 
-**两步安装类**（claude、codex）：
-
-```typescript
-import { $ } from 'bun';
-const dir = process.env.AIONUI_AGENT_INSTALL_DIR!;
-await $`bun install --cwd ${dir} @anthropic-ai/claude-code @agentclientprotocol/claude-agent-acp`;
-// 可执行文件产出: ${dir}/node_modules/.bin/claude-agent-acp
+// 直接下载到 bin/ 目录
+const binDir = `${dir}/bin`;
+await $`mkdir -p ${binDir}`;
+await $`curl -fsSL https://github.com/block/goose/releases/latest/download/goose-darwin-arm64 -o ${binDir}/goose`;
+await $`chmod +x ${binDir}/goose`;
+// 可执行文件产出: ${dir}/bin/goose
 ```
 
 ### 4.3 manifest 补全（仅运行时生效字段）
@@ -256,14 +278,15 @@ await $`bun install --cwd ${dir} @anthropic-ai/claude-code @agentclientprotocol/
 
 需要确保每个扩展的 `contributes.acpAdapters` 包含以下字段：
 
-| 字段                  | 说明                                 | 示例                                      |
-| --------------------- | ------------------------------------ | ----------------------------------------- |
-| `cliCommand`          | CLI 命令名（检测用）                 | `"claude"`                                |
-| `acpArgs`             | ACP 启动参数                         | `["--experimental-acp"]`                  |
-| `defaultCliPath`      | bunx fallback 路径                   | `"bunx @augmentcode/auggie"`              |
-| `installedBinaryPath` | 安装后可执行文件相对路径（**新增**） | `"node_modules/.bin/auggie"` 或 `"goose"` |
-| `skillsDirs`          | 技能目录（如有）                     | `[".claude/skills"]`                      |
-| `env`                 | 额外环境变量（如有）                 | `{ "KEY_FIELD": "ANTHROPIC_API_KEY" }`    |
+| 字段             | 说明                                         | 示例                                   |
+| ---------------- | -------------------------------------------- | -------------------------------------- |
+| `cliCommand`     | CLI 命令名（检测用 + `bin/` 约定路径的文件名） | `"claude"`                             |
+| `acpArgs`        | ACP 启动参数                                 | `["--experimental-acp"]`               |
+| `defaultCliPath` | bunx fallback 路径                           | `"bunx @augmentcode/auggie"`           |
+| `skillsDirs`     | 技能目录（如有）                             | `[".claude/skills"]`                   |
+| `env`            | 额外环境变量（如有）                         | `{ "KEY_FIELD": "ANTHROPIC_API_KEY" }` |
+
+> **约定**：`install.ts` 必须在 `$AIONUI_AGENT_INSTALL_DIR/bin/{cliCommand}` 放置可执行文件或 symlink。AionUi 按此约定路径查找，不需要额外的路径声明字段。
 
 ### 4.4 推进 pending 扩展
 
@@ -277,14 +300,21 @@ await $`bun install --cwd ${dir} @anthropic-ai/claude-code @agentclientprotocol/
 ~/.aionui-agents/ (或 dev 模式下 ~/.aionui-agents-dev/)                              # 固定路径，暂不开放自定义
 ├── aionext-auggie/
 │   └── 1.0.0_a3f8b2c1/                       # {version}_{contentHash 前 8 位}
+│       ├── bin/
+│       │   └── auggie → ../node_modules/.bin/auggie   # symlink, = cliCommand
 │       └── node_modules/.bin/auggie
 ├── aionext-goose/
 │   └── 1.0.0_7e2d4f01/
-│       └── goose                              # binary
+│       └── bin/
+│           └── goose                          # 直接下载的 binary, = cliCommand
 └── aionext-claude/
     └── 0.25.3_c9b1e5a2/
+        ├── bin/
+        │   └── claude → ../node_modules/.bin/claude-agent-acp  # cliCommand ≠ npm binary
         └── node_modules/.bin/claude-agent-acp
 ```
+
+**`bin/{cliCommand}` 约定**：所有扩展的 `install.ts` 必须在 `$AIONUI_AGENT_INSTALL_DIR/bin/{cliCommand}` 放置可执行文件或 symlink。AionUi 的 `ManagedInstallResolver` 按此约定路径查找，不需要额外的 manifest 字段（已移除 `installedBinaryPath`）。这种 convention-over-configuration 方式减少了 manifest 与实际产出不一致的风险。
 
 **版本隔离**：每个版本一个子目录 `{version}_{contentHash前8位}`。内容变了 hash 就变，即使版本号没 bump 也会安装到新目录。更新时旧目录保留直到确认新版本正常。
 
@@ -361,10 +391,9 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
 2a. build script：把 scripts/ 打进 zip + integrity 改为内容 SHA-256
 2b. manifest 补全（仅运行时生效字段，死代码字段不搬）：
     - 确保每个扩展声明: cliCommand, acpArgs, defaultCliPath, env, skillsDirs
-    - 新增 installedBinaryPath 字段：安装后可执行文件在 AIONUI_AGENT_INSTALL_DIR 内的相对路径
-      (如 "node_modules/.bin/auggie" 或 "goose")
     - 不搬: authRequired, supportsStreaming, apiKeyFields, connectionType, models, isBuiltin
 2c. install.ts 全部改为使用 process.env.AIONUI_AGENT_INSTALL_DIR（不再 bun install -g）
+    - 必须在 $AIONUI_AGENT_INSTALL_DIR/bin/{cliCommand} 放置可执行文件或 symlink
 2d. 推进 pending 扩展（按优先级分批）：
     - P0: claude, codex, goose（高需求）
     - P1: copilot, kimi, kiro, droid
@@ -375,7 +404,7 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
 
 ```
 3a. ManagedInstallResolver：从 ~/.aionui-agents/ (或 dev 模式下 ~/.aionui-agents-dev/) 查找已安装 Agent
-    - 读 manifest 的 installedBinaryPath 定位可执行文件
+    - 按 bin/{cliCommand} 约定定位可执行文件
 3b. 组装解析优先级链：用户配置 > managed > defaultCliPath (bunx) > which
 3c. Hub 安装的 Agent 从 manifest 读取元数据（acpArgs 等），不读 ACP_BACKENDS_ALL
 3d. ACP_BACKENDS_ALL 瘦身：移除 Hub 可提供的字段，保留内置 Agent 的默认值
@@ -475,5 +504,5 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
 | zip 打包 scripts/                      | `.github/scripts/build-extensions.js`  | 当前只打包 manifest                                        |
 | integrity 改为内容 hash                | `.github/scripts/build-extensions.js`  | 从 zip 的 SHA-512 改为解压内容的 SHA-256，解决跨平台不一致 |
 | install.ts 用 AIONUI_AGENT_INSTALL_DIR | 所有 `extensions/*/scripts/install.ts` | 从 `bun install -g` 改为 `--cwd $DIR`                      |
-| manifest 补全                          | 所有 `aion-extension.json`             | 补充运行时生效字段 + 新增 installedBinaryPath              |
+| manifest 补全                          | 所有 `aion-extension.json`             | 补充运行时生效字段（cliCommand, acpArgs, defaultCliPath 等） |
 | pending → active                       | 10 个扩展                              | 改造 install.ts 后移入 extensions/                         |
