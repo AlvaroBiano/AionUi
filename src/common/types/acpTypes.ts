@@ -36,11 +36,11 @@ export const ACP_ROUTED_PRESET_TYPES: readonly PresetAgentType[] = [
   'kiro',
 ] as const;
 
-export const CODEX_ACP_BRIDGE_VERSION = '0.9.5';
+export const CODEX_ACP_BRIDGE_VERSION = '0.11.1';
 export const CODEX_ACP_NPX_PACKAGE = `@zed-industries/codex-acp@${CODEX_ACP_BRIDGE_VERSION}`;
 
-export const CLAUDE_ACP_BRIDGE_VERSION = '0.21.0';
-export const CLAUDE_ACP_NPX_PACKAGE = `@zed-industries/claude-agent-acp@${CLAUDE_ACP_BRIDGE_VERSION}`;
+export const CLAUDE_ACP_BRIDGE_VERSION = '0.26.0';
+export const CLAUDE_ACP_NPX_PACKAGE = `@agentclientprotocol/claude-agent-acp@${CLAUDE_ACP_BRIDGE_VERSION}`;
 
 export const CODEBUDDY_ACP_BRIDGE_VERSION = '2.73.0';
 export const CODEBUDDY_ACP_NPX_PACKAGE = `@tencent-ai/codebuddy-code@${CODEBUDDY_ACP_BRIDGE_VERSION}`;
@@ -91,9 +91,6 @@ export interface PotentialAcpCli {
   backendId: AcpBackendAll;
 }
 
-/** 默认的 ACP 启动参数 / Default ACP launch arguments */
-const DEFAULT_ACP_ARGS = ['--experimental-acp'];
-
 /**
  * 从 ACP_BACKENDS_ALL 生成可检测的 CLI 列表
  * 仅包含有 cliCommand 且已启用的后端（排除 custom）
@@ -112,7 +109,7 @@ function generatePotentialAcpClis(): PotentialAcpCli[] {
     })
     .map(([id, config]) => ({
       cmd: config.cliCommand!,
-      args: config.acpArgs || DEFAULT_ACP_ARGS,
+      args: config.acpArgs ?? [],
       name: config.name,
       backendId: id as AcpBackendAll,
     }));

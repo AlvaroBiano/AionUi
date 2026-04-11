@@ -7,6 +7,7 @@
 import { POTENTIAL_ACP_CLIS } from '@/common/types/acpTypes';
 import type { AcpDetectedAgent } from '@/common/types/detectedAgent';
 import { ExtensionRegistry } from '@process/extensions';
+import { resolveManagedBinary } from '@process/extensions/hub/ManagedInstallResolver';
 import { safeExec, safeExecFile } from '@process/utils/safeExec';
 import { getEnhancedEnv } from '@process/utils/shellEnv';
 
@@ -158,49 +159,73 @@ class AcpDetector {
   }
 
   /**
-   * Detect extension-contributed ACP adapters via parallel CLI availability check.
+   * Detect extension-contributed ACP adapters.
+   *
+   * Resolution priority for each adapter:
+   *   1. Managed install directory (absolute path, no `which` needed)
+   *   2. defaultCliPath from manifest (bunx fallback, no `which` needed)
+   *   3. Skip — adapter not available
    */
   async detectExtensionAgents(): Promise<AcpDetectedAgent[]> {
     try {
       const adapters = ExtensionRegistry.getInstance().getAcpAdapters();
       if (!adapters || adapters.length === 0) return [];
 
-      const candidates: Array<{ agent: AcpDetectedAgent; cliCommand: string }> = [];
+      const agents: AcpDetectedAgent[] = [];
 
       for (const item of adapters) {
         const adapter = item as Record<string, unknown>;
         const id = typeof adapter.id === 'string' ? adapter.id : '';
         const name = typeof adapter.name === 'string' ? adapter.name : id;
-        const cliCommand = typeof adapter.cliCommand === 'string' ? adapter.cliCommand : undefined;
+        const defaultCliPath = typeof adapter.defaultCliPath === 'string' ? adapter.defaultCliPath : undefined;
         const acpArgs = Array.isArray(adapter.acpArgs)
           ? adapter.acpArgs.filter((v): v is string => typeof v === 'string')
           : undefined;
         const extensionName = typeof adapter._extensionName === 'string' ? adapter._extensionName : 'unknown-extension';
         const connectionType = typeof adapter.connectionType === 'string' ? adapter.connectionType : 'unknown';
+        const installedBinaryPath =
+          typeof adapter.installedBinaryPath === 'string' ? adapter.installedBinaryPath : undefined;
 
         if (connectionType !== 'cli' && connectionType !== 'stdio') continue;
-        if (!cliCommand) continue;
+        if (!defaultCliPath && !installedBinaryPath) continue;
 
-        candidates.push({
-          cliCommand,
-          agent: {
+        // Priority 1: Check managed install directory
+        const managed = resolveManagedBinary(extensionName, installedBinaryPath);
+        if (managed) {
+          agents.push({
             id,
             name,
             kind: 'acp',
             available: true,
             backend: id,
-            cliPath: typeof adapter.defaultCliPath === 'string' ? adapter.defaultCliPath : cliCommand,
+            cliPath: managed.binaryPath,
             acpArgs,
             isExtension: true,
+            customAgentId: `ext:${extensionName}:${id}`,
             extensionName,
-          },
-        });
+          });
+          continue;
+        }
+
+        // Priority 2: defaultCliPath (bunx fallback — always available, no `which` needed)
+        if (defaultCliPath) {
+          agents.push({
+            id,
+            name,
+            kind: 'acp',
+            available: true,
+            backend: id,
+            cliPath: defaultCliPath,
+            acpArgs,
+            isExtension: true,
+            customAgentId: `ext:${extensionName}:${id}`,
+            extensionName,
+          });
+          continue;
+        }
       }
 
-      // Extension adapters are trusted — skip CLI availability check.
-      // They declare a defaultCliPath (e.g. "bunx @augmentcode/auggie") as fallback,
-      // so the CLI doesn't need to be on PATH.
-      return candidates.map((c) => c.agent);
+      return agents;
     } catch (error) {
       console.warn('[AcpDetector] Failed to load extension ACP adapters:', error);
       return [];
