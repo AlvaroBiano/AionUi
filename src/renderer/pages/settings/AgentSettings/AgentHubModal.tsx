@@ -1,12 +1,12 @@
-import React from 'react';
-import { Button, Typography, Tooltip, Link } from '@arco-design/web-react';
-import { IconDownload, IconRefresh } from '@arco-design/web-react/icon';
-import { useTranslation } from 'react-i18next';
+import type { IHubAgentItem } from '@/common/types/hub';
 import ModalWrapper from '@/renderer/components/base/ModalWrapper';
 import { useHubAgents } from '@/renderer/hooks/agent/useHubAgents';
-import type { IHubAgentItem } from '@/common/types/hub';
-import { resolveAgentLogo } from '@renderer/utils/model/agentLogo';
 import { openExternalUrl } from '@/renderer/utils/platform';
+import { Button, Link, Tooltip, Typography } from '@arco-design/web-react';
+import { IconDelete, IconDownload, IconRefresh } from '@arco-design/web-react/icon';
+import { resolveAgentLogo } from '@renderer/utils/model/agentLogo';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface AgentHubModalProps {
   visible: boolean;
@@ -17,7 +17,7 @@ const AION_HUB_REPO_URL = 'https://github.com/iOfficeAI/AionHub';
 
 export const AgentHubModal: React.FC<AgentHubModalProps> = ({ visible, onCancel }) => {
   const { t } = useTranslation();
-  const { agents, loading, error, install, retryInstall, update } = useHubAgents();
+  const { agents, loading, error, install, retryInstall, update, uninstall } = useHubAgents();
   const actionButtonClassName = '!min-w-80px !rounded-9px !px-10px';
   const openAionHubRepo = () => {
     void openExternalUrl(AION_HUB_REPO_URL).catch(console.error);
@@ -38,16 +38,41 @@ export const AgentHubModal: React.FC<AgentHubModalProps> = ({ visible, onCancel 
           </Button>
         );
       case 'installing':
-      case 'uninstalling':
         return (
           <Button type='primary' size='small' loading disabled className={actionButtonClassName}>
             {t('settings.agentManagement.marketInstalling', { defaultValue: 'Installing...' })}
           </Button>
         );
-      case 'installed':
+      case 'uninstalling':
         return (
-          <Button size='small' type='secondary' disabled className={actionButtonClassName}>
-            {t('settings.installed', { defaultValue: 'Installed' })}
+          <Button size='small' loading disabled className={actionButtonClassName}>
+            {t('settings.agentManagement.marketUninstalling', { defaultValue: 'Uninstalling...' })}
+          </Button>
+        );
+      case 'installed':
+        if (agent.installSource === 'builtin') {
+          // Detected via which (unmanaged) — offer to install managed version from Hub
+          return (
+            <Button
+              type='primary'
+              size='small'
+              icon={<IconDownload />}
+              className={actionButtonClassName}
+              onClick={() => install(agent.name)}
+            >
+              {t('settings.agentManagement.marketUpdate', { defaultValue: 'Update' })}
+            </Button>
+          );
+        }
+        return (
+          <Button
+            size='small'
+            type='secondary'
+            icon={<IconDelete />}
+            className={actionButtonClassName}
+            onClick={() => uninstall(agent.name)}
+          >
+            {t('settings.agentManagement.marketUninstall', { defaultValue: 'Uninstall' })}
           </Button>
         );
       case 'install_failed':
@@ -158,7 +183,12 @@ export const AgentHubModal: React.FC<AgentHubModalProps> = ({ visible, onCancel 
                     {agent.description}
                   </Typography.Text>
 
-                  <div className='mt-auto flex justify-center'>{renderActionBtn(agent)}</div>
+                  <div className='mt-auto flex flex-col items-center gap-4px'>
+                    {process.env.NODE_ENV === 'development' && agent.installSource && (
+                      <Typography.Text className='text-10px text-t-quaternary'>[{agent.installSource}]</Typography.Text>
+                    )}
+                    {renderActionBtn(agent)}
+                  </div>
                 </div>
               );
             })}

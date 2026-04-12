@@ -849,6 +849,8 @@
     "marketInstall": "설치",
     "marketInstalling": "설치 중...",
     "marketUpdate": "업데이트",
+    "marketUninstall": "제거",
+    "marketUninstalling": "제거 중...",
     "marketEmpty": "설치 가능한 Agent를 찾지 못했습니다. 네트워크 연결을 확인하고 GitHub에 정상적으로 접속할 수 있는지 확인하세요.",
     "marketContributionHint": "새 Agent를 마켓에 추가하고 싶다면?",
     "marketContributionAction": "AionHub에 PR 보내기",

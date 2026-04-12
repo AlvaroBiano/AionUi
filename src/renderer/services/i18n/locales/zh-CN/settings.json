@@ -848,6 +848,8 @@
     "marketInstall": "安装",
     "marketInstalling": "安装中...",
     "marketUpdate": "更新",
+    "marketUninstall": "卸载",
+    "marketUninstalling": "卸载中...",
     "marketEmpty": "暂未发现可安装的 Agent。请检查网络连接，并确认当前环境可以正常访问 GitHub。",
     "marketContributionHint": "想让新的 Agent 出现在市场中？",
     "marketContributionAction": "前往 AionHub 提交 PR",

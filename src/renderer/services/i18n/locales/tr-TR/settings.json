@@ -847,6 +847,8 @@
     "marketInstall": "Yükle",
     "marketInstalling": "Yükleniyor...",
     "marketUpdate": "Güncelle",
+    "marketUninstall": "Kaldır",
+    "marketUninstalling": "Kaldırılıyor...",
     "marketEmpty": "Yüklenebilir Agent bulunamadı. Ağ bağlantınızı kontrol edin ve GitHub'a erişilebildiğinden emin olun.",
     "marketContributionHint": "Burada yeni bir Agent görmek mi istiyorsunuz?",
     "marketContributionAction": "AionHub'a PR gönderin",

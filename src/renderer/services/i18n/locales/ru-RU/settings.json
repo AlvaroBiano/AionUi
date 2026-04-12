@@ -840,6 +840,8 @@
     "marketInstall": "Установить",
     "marketInstalling": "Установка...",
     "marketUpdate": "Обновить",
+    "marketUninstall": "Удалить",
+    "marketUninstalling": "Удаление...",
     "marketEmpty": "Не найдено агентов для установки. Проверьте сетевое подключение и убедитесь, что GitHub доступен.",
     "marketContributionHint": "Хотите добавить нового агента в маркет?",
     "marketContributionAction": "Откройте PR в AionHub",

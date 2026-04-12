@@ -967,6 +967,8 @@ export type I18nKey =
   | 'settings.agentManagement.marketEmpty'
   | 'settings.agentManagement.marketInstall'
   | 'settings.agentManagement.marketInstalling'
+  | 'settings.agentManagement.marketUninstall'
+  | 'settings.agentManagement.marketUninstalling'
   | 'settings.agentManagement.marketUpdate'
   | 'settings.agentManagement.remoteAgents'
   | 'settings.agentManagement.remoteAgentsDescription'

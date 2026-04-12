@@ -849,6 +849,8 @@
     "marketInstall": "安裝",
     "marketInstalling": "安裝中...",
     "marketUpdate": "更新",
+    "marketUninstall": "解除安裝",
+    "marketUninstalling": "解除安裝中...",
     "marketEmpty": "暫未發現可安裝的 Agent。請檢查網路連線，並確認目前環境可以正常存取 GitHub。",
     "marketContributionHint": "想讓新的 Agent 出現在市場中？",
     "marketContributionAction": "前往 AionHub 提交 PR",

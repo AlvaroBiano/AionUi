@@ -455,16 +455,184 @@ JSON-RPC over stdio：initialize → session/new → 会话就绪
 
 ---
 
-## 七、风险与边界
+## 七、卸载功能
 
-### 6.1 已知风险
+> 新增：2026-04-12
+
+### 7.1 现状
+
+AionUi lifecycle 系统已支持 `onUninstall` hook（`lifecycle.ts:249-262`），`HubExtensionStatus` 类型已包含 `'uninstalling'` 状态，IPC 桥接 `hub.uninstall` handler 已定义但返回 `'Uninstall not supported yet.'`。缺失的是：
+
+1. **`HubInstaller` 无卸载方法**：只有 `install()` / `retryInstall()`
+2. **UI 无卸载入口**：`AgentHubModal` 对已安装扩展只显示 disabled 的 "已安装" 按钮
+3. **managed 目录无清理**：安装到 `~/.aionui-agents/{name}/{version}_{hash}/` 的文件无删除逻辑
+
+### 7.2 卸载需要做的事
+
+| 步骤 | 动作                            | 说明                                                                           |
+| ---- | ------------------------------- | ------------------------------------------------------------------------------ |
+| 1    | 断开活跃会话                    | 如果该 Agent 有正在运行的会话，先断连                                          |
+| 2    | 执行 `onUninstall` hook         | lifecycle 已支持，扩展可选择做清理（如撤销全局配置）                           |
+| 3    | 删除 managed 安装目录           | `~/.aionui-agents/{name}/` 整个目录（所有版本）                                |
+| 4    | 删除扩展目录                    | `ExtensionRegistry` 中该扩展的解压目录                                         |
+| 5    | 清理状态                        | `HubStateManager` 重置为 `not_installed`，清除持久化错误                       |
+| 6    | **保留用户配置**                | `acp.config[backend]` 和 `acp.customAgents` 中用户设置的 env、cliPath 等不删除 |
+| 7    | 触发 `AcpDetector.refreshAll()` | 刷新 Agent 列表，UI 同步                                                       |
+
+### 7.3 Zed 参考
+
+Zed 的卸载比较粗放：Registry agent 只从 settings 中移除条目，**不清理已下载的 binary**（缓存在 `~/Library/Application Support/Zed/external_agents/registry/` 中永久保留）。Extension-provided agent 会通过 `ExtensionStore.uninstall_extension()` 递归删除扩展目录。
+
+AionUi 应比 Zed 做得更彻底——卸载时清理 managed 目录，避免磁盘空间无限增长。
+
+---
+
+## 八、认证流程
+
+> 新增：2026-04-12
+
+### 8.1 问题
+
+用户从 Hub 安装 Agent 后创建会话，如果 Agent 需要认证（未登录/API key 未配置），当前只会在连接层报错，用户看到的是笼统的启动失败信息，没有引导认证的入口。
+
+### 8.2 期望交互
+
+用户创建会话后，如果拦截到认证错误（ACP `ErrorCode::AuthRequired` 或 `session/new` 返回 `-32000`），**消息输入框上方显示一个 "立即登录" 按钮**。点击后根据 ACP 协议返回的 `auth_methods` 决定处理方式：
+
+- **Terminal 类**（含 `terminal-auth` meta）：打开用户系统终端（如 macOS Terminal.app / iTerm）执行登录命令
+- **浏览器类**（meta 中含 authUrl）：调用 `shell.openExternal(authUrl)` 打开浏览器
+- **EnvVar 类**：引导用户到设置页面配置环境变量
+
+> 注意：AionUi 没有内置终端。终端类登录需要打开用户机器上的系统终端。
+
+### 8.3 Agent 认证方式调研
+
+基于实际测试（`team/investigate-agent/rounds/round-01/` 中的 auth-research 和 docker-test），各 Agent 认证方式如下：
+
+| Agent        | 认证类型                 | 触发方式                         | Headless 支持                       | 认证错误特征                                     |
+| ------------ | ------------------------ | -------------------------------- | ----------------------------------- | ------------------------------------------------ |
+| Claude       | API Key / OAuth          | 浏览器 OAuth                     | `ANTHROPIC_API_KEY` 环境变量        | `-32000 "Authentication required"`               |
+| Codex        | API Key / OAuth          | 浏览器 OAuth                     | `OPENAI_API_KEY` 环境变量           | `-32603 "OPENAI_API_KEY is not set"`             |
+| Auggie       | OAuth Session            | `auggie login`（浏览器）         | `AUGMENT_SESSION_AUTH` JSON         | `"Please run 'auggie login' from your terminal"` |
+| CodeBuddy    | 多种 OAuth               | 浏览器 OAuth                     | 无 env var 支持                     | 返回 authUrl + provider                          |
+| Qwen         | API Key / OAuth          | 浏览器 OAuth                     | `OPENAI_API_KEY` 等                 | `-32603 "Authentication required"`               |
+| Copilot      | GitHub PAT / OAuth       | 浏览器 OAuth                     | `GH_TOKEN` / `COPILOT_GITHUB_TOKEN` | `-32000 "Authentication required"`               |
+| Goose        | —                        | 无需认证                         | —                                   | —                                                |
+| OpenCode     | —                        | 无需认证                         | —                                   | —                                                |
+| Kimi         | OAuth Device Flow        | **终端交互**（device code）      | Token 文件注入                      | `-32000` 超时                                    |
+| Kiro         | AWS OAuth                | **终端交互**（`kiro-cli login`） | `AMAZON_Q_SIGV4` + AWS creds        | 进程直接退出                                     |
+| Droid        | API Key / Device Pairing | 浏览器 device-pair               | `FACTORY_API_KEY`                   | `-32000 "Authentication required"`               |
+| Mistral Vibe | API Key                  | `vibe --setup`（终端）           | `MISTRAL_API_KEY`                   | `"Missing API key for mistral provider"`         |
+| OpenClaw     | Gateway 模式             | 无 ACP 层认证                    | —                                   | `ECONNREFUSED`（Gateway 未运行）                 |
+| Qoder        | —                        | 待确认                           | —                                   | —                                                |
+
+### 8.4 认证方式分类
+
+根据调研结果，Agent 认证方式可归纳为三类：
+
+| 类型         | 特征                                              | Agent 列表                                             | AionUi 处理方式                                          |
+| ------------ | ------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------- |
+| **browser**  | OAuth/device-pairing，需要打开浏览器              | Claude, Codex, Auggie, CodeBuddy, Qwen, Copilot, Droid | `shell.openExternal(url)` 或执行登录命令后浏览器自动弹出 |
+| **terminal** | 需要在终端中交互输入（device code、交互式 setup） | Kimi, Kiro, Mistral Vibe                               | 打开系统终端执行登录命令                                 |
+| **none**     | 无需认证或纯 env var                              | Goose, OpenCode, OpenClaw                              | 不显示登录按钮；env var 类引导到设置页                   |
+
+### 8.5 基于 ACP 协议的认证信息获取
+
+**不在 manifest 中声明认证方式。** 认证信息完全从 ACP 协议运行时获取：
+
+1. **`initialize` 响应**：Agent 在握手时返回 `auth_methods` 数组，每个 method 包含：
+   - `id`：方法标识（如 `"chatgpt"`、`"openai-api-key"`）
+   - `name`：显示名称（如 `"Login"`）
+   - `description`：可选说明
+   - `meta`：灵活的 key-value 元数据，携带具体认证指令
+
+2. **三种 AuthMethod 类型**（ACP 协议定义）：
+   - `AuthMethodTerminal`：一等公民的终端认证，meta 中含 `command`、`args`、`env`
+   - `AuthMethodAgent`：Agent 自定义认证，常通过 `meta["terminal-auth"]` 携带终端命令
+   - `AuthMethodEnvVar`：环境变量认证
+
+3. **`authenticate` 请求**：客户端选择一种 method 后，发送 `authenticate(method_id)` 通知 Agent
+
+AionUi 的职责是**尽可能支持所有 ACP 认证方式**，根据 `auth_methods` 的类型和 meta 动态决定处理方式，而非要求扩展静态声明。
+
+### 8.6 Zed 参考
+
+Zed 的认证处理：
+
+- **检测**：ACP `initialize` 握手时 Agent 返回 `auth_methods`；prompt 时返回 `ErrorCode::AuthRequired`
+- **UI**：显示 "Authenticate to [agent]" callout，列出所有可用认证方式为按钮
+- **执行**：**只支持终端认证**——在 Zed 内置终端中 spawn 登录命令，通过 exit code 和 success pattern（如 "Login successful"）判定结果
+- **完成**：认证成功后调 `connection.authenticate(method_id)` 通知 Agent，然后 reset 会话重试
+
+AionUi 与 Zed 的差异：
+- AionUi 需要同时支持浏览器和终端两种认证方式（Zed 只做了终端）
+- AionUi 没有内置终端，终端类登录需要打开用户系统终端（Zed 可以在自己的终端面板中 spawn）
+- 两者都从 ACP 协议 `auth_methods` 获取认证信息，不依赖静态声明
+
+---
+
+## 九、迁移提示方案
+
+> 新增：2026-04-12
+
+### 9.1 问题
+
+用户升级 AionUi 后，之前通过 `which` 发现的 unmanaged Agent 仍然在使用。这些 Agent 存在版本漂移、路径不可预测等问题（见第一章）。需要引导用户将 unmanaged Agent 迁移到 Hub managed 安装。
+
+### 9.2 期望交互
+
+用户更新 AionUi 后**首次启动时弹窗一次**：
+
+1. **检测 unmanaged Agent**：`AcpDetector.refreshAll()` 中识别哪些 Agent 是通过 `which`（系统 PATH）发现的
+2. **匹配 Hub 可用扩展**：对每个 unmanaged Agent，查 Hub index 是否有对应扩展
+3. **弹窗提示**（仅版本升级后首次启动弹一次）：
+
+   > **发现可优化的 Agent**
+   >
+   > 以下 Agent 当前从系统 PATH 加载，可能存在版本不一致的问题。
+   > 通过 Agent Hub 安装可获得更稳定的体验：
+   >
+   > ☑ Claude Code（当前：/usr/local/bin/claude）
+   > ☑ Codex（当前：/usr/local/bin/codex）
+   > ☑ Goose（当前：/opt/homebrew/bin/goose）
+   >
+   > [一键安装] [稍后再说]
+
+4. **一键安装**：用户勾选确认后，批量调用 `HubInstaller.install()` 安装所选 Agent
+5. **安装完成**：触发 `AcpDetector.refreshAll()`，managed 路径优先级高于 `which`，自动切换
+6. **弹窗只弹一次**：记录已弹窗的版本号，同一版本不再弹窗
+
+### 9.3 本地 Agent 页面持续展示
+
+弹窗只弹一次，但**设置 → 本地 Agent 页面**会持续列出所有已检测到的 Agent（不管来源）：
+
+- **Hub managed 安装的**：显示正常状态（已安装 / 有更新 等）
+- **通过 `which` 发现的（unmanaged）**：显示 "更新" 按钮，点击后从 Hub 安装 managed 版本
+- **用户手动配置 `cliPath` 的**：正常显示，不提示迁移
+
+### 9.4 实现要点
+
+- **检测时机**：app ready 后、Hub index 加载完成后
+- **匹配逻辑**：`AcpDetector` 中通过 `which` 发现的 Agent 的 `cliCommand`，与 Hub index 中扩展的 `contributes.acpAdapters[].cliCommand` 匹配
+- **不影响已配置用户**：如果用户手动配置了 `cliPath`，不纳入迁移提示（用户有意为之）
+- **版本信息展示**：如可能，展示当前 `which` 命中的路径，帮助用户理解为什么要迁移
+- **弹窗频率控制**：持久化 `lastMigrationPromptVersion`，仅在版本号变化时弹窗
+
+---
+
+## 十、风险与边界
+
+### 10.1 已知风险
+
+- **认证完成检测**：AionUi 无法直接监听系统终端或浏览器中的认证结果，只能依赖用户手动点击"已完成登录"后调用 `authenticate(method_id)` + 重试连接。如果 Agent 实际未完成认证，重试会再次失败并重新显示登录按钮。
+- **系统终端打开**：不同平台打开终端的方式不同（macOS `open -a Terminal`、Linux `xdg-open` / `x-terminal-emulator`、Windows `start cmd`），需要平台适配。
 
 - **Hub 远程源不可达**：GitHub raw / jsDelivr 不可达时，已安装 Agent 仍可从 managed 目录启动，但新安装和更新会受阻。bundled 扩展始终可用。
 - **install.ts 安全性**：扩展的 install.ts 可以执行任意 bun/bunx 命令。需要 trust mechanism（已有设计文档 `extension-trust-mechanism.md`）。
 - **企业环境限制**：部分企业环境禁止自动下载外部二进制。需支持手动指定 `cliPath` 旁路。
 - **bun 兼容性**：部分 npm 包可能与 bun 不完全兼容。bundled bun 的版本需要定期更新。
 
-### 6.2 不在本提案范围内
+### 10.2 不在本提案范围内
 
 - P0-P2 的状态管理、错误处理、热路径改造（已有独立 Sprint 计划）
 - P3 的连接复用拓扑（已有独立 Sprint 计划）
@@ -472,7 +640,7 @@ JSON-RPC over stdio：initialize → session/new → 会话就绪
 
 ---
 
-## 八、附录
+## 附录
 
 ### A. ACP Registry 当前 Agent 列表快照 (2026-04-07)
 

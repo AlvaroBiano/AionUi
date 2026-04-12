@@ -46,8 +46,8 @@ export function useHubAgents() {
         })
       );
 
-      // After install completes, revalidate agent list so home page & settings reflect new agent
-      if (payload.status === 'installed') {
+      // After install/uninstall completes, revalidate agent list so home page & settings reflect changes
+      if (payload.status === 'installed' || payload.status === 'not_installed') {
         mutate(DETECTED_AGENTS_SWR_KEY);
         mutate('acp.agents.available.settings');
       }
@@ -92,6 +92,17 @@ export function useHubAgents() {
     }
   };
 
+  const uninstall = async (name: string) => {
+    try {
+      const res = await ipcBridge.hub.uninstall.invoke({ name });
+      if (!res.success) {
+        throw new Error(res.msg || 'Uninstall failed');
+      }
+    } catch (err) {
+      console.error('Uninstall failed:', err);
+    }
+  };
+
   return {
     agents,
     loading,
@@ -100,5 +111,6 @@ export function useHubAgents() {
     install,
     retryInstall,
     update,
+    uninstall,
   };
 }

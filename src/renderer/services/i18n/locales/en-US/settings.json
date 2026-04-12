@@ -847,6 +847,8 @@
     "marketInstall": "Install",
     "marketInstalling": "Installing...",
     "marketUpdate": "Update",
+    "marketUninstall": "Uninstall",
+    "marketUninstalling": "Uninstalling...",
     "marketEmpty": "No installable agents found. Check your network connection and make sure GitHub is reachable.",
     "marketContributionHint": "Want a new Agent listed here?",
     "marketContributionAction": "Open a PR on AionHub",

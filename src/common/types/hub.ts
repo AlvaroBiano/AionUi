@@ -51,7 +51,12 @@ export interface IHubIndex {
   extensions: Record<string, IHubExtension>;
 }
 
+/** How the agent's `installed` status was derived. */
+export type HubInstallSource = 'extension' | 'builtin' | undefined;
+
 export interface IHubAgentItem extends IHubExtension {
   status: HubExtensionStatus;
   installError?: string; // Error message if install failed
+  /** 'extension' = loaded via ExtensionRegistry (Hub installed), 'builtin' = detected via AcpDetector (which) */
+  installSource?: HubInstallSource;
 }

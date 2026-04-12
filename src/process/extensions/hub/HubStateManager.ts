@@ -1,5 +1,5 @@
 import { ipcBridge } from '@/common';
-import type { HubExtensionStatus, IHubAgentItem, IHubExtension } from '@/common/types/hub';
+import type { HubExtensionStatus, HubInstallSource, IHubAgentItem, IHubExtension } from '@/common/types/hub';
 import { isAgentKind } from '@/common/types/detectedAgent';
 import { agentRegistry } from '@process/agent/AgentRegistry';
 import { EXTENSION_MANIFEST_FILE } from '@process/extensions/constants';
@@ -37,7 +37,7 @@ class HubStateManagerImpl {
     // Sync to persistent store if it's an error state
     if (status === 'install_failed' && error) {
       this.setPersistentInstallError(name, error);
-    } else if (status === 'installed' || status === 'installing') {
+    } else if (status === 'installed' || status === 'installing' || status === 'not_installed') {
       this.clearPersistentInstallError(name);
     }
 
@@ -116,12 +116,13 @@ class HubStateManagerImpl {
     const result: IHubAgentItem[] = [];
 
     for (const ext of Object.values(extensions)) {
-      const status = await this.deriveStatus(ext, loadedByName, detectedAgentsIds);
+      const { status, source } = await this.deriveStatus(ext, loadedByName, detectedAgentsIds);
 
       result.push({
         ...ext,
         status,
         installError: await this.getPersistentInstallError(ext.name),
+        installSource: source,
       });
     }
 
@@ -142,14 +143,14 @@ class HubStateManagerImpl {
     ext: IHubExtension,
     loadedByName: Map<string, { directory: string }>,
     detectedAgentsIds: Set<string>
-  ): Promise<HubExtensionStatus> {
+  ): Promise<{ status: HubExtensionStatus; source: HubInstallSource }> {
     // 1. Transient state (installing / uninstalling)
     const transient = this.transientStates.get(ext.name);
-    if (transient) return transient;
+    if (transient) return { status: transient, source: undefined };
 
     // 2. Persistent install error
     const hasError = await this.getPersistentInstallError(ext.name);
-    if (hasError) return 'install_failed';
+    if (hasError) return { status: 'install_failed', source: undefined };
 
     // 3. Loaded in ExtensionRegistry — check for update via content hash
     const loaded = loadedByName.get(ext.name);
@@ -159,23 +160,24 @@ class HubStateManagerImpl {
         if (fs.existsSync(manifestPath)) {
           const localManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
           if (localManifest.dist?.integrity && localManifest.dist.integrity !== ext.dist.integrity) {
-            return 'update_available';
+            return { status: 'update_available', source: 'extension' };
           }
         }
       } catch {
         // Ignore read errors — treat as installed
       }
+      return { status: 'installed', source: 'extension' };
     }
 
     // 4. All contributed acpAdapters are already detected on system
     const adapterIds = ext.contributes?.acpAdapters;
     if (adapterIds && adapterIds.length > 0) {
       if (adapterIds.every((id) => detectedAgentsIds.has(id))) {
-        return 'installed';
+        return { status: 'installed', source: 'builtin' };
       }
     }
 
-    return 'not_installed';
+    return { status: 'not_installed', source: undefined };
   }
 }
 

@@ -64,8 +64,8 @@
 
 ### 2.5 AcpBackendConfig 字段审计
 
-| 分类       | 字段                                                                                                                                                               | 状态                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| 分类       | 字段                                                                                                                                                               | 状态                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | 运行时生效 | `cliCommand`, `acpArgs`, `enabled`, `env`, `skillsDirs`, `name`/`avatar`/`description`, `isPreset`/`context`/`presetAgentType`, `enabledSkills`/`customSkillNames` | ✅ 在用                                                                                   |
 | 半生效     | `defaultCliPath`                                                                                                                                                   | ⚠️ claude/codex/codebuddy 专用 connector 硬编码 NPX 包名，忽略此字段；仅 generic 路径读取 |
 | 死代码     | `authRequired`, `supportsStreaming`, `apiKeyFields`, `connectionType`, `models`, `isBuiltin`                                                                       | ❌ 定义了但运行时从未消费                                                                 |
@@ -278,13 +278,13 @@ await $`chmod +x ${binDir}/goose`;
 
 需要确保每个扩展的 `contributes.acpAdapters` 包含以下字段：
 
-| 字段             | 说明                                         | 示例                                   |
-| ---------------- | -------------------------------------------- | -------------------------------------- |
+| 字段             | 说明                                           | 示例                                   |
+| ---------------- | ---------------------------------------------- | -------------------------------------- |
 | `cliCommand`     | CLI 命令名（检测用 + `bin/` 约定路径的文件名） | `"claude"`                             |
-| `acpArgs`        | ACP 启动参数                                 | `["--experimental-acp"]`               |
-| `defaultCliPath` | bunx fallback 路径                           | `"bunx @augmentcode/auggie"`           |
-| `skillsDirs`     | 技能目录（如有）                             | `[".claude/skills"]`                   |
-| `env`            | 额外环境变量（如有）                         | `{ "KEY_FIELD": "ANTHROPIC_API_KEY" }` |
+| `acpArgs`        | ACP 启动参数                                   | `["--experimental-acp"]`               |
+| `defaultCliPath` | bunx fallback 路径                             | `"bunx @augmentcode/auggie"`           |
+| `skillsDirs`     | 技能目录（如有）                               | `[".claude/skills"]`                   |
+| `env`            | 额外环境变量（如有）                           | `{ "KEY_FIELD": "ANTHROPIC_API_KEY" }` |
 
 > **约定**：`install.ts` 必须在 `$AIONUI_AGENT_INSTALL_DIR/bin/{cliCommand}` 放置可执行文件或 symlink。AionUi 按此约定路径查找，不需要额外的路径声明字段。
 
@@ -427,6 +427,55 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
 5b. managed 目录旧版本清理逻辑（保留最近 N 个版本，清理更早的）
 ```
 
+### 任务 6: 卸载功能
+
+> 新增：2026-04-12。详见 `requirements.md` 第七章。
+
+```
+6a. HubInstaller 新增 uninstall() 方法：
+    - 断开该 Agent 的活跃会话
+    - 执行 onUninstall lifecycle hook（已有基础设施）
+    - 删除 managed 安装目录 (~/.aionui-agents/{name}/ 整个目录)
+    - 删除扩展解压目录
+    - HubStateManager 重置为 not_installed
+    - 触发 AcpDetector.refreshAll()
+6b. AgentHubModal：已安装扩展显示"卸载"按钮（替换当前 disabled 的"已安装"按钮）
+6c. hubBridge.ts：实现 hub.uninstall handler（当前为 stub）
+```
+
+### 任务 7: 认证流程
+
+> 新增：2026-04-12。详见 `requirements.md` 第八章。
+> 认证信息完全从 ACP 协议 `auth_methods` 运行时获取，不在 manifest 中声明。
+
+```
+7a. AcpConnection 拦截认证错误 + 缓存 auth_methods：
+    - initialize 握手时缓存 Agent 返回的 auth_methods
+    - 捕获 ErrorCode::AuthRequired / -32000 / -32603 中的认证类错误
+    - 通过 IPC 通知 renderer 侧显示认证引导，携带 auth_methods 信息
+7b. Renderer 侧认证引导 UI：
+    - 消息输入框上方显示"立即登录"按钮（如有多种 method 则展开列表）
+    - AuthMethodTerminal / terminal-auth meta：打开用户系统终端执行登录命令
+    - 含 authUrl 的 method：shell.openExternal 打开浏览器
+    - AuthMethodEnvVar：引导到设置页配置环境变量
+7c. 认证完成检测 + 重试：
+    - 终端类：无法直接监听系统终端进程，显示"我已完成登录"按钮让用户手动确认
+    - 浏览器类：同上，用户手动确认
+    - 确认后调用 authenticate(method_id) 通知 Agent，然后重试连接
+```
+
+### 任务 8: 迁移提示
+
+> 新增：2026-04-12。详见 `requirements.md` 第九章。
+
+```
+8a. AcpDetector 标记 Agent 来源（managed / unmanaged / user-configured）
+8b. 迁移匹配逻辑：unmanaged Agent 的 cliCommand 与 Hub index 扩展匹配
+8c. 弹窗 UI：显示可迁移 Agent 列表 + 当前 which 路径 + 一键安装按钮
+8d. 批量安装：调用 HubInstaller.install() + refreshAll()
+8e. 记忆逻辑：已处理的 Agent 不再提示；"稍后再说"下次启动仍检测
+```
+
 ### 依赖关系
 
 ```
@@ -434,12 +483,14 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
   |
   v
 任务 1 (lifecycle runner)  ──→  任务 2 (AionHub 扩展改造)
-  |                                |
-  v                                v
+  |                                  |
+  v                                  |
 任务 3 (Agent 发现层) ←──────────────┘
   |
-  v
-任务 5 (错误分层 + 清理)
+  ├──→ 任务 5 (错误分层 + 清理)
+  ├──→ 任务 6 (卸载功能) ← 依赖任务 1 (managed 目录) + 任务 3 (发现层)
+  ├──→ 任务 7 (认证流程) ← 依赖任务 3 (发现层)；auth 信息从 ACP 协议运行时获取
+  └──→ 任务 8 (迁移提示) ← 依赖任务 3 (Agent 来源标记) + Hub index 加载
 
 任务 4 (Capability 动态化) ← 独立，随时可做
 ```
@@ -453,6 +504,9 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
 | Hub 远程源不可达                  | managed 目录已安装的 Agent 不受影响；bundled 扩展始终可用                              |
 | install.ts 执行任意命令的安全风险 | 已有 trust mechanism 设计（`extension-trust-mechanism.md`）；白名单限制 bun/bunx       |
 | bun install --cwd 的兼容性        | 部分包可能不支持 --cwd 安装，需逐一验证；备选方案是 install.ts 中手动下载 tarball 解压 |
+| 浏览器认证回调时序                | AionUi 无法直接监听浏览器回调；方案：轮询 authenticate 接口 或 用户手动确认            |
+| 终端登录 UX                       | AionUi 无内置终端，需打开系统终端；无法直接监听进程退出，依赖用户手动确认              |
+| 迁移提示误判                      | 仅对 which 发现且 Hub 有对应扩展的 Agent 提示；用户手动 cliPath 的不纳入               |
 
 ---
 
@@ -473,19 +527,19 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
 
 | 字段                          | 运行时状态 | 消费位置                                            | 处理               |
 | ----------------------------- | ---------- | --------------------------------------------------- | ------------------ |
-| `cliCommand`                  | ✅ 在用    | `AcpDetector.detectBuiltinAgents()` (which 检测)    | 搬到 manifest      |
-| `acpArgs`                     | ✅ 在用    | `spawnGenericBackend()`                             | 搬到 manifest      |
-| `defaultCliPath`              | ⚠️ 半生效  | generic 路径读取，claude/codex/codebuddy 硬编码忽略 | 搬到 manifest      |
-| `enabled`                     | ✅ 在用    | UI 控制                                             | 保留在 AionUi 配置 |
-| `env`                         | ✅ 在用    | `prepareCleanEnv()`                                 | 搬到 manifest      |
-| `skillsDirs`                  | ✅ 在用    | `initAgent()`                                       | 搬到 manifest      |
-| `name`/`avatar`/`description` | ✅ 在用    | UI 展示                                             | 保留在 AionUi 配置 |
-| `authRequired`                | ❌ 死代码  | 无运行时消费                                        | 不搬，后续清理     |
-| `supportsStreaming`           | ❌ 死代码  | 无                                                  | 不搬               |
-| `apiKeyFields`                | ❌ 死代码  | 无                                                  | 不搬               |
-| `connectionType`              | ❌ 死代码  | 无（全部走 stdio）                                  | 不搬               |
-| `models`                      | ❌ 死代码  | 无                                                  | 不搬，改为动态获取 |
-| `isBuiltin`                   | ❌ 死代码  | 无                                                  | 不搬               |
+| `cliCommand`                  | ✅ 在用     | `AcpDetector.detectBuiltinAgents()` (which 检测)    | 搬到 manifest      |
+| `acpArgs`                     | ✅ 在用     | `spawnGenericBackend()`                             | 搬到 manifest      |
+| `defaultCliPath`              | ⚠️ 半生效   | generic 路径读取，claude/codex/codebuddy 硬编码忽略 | 搬到 manifest      |
+| `enabled`                     | ✅ 在用     | UI 控制                                             | 保留在 AionUi 配置 |
+| `env`                         | ✅ 在用     | `prepareCleanEnv()`                                 | 搬到 manifest      |
+| `skillsDirs`                  | ✅ 在用     | `initAgent()`                                       | 搬到 manifest      |
+| `name`/`avatar`/`description` | ✅ 在用     | UI 展示                                             | 保留在 AionUi 配置 |
+| `authRequired`                | ❌ 死代码   | 无运行时消费                                        | 不搬，后续清理     |
+| `supportsStreaming`           | ❌ 死代码   | 无                                                  | 不搬               |
+| `apiKeyFields`                | ❌ 死代码   | 无                                                  | 不搬               |
+| `connectionType`              | ❌ 死代码   | 无（全部走 stdio）                                  | 不搬               |
+| `models`                      | ❌ 死代码   | 无                                                  | 不搬，改为动态获取 |
+| `isBuiltin`                   | ❌ 死代码   | 无                                                  | 不搬               |
 
 关键发现：`connectClaude()`/`connectCodex()`/`connectCodebuddy()` 三个专用 connector **硬编码了 NPX 包名和版本**，完全忽略 `defaultCliPath`。但在新方案中，Extension agent 的 `backend` 是 `'custom'`，走 `connectGenericBackend()` 路径，不会触发这些专用 connector。managed 目录的绝对路径会在更早的优先级被命中，自然绕过了 NPX 硬编码问题。
 
@@ -499,10 +553,10 @@ Hub Index 刷新 → 发现扩展有新版本（contentHash 变化）
 
 ## 附录 D: AionHub 仓库侧改动清单
 
-| 改动                                   | 文件                                   | 说明                                                       |
-| -------------------------------------- | -------------------------------------- | ---------------------------------------------------------- |
-| zip 打包 scripts/                      | `.github/scripts/build-extensions.js`  | 当前只打包 manifest                                        |
-| integrity 改为内容 hash                | `.github/scripts/build-extensions.js`  | 从 zip 的 SHA-512 改为解压内容的 SHA-256，解决跨平台不一致 |
-| install.ts 用 AIONUI_AGENT_INSTALL_DIR | 所有 `extensions/*/scripts/install.ts` | 从 `bun install -g` 改为 `--cwd $DIR`                      |
+| 改动                                   | 文件                                   | 说明                                                         |
+| -------------------------------------- | -------------------------------------- | ------------------------------------------------------------ |
+| zip 打包 scripts/                      | `.github/scripts/build-extensions.js`  | 当前只打包 manifest                                          |
+| integrity 改为内容 hash                | `.github/scripts/build-extensions.js`  | 从 zip 的 SHA-512 改为解压内容的 SHA-256，解决跨平台不一致   |
+| install.ts 用 AIONUI_AGENT_INSTALL_DIR | 所有 `extensions/*/scripts/install.ts` | 从 `bun install -g` 改为 `--cwd $DIR`                        |
 | manifest 补全                          | 所有 `aion-extension.json`             | 补充运行时生效字段（cliCommand, acpArgs, defaultCliPath 等） |
-| pending → active                       | 10 个扩展                              | 改造 install.ts 后移入 extensions/                         |
+| pending → active                       | 10 个扩展                              | 改造 install.ts 后移入 extensions/                           |

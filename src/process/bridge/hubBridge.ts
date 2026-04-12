@@ -47,7 +47,12 @@ export function initHubBridge(): void {
     }
   });
 
-  ipcBridge.hub.uninstall.provider(async (_params) => {
-    return { success: false, msg: 'Uninstall not supported yet.' };
+  ipcBridge.hub.uninstall.provider(async ({ name }) => {
+    try {
+      await hubInstaller.uninstall(name);
+      return { success: true };
+    } catch (error) {
+      return { success: false, msg: String(error) };
+    }
   });
 }

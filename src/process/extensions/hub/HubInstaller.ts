@@ -11,7 +11,12 @@ import { ExtensionRegistry } from '@process/extensions/ExtensionRegistry';
 import { hubIndexManager } from '@process/extensions/hub/HubIndexManager';
 import { hubStateManager } from '@process/extensions/hub/HubStateManager';
 import { computeContentHash } from '@process/extensions/lifecycle/contentHash';
-import { markExtensionForReinstall } from '@process/extensions/lifecycle/statePersistence';
+import { uninstallExtension } from '@process/extensions/lifecycle/lifecycle';
+import {
+  loadPersistedStates,
+  markExtensionForReinstall,
+  savePersistedStates,
+} from '@process/extensions/lifecycle/statePersistence';
 import { getAgentInstallBasePath, getDataPath } from '@process/utils';
 import { exec } from 'child_process';
 import * as fs from 'fs';
@@ -167,6 +172,58 @@ export class HubInstallerImpl {
       hubStateManager.setTransientState(name, 'installed');
     } catch (error) {
       console.error(`[HubInstaller] Failed to install ${name}:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      hubStateManager.setTransientState(name, 'install_failed', errorMessage);
+      throw error;
+    }
+  }
+
+  public async uninstall(name: string): Promise<void> {
+    try {
+      hubStateManager.setTransientState(name, 'uninstalling');
+
+      // Step 1: Run onUninstall lifecycle hook (if extension is loaded)
+      const loadedExtension = ExtensionRegistry.getInstance()
+        .getLoadedExtensions()
+        .find((ext) => ext.manifest.name === name);
+
+      if (loadedExtension) {
+        try {
+          await uninstallExtension(loadedExtension);
+        } catch (err) {
+          // Log but don't abort — still clean up files even if hook fails
+          console.warn(`[HubInstaller] onUninstall hook failed for ${name}:`, err);
+        }
+      }
+
+      // Step 2: Delete managed install directory (~/.aionui-agents/{name}/)
+      try {
+        const managedDir = path.join(getAgentInstallBasePath(), name);
+        if (fs.existsSync(managedDir)) {
+          fs.rmSync(managedDir, { recursive: true, force: true });
+        }
+      } catch (err) {
+        console.warn(`[HubInstaller] Failed to clean managed directory for ${name}:`, err);
+      }
+
+      // Step 3: Delete extension directory (where aion-extension.json lives)
+      const targetDir = path.join(getInstallTargetDir(), name);
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+      }
+
+      // Step 4: Clear persisted state
+      const states = await loadPersistedStates();
+      states.delete(name);
+      savePersistedStates(states);
+
+      // Step 5: Reload registry + refresh detector
+      await ExtensionRegistry.hotReload();
+      await acpDetector.refreshExtensionAgents();
+
+      hubStateManager.setTransientState(name, 'not_installed');
+    } catch (error) {
+      console.error(`[HubInstaller] Failed to uninstall ${name}:`, error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       hubStateManager.setTransientState(name, 'install_failed', errorMessage);
       throw error;
