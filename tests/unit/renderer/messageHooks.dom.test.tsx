@@ -72,6 +72,80 @@ const MutationProbe = () => {
   );
 };
 
+const StreamingMergeProbe = () => {
+  const addOrUpdateMessage = useAddOrUpdateMessage();
+  const messages = useMessageList();
+
+  return (
+    <div>
+      <button
+        type='button'
+        onClick={() =>
+          addOrUpdateMessage(
+            {
+              id: 'turn-1',
+              msg_id: 'turn-1',
+              conversation_id: 'conv-1',
+              type: 'text',
+              position: 'right',
+              content: { content: 'optimistic draft' },
+            },
+            true
+          )
+        }
+      >
+        add-optimistic
+      </button>
+      <button
+        type='button'
+        onClick={() =>
+          addOrUpdateMessage({
+            id: 'assistant-1',
+            msg_id: 'turn-1',
+            conversation_id: 'conv-1',
+            type: 'text',
+            position: 'left',
+            content: { content: 'assistant says' },
+          })
+        }
+      >
+        add-first-chunk
+      </button>
+      <button
+        type='button'
+        onClick={() =>
+          addOrUpdateMessage({
+            id: 'turn-1',
+            msg_id: 'turn-1',
+            conversation_id: 'conv-1',
+            type: 'text',
+            position: 'right',
+            content: { content: 'canonical prompt' },
+          })
+        }
+      >
+        sync-user-bubble
+      </button>
+      <button
+        type='button'
+        onClick={() =>
+          addOrUpdateMessage({
+            id: 'assistant-2',
+            msg_id: 'turn-1',
+            conversation_id: 'conv-1',
+            type: 'text',
+            position: 'left',
+            content: { content: ' hello' },
+          })
+        }
+      >
+        add-second-chunk
+      </button>
+      <pre data-testid='streaming-messages'>{JSON.stringify(messages)}</pre>
+    </div>
+  );
+};
+
 describe('message hooks cache merge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -143,6 +217,34 @@ describe('message hooks cache merge', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('mutated-messages').textContent).not.toContain('msg-1');
+    });
+  });
+
+  it('keeps the user bubble on the right while streaming assistant text into a new left bubble', async () => {
+    render(
+      <MessageListProvider value={[]}>
+        <StreamingMergeProbe />
+      </MessageListProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'add-optimistic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'add-first-chunk' }));
+    fireEvent.click(screen.getByRole('button', { name: 'sync-user-bubble' }));
+    fireEvent.click(screen.getByRole('button', { name: 'add-second-chunk' }));
+
+    await waitFor(() => {
+      const messages = JSON.parse(screen.getByTestId('streaming-messages').textContent ?? '[]') as TestMessage[];
+      expect(messages).toHaveLength(2);
+      expect(messages[0]).toMatchObject({
+        id: 'turn-1',
+        position: 'right',
+        content: { content: 'canonical prompt' },
+      });
+      expect(messages[1]).toMatchObject({
+        id: 'assistant-1',
+        position: 'left',
+        content: { content: 'assistant says hello' },
+      });
     });
   });
 });
