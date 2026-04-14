@@ -489,6 +489,14 @@ export class TeamSessionService {
         if (agent.conversationId) {
           const existing = await this.conversationService.getConversation(agent.conversationId);
           if (existing) {
+            // When workspace is empty (single-chat → team without explicit workspace),
+            // inherit the caller conversation's existing workspace instead of overwriting it with ''.
+            if (!workspace) {
+              const existingExtra = existing.extra as Record<string, unknown> | undefined;
+              if (existingExtra?.workspace && typeof existingExtra.workspace === 'string') {
+                workspace = existingExtra.workspace;
+              }
+            }
             await this.conversationService.updateConversation(
               agent.conversationId,
               { extra: { teamId, workspace } } as any,
