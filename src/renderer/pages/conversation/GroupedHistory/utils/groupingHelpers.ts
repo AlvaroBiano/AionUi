@@ -140,9 +140,7 @@ export const buildAgentGroupedHistory = (
       return getConversationPinnedAt(b) - getConversationPinnedAt(a);
     });
 
-  const normalConversations = visibleConversations.filter(
-    (conv) => !isConversationPinned(conv) && !isCronJobConversation(conv)
-  );
+  const normalConversations = visibleConversations.filter((conv) => !isConversationPinned(conv));
 
   const groupMap = new Map<string, AgentGroup>();
 

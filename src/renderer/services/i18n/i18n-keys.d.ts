@@ -337,6 +337,7 @@ export type I18nKey =
   | 'conversation.history.exportSuccess'
   | 'conversation.history.exportTargetFolder'
   | 'conversation.history.exporting'
+  | 'conversation.history.messagesSection'
   | 'conversation.history.noHistory'
   | 'conversation.history.pin'
   | 'conversation.history.pinFailed'

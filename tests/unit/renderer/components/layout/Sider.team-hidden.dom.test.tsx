@@ -24,10 +24,6 @@ vi.mock('@/renderer/hooks/context/ThemeContext', () => ({
   useThemeContext: () => ({ theme: 'light', setTheme: vi.fn() }),
 }));
 
-vi.mock('@/renderer/pages/cron/useCronJobs', () => ({
-  useAllCronJobs: () => ({ jobs: [] }),
-}));
-
 vi.mock('@/renderer/utils/ui/siderTooltip', () => ({
   cleanupSiderTooltips: vi.fn(),
   getSiderTooltipProps: () => ({ disabled: true }),
@@ -53,8 +49,8 @@ vi.mock('@/renderer/components/layout/Sider/SiderFooter', () => ({
   default: () => <div data-testid='sider-footer' />,
 }));
 
-vi.mock('@/renderer/components/layout/Sider/CronJobSiderSection', () => ({
-  default: () => <div data-testid='cron-job-section' />,
+vi.mock('@/renderer/components/layout/Sider/SiderNav/SiderAssistantsEntry', () => ({
+  default: () => <div data-testid='sider-assistants-entry' />,
 }));
 
 vi.mock('@/renderer/pages/conversation/GroupedHistory', () => ({
@@ -122,7 +118,7 @@ describe('Sider team entry visibility', () => {
     expect(screen.getByTestId('sider-toolbar')).toBeInTheDocument();
     expect(screen.getByTestId('sider-search-entry')).toBeInTheDocument();
     expect(screen.getByTestId('sider-scheduled-entry')).toBeInTheDocument();
-    expect(screen.getByTestId('cron-job-section')).toBeInTheDocument();
+    expect(screen.getByTestId('sider-assistants-entry')).toBeInTheDocument();
     expect(await screen.findByTestId('workspace-grouped-history')).toBeInTheDocument();
     expect(screen.getByTestId('sider-footer')).toBeInTheDocument();
     expect(screen.getByText('team.sider.title')).toBeInTheDocument();

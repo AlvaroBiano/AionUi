@@ -6,10 +6,8 @@ import { cleanupSiderTooltips, getSiderTooltipProps } from '@renderer/utils/ui/s
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
-import { useAllCronJobs } from '@renderer/pages/cron/useCronJobs';
 import { SiderToolbar, SiderSearchEntry, SiderScheduledEntry, SiderAssistantsEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
-import CronJobSiderSection from './CronJobSiderSection';
 import TeamSiderSection from './TeamSiderSection';
 import siderStyles from './Sider.module.css';
 
@@ -31,7 +29,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
   const { closePreview } = usePreviewContext();
   const { theme, setTheme } = useThemeContext();
   const [isBatchMode, setIsBatchMode] = useState(false);
-  const { jobs: cronJobs } = useAllCronJobs();
   const isSettings = pathname.startsWith('/settings');
   const lastNonSettingsPathRef = useRef('/guid');
 
@@ -109,14 +106,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     }
   };
 
-  const handleCronNavigate = (path: string) => {
-    cleanupSiderTooltips();
-    blurActiveElement();
-    closePreview();
-    Promise.resolve(navigate(path)).catch(console.error);
-    if (onSessionClick) onSessionClick();
-  };
-
   const tooltipEnabled = collapsed && !isMobile;
   const siderTooltipProps = getSiderTooltipProps(tooltipEnabled);
 
@@ -154,7 +143,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
               onConversationSelect={handleConversationSelect}
               onSessionClick={onSessionClick}
             />
-            {/* Scheduled tasks nav entry - fixed above scroll */}
+            {/* Scheduled tasks nav entry */}
             <SiderScheduledEntry
               isMobile={isMobile}
               isActive={pathname === '/scheduled'}
@@ -177,8 +166,12 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                 collapsed ? 'mx-6px' : 'mx-10px'
               )}
             />
-            {/* Scrollable content: team + scheduled tasks + conversation history */}
+            {/* Scrollable content: messages first, teams second */}
             <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
+              {/* Messages: agent-grouped conversation history */}
+              <Suspense fallback={<div className='min-h-200px' />}>
+                <WorkspaceGroupedHistory {...workspaceHistoryProps} />
+              </Suspense>
               {/* Team section */}
               <TeamSiderSection
                 collapsed={collapsed}
@@ -186,13 +179,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                 siderTooltipProps={siderTooltipProps}
                 onSessionClick={onSessionClick}
               />
-              {/* Scheduled section */}
-              {!collapsed && (
-                <CronJobSiderSection jobs={cronJobs} pathname={pathname} onNavigate={handleCronNavigate} />
-              )}
-              <Suspense fallback={<div className='min-h-200px' />}>
-                <WorkspaceGroupedHistory {...workspaceHistoryProps} />
-              </Suspense>
             </div>
           </div>
         )}
