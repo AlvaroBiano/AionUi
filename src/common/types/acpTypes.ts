@@ -339,6 +339,19 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   claude: {
     id: 'claude',
     name: 'Claude Code',
+    description:
+      "Anthropic's Claude Code — an agentic AI coding tool that lives in your terminal and understands your codebase.",
+    descriptionI18n: {
+      'zh-CN': 'Anthropic 出品的 Claude Code，深度理解代码库的终端 AI 编程助手。',
+    },
+    prompts: [
+      'Review this file and suggest improvements',
+      'Write unit tests for the selected function',
+      'Explain how this codebase is structured',
+    ],
+    promptsI18n: {
+      'zh-CN': ['审查这个文件并提出改进建议', '为选中的函数编写单元测试', '解释这个代码库的结构'],
+    },
     cliCommand: 'claude',
     authRequired: true,
     enabled: true,
@@ -357,6 +370,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   qwen: {
     id: 'qwen',
     name: 'Qwen Code',
+    description: "Alibaba's Qwen Code — an AI coding agent powered by the Qwen model family.",
+    descriptionI18n: {
+      'zh-CN': '阿里巴巴出品的 Qwen Code，基于通义千问大模型的 AI 编程助手。',
+    },
+    prompts: [
+      'Refactor this code to improve readability',
+      'Find and fix bugs in this file',
+      'Generate API documentation for this module',
+    ],
+    promptsI18n: {
+      'zh-CN': ['重构这段代码以提高可读性', '找出并修复这个文件中的 bug', '为这个模块生成 API 文档'],
+    },
     cliCommand: 'qwen',
     defaultCliPath: 'npx @qwen-code/qwen-code',
     authRequired: true,
@@ -368,6 +393,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   iflow: {
     id: 'iflow',
     name: 'iFlow CLI',
+    description: 'iFlow CLI — an AI agent optimized for workflow automation and task orchestration.',
+    descriptionI18n: {
+      'zh-CN': 'iFlow CLI，专为工作流自动化和任务编排优化的 AI 智能体。',
+    },
+    prompts: [
+      'Automate my deployment workflow',
+      'Create a task pipeline for this project',
+      'Help me set up a CI/CD process',
+    ],
+    promptsI18n: {
+      'zh-CN': ['帮我自动化部署流程', '为这个项目创建任务流水线', '帮我搭建 CI/CD 流程'],
+    },
     cliCommand: 'iflow',
     authRequired: true,
     enabled: true,
@@ -377,6 +414,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   codex: {
     id: 'codex',
     name: 'Codex',
+    description: "OpenAI's Codex — a terminal-native AI coding agent powered by GPT models.",
+    descriptionI18n: {
+      'zh-CN': 'OpenAI 出品的 Codex，基于 GPT 模型的终端原生 AI 编程助手。',
+    },
+    prompts: [
+      'Implement the function described in this comment',
+      'Convert this code to TypeScript with proper types',
+      'Optimize this algorithm for performance',
+    ],
+    promptsI18n: {
+      'zh-CN': ['实现注释中描述的函数', '将这段代码转换为有正确类型的 TypeScript', '优化这个算法的性能'],
+    },
     cliCommand: 'codex', // Detect local codex CLI (codex-acp bridge invokes it)
     defaultCliPath: `npx ${CODEX_ACP_NPX_PACKAGE}`,
     authRequired: true, // Needs OPENAI_API_KEY or ChatGPT auth
@@ -388,6 +437,15 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   codebuddy: {
     id: 'codebuddy',
     name: 'CodeBuddy',
+    description:
+      "Tencent's CodeBuddy — an AI programming assistant with deep code understanding and generation capabilities.",
+    descriptionI18n: {
+      'zh-CN': '腾讯出品的 CodeBuddy，具备深度代码理解与生成能力的 AI 编程助手。',
+    },
+    prompts: ['Help me debug this error', 'Add error handling to this function', 'Write a README for this project'],
+    promptsI18n: {
+      'zh-CN': ['帮我调试这个错误', '给这个函数添加错误处理', '为这个项目写一个 README'],
+    },
     cliCommand: 'codebuddy',
     defaultCliPath: `npx ${CODEBUDDY_ACP_NPX_PACKAGE}`,
     authRequired: true,
@@ -399,6 +457,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   goose: {
     id: 'goose',
     name: 'Goose',
+    description: "Block's Goose — an open-source autonomous AI agent that executes multi-step tasks using tools.",
+    descriptionI18n: {
+      'zh-CN': 'Block 出品的 Goose，使用工具执行多步骤任务的开源自主 AI 智能体。',
+    },
+    prompts: [
+      'Analyze my project and suggest improvements',
+      'Set up a development environment for this stack',
+      'Automate this repetitive task',
+    ],
+    promptsI18n: {
+      'zh-CN': ['分析我的项目并提出改进建议', '为这个技术栈搭建开发环境', '自动化这个重复性任务'],
+    },
     cliCommand: 'goose',
     authRequired: false,
     enabled: true, // ✅ Block's Goose CLI，使用 `goose acp` 启动
@@ -428,6 +498,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   opencode: {
     id: 'opencode',
     name: 'OpenCode',
+    description: 'OpenCode — an open-source AI coding agent that supports multiple model providers.',
+    descriptionI18n: {
+      'zh-CN': 'OpenCode，支持多种模型提供商的开源 AI 编程智能体。',
+    },
+    prompts: [
+      'Create a new feature based on this specification',
+      'Migrate this code to use the latest library version',
+      'Review the security of this authentication code',
+    ],
+    promptsI18n: {
+      'zh-CN': ['根据这个规范创建新功能', '将这段代码迁移到最新的库版本', '审查这段认证代码的安全性'],
+    },
     cliCommand: 'opencode',
     authRequired: false,
     enabled: true, // ✅ OpenCode CLI，使用 `opencode acp` 启动
@@ -448,6 +530,19 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   copilot: {
     id: 'copilot',
     name: 'GitHub Copilot',
+    description:
+      'GitHub Copilot Agent — AI pair programmer by GitHub and Microsoft, deeply integrated with your codebase.',
+    descriptionI18n: {
+      'zh-CN': 'GitHub Copilot 智能体，由 GitHub 和微软出品的 AI 结对编程助手，深度融入代码库。',
+    },
+    prompts: [
+      'Suggest code completions for this module',
+      'Generate tests for the selected code',
+      'Fix the failing tests in this file',
+    ],
+    promptsI18n: {
+      'zh-CN': ['为这个模块建议代码补全', '为选中的代码生成测试', '修复这个文件中失败的测试'],
+    },
     cliCommand: 'copilot',
     authRequired: false,
     enabled: true, // ✅ GitHub Copilot CLI，使用 `copilot --acp --stdio` 启动
@@ -493,6 +588,19 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   cursor: {
     id: 'cursor',
     name: 'Cursor Agent',
+    description:
+      "Cursor's AI agent — the coding assistant from the AI-first code editor, now available in your terminal.",
+    descriptionI18n: {
+      'zh-CN': 'Cursor AI 编辑器的智能体，现可在终端中直接使用。',
+    },
+    prompts: [
+      'Explain this code in plain English',
+      'Refactor this component to follow best practices',
+      'Find potential performance bottlenecks',
+    ],
+    promptsI18n: {
+      'zh-CN': ['用简单语言解释这段代码', '重构这个组件以遵循最佳实践', '找出潜在的性能瓶颈'],
+    },
     // Note: Cursor CLI uses the generic command name "agent". Detection relies on `which agent`
     // which may match other tools. Users should ensure the Cursor CLI is the `agent` on their PATH.
     cliCommand: 'agent',
@@ -505,6 +613,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   kiro: {
     id: 'kiro',
     name: 'Kiro',
+    description: "Amazon's Kiro — an AI-powered coding agent from AWS with spec-driven development capabilities.",
+    descriptionI18n: {
+      'zh-CN': '亚马逊出品的 Kiro，具备规范驱动开发能力的 AWS AI 编程智能体。',
+    },
+    prompts: [
+      'Create a technical spec for this feature',
+      'Implement this spec step by step',
+      'Review this code against the requirements',
+    ],
+    promptsI18n: {
+      'zh-CN': ['为这个功能创建技术规范', '按步骤实现这个规范', '根据需求审查这段代码'],
+    },
     cliCommand: 'kiro-cli',
     authRequired: true, // Requires Kiro / AWS Builder ID login
     enabled: true, // ✅ Kiro CLI, launched via `kiro-cli acp`
@@ -541,6 +661,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   aionrs: {
     id: 'aionrs',
     name: 'Aion CLI',
+    description: 'Aion CLI — a built-in high-performance AI agent powered by a Rust runtime with streaming support.',
+    descriptionI18n: {
+      'zh-CN': 'Aion CLI，内置的高性能 AI 智能体，基于 Rust 运行时，支持流式输出。',
+    },
+    prompts: [
+      'Help me with this coding task',
+      'Analyze and summarize this codebase',
+      'Generate boilerplate code for this feature',
+    ],
+    promptsI18n: {
+      'zh-CN': ['帮我完成这个编程任务', '分析并总结这个代码库', '为这个功能生成样板代码'],
+    },
     cliCommand: 'aionrs',
     authRequired: false, // Auth handled via env vars from model config
     enabled: true,
