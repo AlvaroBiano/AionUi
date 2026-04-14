@@ -12,6 +12,7 @@ import type { AcpSessionConfigOption } from '@/common/types/acpTypes';
 import type { AcpBackend, AcpBackendConfig, AcpModelInfo, AvailableAgent, EffectiveAgentInfo } from '../types';
 import { getAgentModes } from '@/renderer/utils/model/agentModes';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import useSWR from 'swr';
 import { savePreferredMode, savePreferredModelId, getAgentKey as getAgentKeyUtil } from './agentSelectionUtils';
 import { usePresetAssistantResolver } from './usePresetAssistantResolver';
@@ -118,6 +119,12 @@ export const useGuidAgentSelection = ({
     });
   }, []);
 
+  const location = useLocation();
+  const urlAgentParam = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('agent');
+  }, [location.search]);
+
   const availableCustomAgentIds = useMemo(() => {
     const ids = new Set<string>();
     (availableAgents || []).forEach((agent) => {
@@ -211,7 +218,7 @@ export const useGuidAgentSelection = ({
     setAvailableAgents([...availableAgentsData, ...remoteAsAvailable]);
   }, [availableAgentsData, remoteAgentsData]);
 
-  // Load last selected agent
+  // Load last selected agent, with URL param taking highest priority
   useEffect(() => {
     if (!availableAgents || availableAgents.length === 0) return;
 
@@ -219,6 +226,20 @@ export const useGuidAgentSelection = ({
 
     const loadLastSelectedAgent = async () => {
       try {
+        // Priority 1: URL ?agent= param
+        if (urlAgentParam) {
+          const isInAvailable = availableAgents.some((agent) => getAgentKey(agent) === urlAgentParam);
+          if (isInAvailable) {
+            _setSelectedAgentKey(urlAgentParam);
+            // Write back so next open without URL param restores this selection
+            ConfigStorage.set('guid.lastSelectedAgent', urlAgentParam).catch((error) => {
+              console.error('Failed to save URL-selected agent:', error);
+            });
+            return;
+          }
+        }
+
+        // Priority 2: last saved agent key from ConfigStorage
         const savedAgentKey = await ConfigStorage.get('guid.lastSelectedAgent');
         if (cancelled) return;
 
@@ -230,7 +251,7 @@ export const useGuidAgentSelection = ({
           }
         }
 
-        // No saved preference or saved agent no longer available — default to first agent
+        // Priority 3: fallback to first available agent
         const firstAgent = availableAgents[0];
         if (firstAgent) {
           const firstKey = getAgentKey(firstAgent);
@@ -246,7 +267,7 @@ export const useGuidAgentSelection = ({
     return () => {
       cancelled = true;
     };
-  }, [availableAgents]);
+  }, [availableAgents, urlAgentParam]);
 
   // Load cached ACP model lists
   useEffect(() => {
