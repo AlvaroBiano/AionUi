@@ -16,7 +16,7 @@ import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Empty, Input, Modal, Tooltip } from '@arco-design/web-react';
-import { Down, FolderOpen, Right, Robot } from '@icon-park/react';
+import { Down, FolderOpen, Plus, Right, Robot } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -497,17 +497,15 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
             <span className='text-11px text-t-tertiary font-medium uppercase tracking-wide flex-1 min-w-0'>
               {t('conversation.history.messagesSection')}
             </span>
-            <span
-              className='opacity-0 group-hover:opacity-100 transition-opacity text-t-tertiary flex items-center hover:text-t-primary p-2px rd-4px hover:bg-fill-3'
+            <div
+              className='opacity-0 group-hover:opacity-100 transition-opacity h-16px w-16px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
               onClick={(e) => {
                 e.stopPropagation();
                 void navigate('/guid');
               }}
             >
-              <svg width='12' height='12' viewBox='0 0 14 14' fill='none'>
-                <path d='M7 1v12M1 7h12' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
-              </svg>
-            </span>
+              <Plus theme='outline' size='12' fill='var(--color-text-3)' style={{ lineHeight: 0 }} />
+            </div>
           </div>
         )}
 

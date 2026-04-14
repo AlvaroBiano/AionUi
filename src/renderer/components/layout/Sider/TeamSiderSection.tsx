@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DeleteOne, EditOne, Peoples, Plus, Pushpin } from '@icon-park/react';
+import { DeleteOne, Down, EditOne, Peoples, Plus, Pushpin, Right } from '@icon-park/react';
 import { Dropdown, Input, Menu, Message, Modal, Tooltip } from '@arco-design/web-react';
 import classNames from 'classnames';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -66,6 +66,8 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
   const { mutate: globalMutate } = useSWRConfig();
 
   const [createTeamVisible, setCreateTeamVisible] = useState(false);
+
+  const [teamsCollapsed, setTeamsCollapsed] = useState(false);
 
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
     try {
@@ -159,16 +161,27 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
         )
       ) : (
         <div className='shrink-0 flex flex-col gap-2px'>
-          <div className='flex items-center justify-between px-12px py-4px mt-4px'>
-            <span className='text-11px text-t-tertiary font-medium uppercase tracking-wide'>{t('team.sider.title')}</span>
+          <div
+            className='group flex items-center gap-4px px-12px py-4px mt-4px cursor-pointer select-none'
+            onClick={() => setTeamsCollapsed((v) => !v)}
+          >
+            <span className='text-t-tertiary flex items-center mr-2px'>
+              {teamsCollapsed ? <Right theme='outline' size={10} /> : <Down theme='outline' size={10} />}
+            </span>
+            <span className='text-11px text-t-tertiary font-medium uppercase tracking-wide flex-1 min-w-0'>
+              {t('team.sider.title')}
+            </span>
             <div
               className='h-16px w-16px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 transition-all shrink-0'
-              onClick={() => setCreateTeamVisible(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCreateTeamVisible(true);
+              }}
             >
               <Plus theme='outline' size='12' fill='var(--color-text-3)' style={{ lineHeight: 0 }} />
             </div>
           </div>
-          {sortedTeams.length > 0 &&
+          {!teamsCollapsed && sortedTeams.length > 0 &&
             sortedTeams.map((team) => {
               const isPinned = pinnedIds.includes(team.id);
               const isActive = pathname.startsWith(`/team/${team.id}`);
