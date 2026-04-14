@@ -5,10 +5,13 @@
  */
 
 import type { TChatConversation } from '@/common/config/storage';
+import { ConfigStorage } from '@/common/config/storage';
 import { ACP_BACKENDS_ALL } from '@/common/types/acpTypes';
 import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
 import { useCronJobsMap } from '@/renderer/pages/cron';
+import { CUSTOM_AVATAR_IMAGE_MAP } from '@/renderer/pages/guid/constants';
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
+import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Empty, Input, Modal, Tooltip } from '@arco-design/web-react';
@@ -17,6 +20,7 @@ import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
+import useSWR from 'swr';
 
 import ConversationRow from './ConversationRow';
 import DragOverlayContent from './DragOverlayContent';
@@ -67,7 +71,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     handleToggleAgentGroup,
   } = useConversations();
 
-  // Build agent-grouped history from conversations using static backend metadata
+  // Fetch custom agents to populate display map with correct avatars
+  const { data: customAgents } = useSWR('acp.customAgents', () => ConfigStorage.get('acp.customAgents'));
+
+  // Build agent-grouped history from conversations using static backend metadata + custom agents
   const agentDisplayMap = useMemo(() => {
     const map = new Map<string, { displayName: string; avatarSrc: string | null; avatarEmoji?: string }>();
     // Populate from ACP_BACKENDS_ALL for known backends
@@ -82,8 +89,52 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       displayName: 'Gemini',
       avatarSrc: resolveAgentLogo({ backend: 'gemini' }) ?? null,
     });
+    // Custom agents (agentKey = `custom:${id}`)
+    if (Array.isArray(customAgents)) {
+      for (const agent of customAgents as Array<{
+        id?: string;
+        name?: string;
+        avatar?: string;
+        presetAgentType?: string;
+      }>) {
+        if (!agent?.id) continue;
+        const key = `custom:${agent.id}`;
+        const displayName = agent.name || agent.id;
+        const avatarValue = (agent.avatar || '').trim();
+
+        // 1. Check mapped avatars (e.g. cowork.svg)
+        const mapped = CUSTOM_AVATAR_IMAGE_MAP[avatarValue];
+        if (mapped) {
+          map.set(key, { displayName, avatarSrc: mapped });
+          continue;
+        }
+
+        // 2. Try to resolve as image URL
+        const resolved = avatarValue ? resolveExtensionAssetUrl(avatarValue) || avatarValue : '';
+        const isImage =
+          resolved &&
+          (/\.(svg|png|jpe?g|webp|gif)$/i.test(resolved) ||
+            /^(https?:|aion-asset:\/\/|file:\/\/|data:)/i.test(resolved));
+        if (isImage) {
+          map.set(key, { displayName, avatarSrc: resolved });
+          continue;
+        }
+
+        // 3. Treat as emoji if non-empty and not a broken SVG identifier
+        if (avatarValue && !avatarValue.endsWith('.svg')) {
+          map.set(key, { displayName, avatarSrc: null, avatarEmoji: avatarValue });
+          continue;
+        }
+
+        // 4. Fall back to the backing backend's logo (e.g. Claude logo for Claude-backed preset)
+        const backendSrc = agent.presetAgentType
+          ? (resolveAgentLogo({ backend: agent.presetAgentType }) ?? null)
+          : null;
+        map.set(key, { displayName, avatarSrc: backendSrc });
+      }
+    }
     return map;
-  }, []);
+  }, [customAgents]);
 
   const { agentGroups } = useMemo(
     () => buildAgentGroupedHistory(conversations, agentDisplayMap),

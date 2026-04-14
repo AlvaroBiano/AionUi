@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
 import FlexFullContainer from '@/renderer/components/layout/FlexFullContainer';
 import siderStyles from '@/renderer/components/layout/Sider/Sider.module.css';
-import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
 import { CronJobIndicator } from '@/renderer/pages/cron';
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@/renderer/utils/ui/siderTooltip';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
@@ -18,7 +16,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ConversationRowProps } from './types';
-import { getBackendKeyFromConversation } from './utils/exportHelpers';
 import { isConversationPinned } from './utils/groupingHelpers';
 
 const ConversationRow: React.FC<ConversationRowProps> = (props) => {
@@ -47,7 +44,6 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     getJobStatus,
   } = props;
   const { t } = useTranslation();
-  const { info: assistantInfo } = usePresetAssistantInfo(conversation);
   const isPinned = isConversationPinned(conversation);
   const cronStatus = getJobStatus(conversation.id);
   const siderTooltipProps = getSiderTooltipProps(tooltipEnabled);
@@ -57,25 +53,6 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     if (cronStatus !== 'none') {
       return <CronJobIndicator status={cronStatus} size={20} className='flex-shrink-0' />;
     }
-
-    if (assistantInfo) {
-      if (assistantInfo.isEmoji) {
-        // Emoji glyphs render with built-in padding, so 16px text ≈ 18px line icon visual weight
-        return <span className='text-16px leading-none flex-shrink-0'>{assistantInfo.logo}</span>;
-      }
-      return (
-        <img src={assistantInfo.logo} alt={assistantInfo.name} className='w-18px h-18px rounded-50% flex-shrink-0' />
-      );
-    }
-
-    const backendKey = getBackendKeyFromConversation(conversation);
-    const logo = getAgentLogo(backendKey);
-    if (logo) {
-      return (
-        <img src={logo} alt={`${backendKey || 'agent'} logo`} className='w-18px h-18px rounded-50% flex-shrink-0' />
-      );
-    }
-
     return <MessageOne theme='outline' size='20' className='line-height-0 flex-shrink-0' />;
   };
 
