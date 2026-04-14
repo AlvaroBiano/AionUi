@@ -51,6 +51,21 @@ export const conversation = {
   ), // 更新对话信息
   reset: bridge.buildProvider<void, IResetConversationParams>('reset-conversation'), // 重置对话
   warmup: bridge.buildProvider<void, { conversation_id: string }>('conversation.warmup'), // 预热对话 bootstrap
+  preheat: bridge.buildProvider<
+    { conversation_id: string },
+    {
+      backend: string;
+      workspace?: string;
+      currentModelId?: string;
+      sessionMode?: string;
+      pendingConfigOptions?: Record<string, string>;
+    }
+  >('conversation.preheat'), // Create a hidden conversation and start agent bootstrap in background
+  cancelPreheat: bridge.buildProvider<void, { conversation_id: string }>('conversation.cancelPreheat'), // Kill agent + delete preheat conversation
+  claimPreheat: bridge.buildProvider<
+    { conversation_id: string },
+    { conversation_id: string; name?: string; extra: Record<string, unknown> }
+  >('conversation.claimPreheat'), // Claim a preheat conversation on first user message, merging extra metadata and name
   stop: bridge.buildProvider<IBridgeResponse<{}>, { conversation_id: string }>('chat.stop.stream'), // 停止会话
   sendMessage: bridge.buildProvider<IBridgeResponse<{}>, ISendMessageParams>('chat.send.message'), // 发送消息（统一接口）
   getSlashCommands: bridge.buildProvider<

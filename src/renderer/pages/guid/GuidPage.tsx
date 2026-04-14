@@ -5,6 +5,7 @@
  */
 
 import { resolveLocaleKey } from '@/common/utils';
+import { ipcBridge } from '@/common';
 import { useAssistantBackends } from '@/renderer/hooks/assistant';
 import { useInputFocusRing } from '@/renderer/hooks/chat/useInputFocusRing';
 import { openExternalUrl, resolveExtensionAssetUrl } from '@/renderer/utils/platform';
@@ -37,6 +38,9 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './index.module.css';
 
+// Backends with dedicated non-ACP send paths that should not be preheated
+const NON_ACP_BACKENDS = new Set(['gemini', 'aionrs', 'openclaw-gateway', 'nanobot']);
+
 // Agent switcher options — same list as AssistantEditDrawer
 const BUILTIN_AGENT_OPTIONS: { value: string; label: string }[] = [
   { value: 'gemini', label: 'Gemini CLI' },
@@ -54,6 +58,8 @@ const GuidPage: React.FC = () => {
   const guidContainerRef = useRef<HTMLDivElement>(null);
   const openAssistantDetailsRef = useRef<(() => void) | null>(null);
   const descriptionTextRef = useRef<HTMLDivElement>(null);
+  // Holds the current preheated conversation so useGuidSend can claim it on send
+  const preheatRef = useRef<{ conversationId: string; backend: string } | null>(null);
   const { closeAllTabs, openTab } = useConversationTabs();
   const { activeBorderColor, inactiveBorderColor, activeShadow } = useInputFocusRing();
   const { availableBackends, extensionAcpAdapters } = useAssistantBackends();
@@ -122,6 +128,9 @@ const GuidPage: React.FC = () => {
     getAvailableFallbackAgent: agentSelection.getAvailableFallbackAgent,
     currentEffectiveAgentInfo: agentSelection.currentEffectiveAgentInfo,
     isGoogleAuth: modelSelection.isGoogleAuth,
+
+    // Preheat ref for session warm-up reuse
+    preheatRef,
 
     // Mention state reset
     setMentionOpen: mention.setMentionOpen,
@@ -227,6 +236,52 @@ const GuidPage: React.FC = () => {
     },
     [mention, guidInput.input, send.sendMessageHandler]
   );
+
+  const triggerPreheat = useCallback(
+    (backend: string) => {
+      if (NON_ACP_BACKENDS.has(backend)) return;
+      if (backend.startsWith('custom:') || backend.startsWith('remote:')) return;
+
+      const prev = preheatRef.current;
+      if (prev) {
+        // Cancel the previous preheat before starting a new one
+        ipcBridge.conversation.cancelPreheat.invoke({ conversation_id: prev.conversationId }).catch((err) => {
+          console.warn('[GuidPage] cancelPreheat failed:', err);
+        });
+        preheatRef.current = null;
+      }
+
+      ipcBridge.conversation.preheat
+        .invoke({ backend })
+        .then((result) => {
+          preheatRef.current = { conversationId: result.conversation_id, backend };
+        })
+        .catch((err) => {
+          console.warn('[GuidPage] preheat failed:', err);
+        });
+    },
+    // NON_ACP_BACKENDS is a module-level set — no deps needed for it
+    []
+  );
+
+  // Trigger preheat whenever the user selects a different backend.
+  // Cancellation of the previous preheat is handled inside triggerPreheat.
+  useEffect(() => {
+    triggerPreheat(agentSelection.selectedAgent as string);
+  }, [agentSelection.selectedAgent, triggerPreheat]);
+
+  // Cancel any pending preheat when the GuidPage unmounts
+  useEffect(() => {
+    return () => {
+      const current = preheatRef.current;
+      if (current) {
+        ipcBridge.conversation.cancelPreheat.invoke({ conversation_id: current.conversationId }).catch((err) => {
+          console.warn('[GuidPage] cancelPreheat on unmount failed:', err);
+        });
+        preheatRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSelectAgentFromPillBar = useCallback(
     (key: string) => {
