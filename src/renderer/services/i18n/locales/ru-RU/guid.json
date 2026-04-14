@@ -8,6 +8,9 @@
   "promptExamplesHint": "Попробуйте примеры промптов:",
   "agentSwitcherLabel": "Агент",
   "switchedToAgent": "Переключено на {{agent}}",
+  "selectAssistant": "Выберите ассистента для начала",
+  "viewAllAssistants": "Посмотреть всех ассистентов →",
+  "addMoreAssistants": "Добавить ассистентов +",
   "scanning": {
     "initialMessage": "Текущий агент недоступен, обнаружение других доступных агентов...",
     "scanningMessage": "Сканирование локальных доступных агентов...",

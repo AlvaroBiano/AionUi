@@ -34,7 +34,7 @@ const SiderToolbar: React.FC<SiderToolbarProps> = ({
 
   if (collapsed) {
     return (
-      <div className='shrink-0 flex flex-col items-center gap-2px w-full'>
+      <div className='shrink-0 flex flex-col items-center gap-3px w-full'>
         <Tooltip {...siderTooltipProps} content={t('conversation.welcome.newConversation')} position='right'>
           <div
             className={classNames(

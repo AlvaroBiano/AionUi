@@ -5,8 +5,8 @@
  */
 
 import type { TChatConversation } from '@/common/config/storage';
+import AgentAvatar from '@/renderer/components/AgentAvatar';
 import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
-import { MessageOne } from '@icon-park/react';
 import React from 'react';
 
 import { getBackendKeyFromConversation } from './utils/exportHelpers';
@@ -31,11 +31,7 @@ const DragOverlayContent: React.FC<DragOverlayContentProps> = ({ conversation })
         transform: 'scale(1.02)',
       }}
     >
-      {logo ? (
-        <img src={logo} alt={`${backendKey || 'agent'} logo`} className='w-18px h-18px rounded-50% flex-shrink-0' />
-      ) : (
-        <MessageOne theme='outline' size='20' className='line-height-0 flex-shrink-0' />
-      )}
+      <AgentAvatar size={18} avatarSrc={logo ?? null} avatarEmoji={null} />
       <div className='text-14px lh-24px text-t-primary truncate flex-1'>{conversation.name}</div>
     </div>
   );

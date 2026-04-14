@@ -3,6 +3,8 @@ import type { PresetAgentType } from '@/common/types/acpTypes';
 export type AssistantPreset = {
   id: string;
   avatar: string;
+  /** Stable pastel background color for the avatar circle (CSS color string, e.g. "hsl(207 65% 85%)"). */
+  avatarBgColor?: string;
   presetAgentType?: PresetAgentType;
   /**
    * Directory containing all resources for this preset (relative to project root).
@@ -26,6 +28,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'word-creator',
     avatar: '📝',
+    avatarBgColor: 'hsl(207 65% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/word-creator',
     ruleFiles: {
@@ -61,6 +64,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'ppt-creator',
     avatar: '📊',
+    avatarBgColor: 'hsl(14 65% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/ppt-creator',
     ruleFiles: {
@@ -96,6 +100,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'excel-creator',
     avatar: '📈',
+    avatarBgColor: 'hsl(152 55% 83%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/excel-creator',
     ruleFiles: {
@@ -131,6 +136,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'morph-ppt',
     avatar: '✨',
+    avatarBgColor: 'hsl(268 58% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/morph-ppt',
     ruleFiles: {
@@ -166,6 +172,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'morph-ppt-3d',
     avatar: '🎬',
+    avatarBgColor: 'hsl(218 58% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/morph-ppt-3d',
     ruleFiles: {
@@ -199,6 +206,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'pitch-deck-creator',
     avatar: '🎯',
+    avatarBgColor: 'hsl(342 58% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/pitch-deck-creator',
     ruleFiles: {
@@ -235,6 +243,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'dashboard-creator',
     avatar: '📊',
+    avatarBgColor: 'hsl(187 55% 83%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/dashboard-creator',
     ruleFiles: {
@@ -271,6 +280,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'academic-paper',
     avatar: '📚',
+    avatarBgColor: 'hsl(36 68% 83%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/academic-paper',
     ruleFiles: {
@@ -307,6 +317,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'financial-model-creator',
     avatar: '💰',
+    avatarBgColor: 'hsl(88 52% 83%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/financial-model-creator',
     ruleFiles: {
@@ -343,6 +354,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'star-office-helper',
     avatar: '📺',
+    avatarBgColor: 'hsl(237 45% 87%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/star-office-helper',
     ruleFiles: {
@@ -373,6 +385,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'openclaw-setup',
     avatar: '🦞',
+    avatarBgColor: 'hsl(20 65% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/openclaw-setup',
     ruleFiles: {
@@ -404,6 +417,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'cowork',
     avatar: 'cowork.svg',
+    avatarBgColor: 'hsl(250 55% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/cowork',
     ruleFiles: {
@@ -496,6 +510,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'game-3d',
     avatar: '🎮',
+    avatarBgColor: 'hsl(120 52% 83%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/game-3d',
     ruleFiles: {
@@ -524,6 +539,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'ui-ux-pro-max',
     avatar: '🎨',
+    avatarBgColor: 'hsl(320 55% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/ui-ux-pro-max',
     ruleFiles: {
@@ -554,6 +570,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'planning-with-files',
     avatar: '📋',
+    avatarBgColor: 'hsl(215 45% 86%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/planning-with-files',
     ruleFiles: {
@@ -584,6 +601,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'human-3-coach',
     avatar: '🧭',
+    avatarBgColor: 'hsl(197 55% 84%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/human-3-coach',
     ruleFiles: {
@@ -618,6 +636,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'social-job-publisher',
     avatar: '📣',
+    avatarBgColor: 'hsl(42 68% 83%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/social-job-publisher',
     ruleFiles: {
@@ -656,6 +675,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'moltbook',
     avatar: '🦞',
+    avatarBgColor: 'hsl(16 65% 85%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/moltbook',
     ruleFiles: {
@@ -689,6 +709,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'beautiful-mermaid',
     avatar: '📈',
+    avatarBgColor: 'hsl(163 55% 83%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/beautiful-mermaid',
     ruleFiles: {
@@ -719,6 +740,7 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
   {
     id: 'story-roleplay',
     avatar: '📖',
+    avatarBgColor: 'hsl(280 50% 86%)',
     presetAgentType: 'gemini',
     resourceDir: 'src/process/resources/assistant/story-roleplay',
     ruleFiles: {
@@ -749,3 +771,12 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
     },
   },
 ];
+
+/**
+ * Returns the avatarBgColor for a preset assistant by ID.
+ * Strips the "builtin-" prefix so both "builtin-cowork" and "cowork" resolve correctly.
+ */
+export function getPresetAvatarBgColor(id: string): string | undefined {
+  const normalized = id.replace(/^builtin-/, '');
+  return ASSISTANT_PRESETS.find((p) => p.id === normalized)?.avatarBgColor;
+}

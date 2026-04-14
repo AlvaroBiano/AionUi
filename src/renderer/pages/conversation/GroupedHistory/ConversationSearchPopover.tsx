@@ -7,12 +7,13 @@
 import { ipcBridge } from '@/common';
 import type { IMessageSearchItem } from '@/common/types/database';
 import AionModal from '@/renderer/components/base/AionModal';
+import AgentAvatar from '@/renderer/components/AgentAvatar';
 import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
 import { useOptionalConversationTabs } from '@/renderer/pages/conversation/hooks/ConversationTabsContext';
 import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { blockMobileInputFocus, blurActiveElement } from '@/renderer/utils/ui/focus';
 import { Empty, Spin, Typography } from '@arco-design/web-react';
-import { Close, CloseSmall, MessageOne, Search } from '@icon-park/react';
+import { Close, CloseSmall, Search } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -103,38 +104,18 @@ const ConversationAgentMark: React.FC<{ conversation: IMessageSearchItem['conver
   const { info: assistantInfo } = usePresetAssistantInfo(conversation);
 
   if (assistantInfo) {
-    if (assistantInfo.isEmoji) {
-      return (
-        <span className='text-18px leading-none flex-shrink-0' title={assistantInfo.name}>
-          {assistantInfo.logo}
-        </span>
-      );
-    }
-
     return (
-      <img
-        src={assistantInfo.logo}
-        alt={assistantInfo.name}
-        title={assistantInfo.name}
-        className='w-18px h-18px rounded-50% flex-shrink-0'
+      <AgentAvatar
+        size={18}
+        avatarSrc={assistantInfo.isEmoji ? null : assistantInfo.logo}
+        avatarEmoji={assistantInfo.isEmoji ? assistantInfo.logo : null}
       />
     );
   }
 
   const backendKey = getBackendKeyFromConversation(conversation);
   const logo = getAgentLogo(backendKey);
-  if (logo) {
-    return (
-      <img
-        src={logo}
-        alt={`${backendKey || 'agent'} logo`}
-        title={backendKey || 'agent'}
-        className='w-18px h-18px rounded-50% flex-shrink-0'
-      />
-    );
-  }
-
-  return <MessageOne theme='outline' size='18' className='line-height-0 flex-shrink-0 text-t-secondary' />;
+  return <AgentAvatar size={18} avatarSrc={logo ?? null} avatarEmoji={null} />;
 };
 
 const ConversationSearchPopover: React.FC<ConversationSearchPopoverProps> = ({

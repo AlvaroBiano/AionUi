@@ -269,6 +269,14 @@ export interface AcpBackendConfig {
    */
   skillsDirs?: string[];
 
+  /**
+   * 头像背景色（CSS 颜色值，如 "hsl(14 72% 85%)"）
+   * 仅在无图片头像（emoji / 占位符）时生效。
+   * Avatar background color (any CSS color, e.g. "hsl(14 72% 85%)").
+   * Only applied when there is no image avatar (emoji or fallback icon).
+   */
+  avatarBgColor?: string;
+
   /** 是否为基于提示词的预设（无需 CLI 二进制文件）/ Whether this is a prompt-based preset (no CLI binary required) */
   isPreset?: boolean;
 
@@ -345,13 +353,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'Anthropic 出品的 Claude Code，深度理解代码库的终端 AI 编程助手。',
     },
     prompts: [
-      'Review this file and suggest improvements',
-      'Write unit tests for the selected function',
-      'Explain how this codebase is structured',
+      'Implement this feature end-to-end — code, tests, and docs',
+      'Find every place in the codebase affected by this change and fix them all',
+      'Run the failing tests and keep iterating until they all pass',
     ],
     promptsI18n: {
-      'zh-CN': ['审查这个文件并提出改进建议', '为选中的函数编写单元测试', '解释这个代码库的结构'],
+      'zh-CN': [
+        '端到端实现这个功能——包括代码、测试和文档',
+        '找出代码库中所有受这次改动影响的地方并逐一修复',
+        '运行失败的测试，持续迭代直到全部通过',
+      ],
     },
+    avatarBgColor: 'hsl(14 72% 85%)',
     cliCommand: 'claude',
     authRequired: true,
     enabled: true,
@@ -361,6 +374,24 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   gemini: {
     id: 'gemini',
     name: 'Google CLI',
+    description:
+      "Google's Gemini CLI — a multimodal AI agent with long context support and Google ecosystem integration.",
+    descriptionI18n: {
+      'zh-CN': 'Google 出品的 Gemini CLI，多模态 AI 助手，支持超长上下文与 Google 生态集成。',
+    },
+    prompts: [
+      'Load the entire codebase and walk me through the full architecture',
+      'Analyze this screenshot and implement the UI layout it shows',
+      'Trace this data flow across all files from input to output',
+    ],
+    promptsI18n: {
+      'zh-CN': [
+        '加载整个代码库，带我过一遍完整的架构设计',
+        '分析这张截图，实现其中展示的 UI 布局',
+        '从输入到输出，跨所有文件追踪这条数据流',
+      ],
+    },
+    avatarBgColor: 'hsl(207 68% 84%)',
     cliCommand: 'gemini',
     authRequired: true,
     enabled: false,
@@ -375,13 +406,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': '阿里巴巴出品的 Qwen Code，基于通义千问大模型的 AI 编程助手。',
     },
     prompts: [
-      'Refactor this code to improve readability',
-      'Find and fix bugs in this file',
-      'Generate API documentation for this module',
+      'Generate production-ready code with detailed Chinese inline comments',
+      'Review this code and write comprehensive Chinese documentation',
+      'Convert this business requirement into a complete implementation',
     ],
     promptsI18n: {
-      'zh-CN': ['重构这段代码以提高可读性', '找出并修复这个文件中的 bug', '为这个模块生成 API 文档'],
+      'zh-CN': [
+        '生成带详细中文注释的生产级代码',
+        '审查这段代码，补充完整的中文技术文档',
+        '把这份业务需求转化为完整的代码实现',
+      ],
     },
+    avatarBgColor: 'hsl(268 60% 85%)',
     cliCommand: 'qwen',
     defaultCliPath: 'npx @qwen-code/qwen-code',
     authRequired: true,
@@ -398,13 +434,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'iFlow CLI，专为工作流自动化和任务编排优化的 AI 智能体。',
     },
     prompts: [
-      'Automate my deployment workflow',
-      'Create a task pipeline for this project',
-      'Help me set up a CI/CD process',
+      'Design a step-by-step deployment pipeline for this project',
+      'Build a task chain to automate this multi-stage workflow',
+      'Set up automated CI/CD with rollback on failure',
     ],
     promptsI18n: {
-      'zh-CN': ['帮我自动化部署流程', '为这个项目创建任务流水线', '帮我搭建 CI/CD 流程'],
+      'zh-CN': [
+        '为这个项目设计分步骤的部署流水线',
+        '构建任务链，自动化这个多阶段工作流',
+        '配置带失败回滚的自动化 CI/CD 流程',
+      ],
     },
+    avatarBgColor: 'hsl(152 55% 83%)',
     cliCommand: 'iflow',
     authRequired: true,
     enabled: true,
@@ -419,13 +460,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'OpenAI 出品的 Codex，基于 GPT 模型的终端原生 AI 编程助手。',
     },
     prompts: [
-      'Implement the function described in this comment',
-      'Convert this code to TypeScript with proper types',
-      'Optimize this algorithm for performance',
+      'Turn this plain-English description into working production code',
+      'Convert this Python script to TypeScript with strict types',
+      'Implement this algorithm from the pseudocode above',
     ],
     promptsI18n: {
-      'zh-CN': ['实现注释中描述的函数', '将这段代码转换为有正确类型的 TypeScript', '优化这个算法的性能'],
+      'zh-CN': [
+        '把这段自然语言描述转化为可运行的生产代码',
+        '将这个 Python 脚本转换为带严格类型的 TypeScript',
+        '根据上面的伪代码实现这个算法',
+      ],
     },
+    avatarBgColor: 'hsl(218 65% 85%)',
     cliCommand: 'codex', // Detect local codex CLI (codex-acp bridge invokes it)
     defaultCliPath: `npx ${CODEX_ACP_NPX_PACKAGE}`,
     authRequired: true, // Needs OPENAI_API_KEY or ChatGPT auth
@@ -442,10 +488,19 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
     descriptionI18n: {
       'zh-CN': '腾讯出品的 CodeBuddy，具备深度代码理解与生成能力的 AI 编程助手。',
     },
-    prompts: ['Help me debug this error', 'Add error handling to this function', 'Write a README for this project'],
+    prompts: [
+      'Deep-dive into this module and explain every design decision',
+      'Generate a complete test suite covering all edge cases for this service',
+      'Identify security vulnerabilities in this authentication flow',
+    ],
     promptsI18n: {
-      'zh-CN': ['帮我调试这个错误', '给这个函数添加错误处理', '为这个项目写一个 README'],
+      'zh-CN': [
+        '深入分析这个模块，解释其中每一个设计决策',
+        '为这个 Service 生成覆盖所有边界情况的完整测试套件',
+        '找出这套认证流程中存在的安全漏洞',
+      ],
     },
+    avatarBgColor: 'hsl(187 58% 83%)',
     cliCommand: 'codebuddy',
     defaultCliPath: `npx ${CODEBUDDY_ACP_NPX_PACKAGE}`,
     authRequired: true,
@@ -462,13 +517,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'Block 出品的 Goose，使用工具执行多步骤任务的开源自主 AI 智能体。',
     },
     prompts: [
-      'Analyze my project and suggest improvements',
-      'Set up a development environment for this stack',
-      'Automate this repetitive task',
+      'Autonomously plan and execute a full project setup from scratch',
+      'Chain these tasks together and run them end-to-end without stopping',
+      'Search the web for the latest API docs and integrate them into this code',
     ],
     promptsI18n: {
-      'zh-CN': ['分析我的项目并提出改进建议', '为这个技术栈搭建开发环境', '自动化这个重复性任务'],
+      'zh-CN': [
+        '自主规划并从零执行完整的项目初始化',
+        '将这些任务串联起来，端到端连续执行不中断',
+        '搜索最新 API 文档，并将其集成到这段代码中',
+      ],
     },
+    avatarBgColor: 'hsl(42 68% 83%)',
     cliCommand: 'goose',
     authRequired: false,
     enabled: true, // ✅ Block's Goose CLI，使用 `goose acp` 启动
@@ -479,6 +539,12 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   auggie: {
     id: 'auggie',
     name: 'Augment Code',
+    description:
+      'Augment Code — an AI coding agent that deeply understands large codebases for context-aware assistance.',
+    descriptionI18n: {
+      'zh-CN': 'Augment Code，深度理解大型代码库、提供上下文感知的 AI 编程智能体。',
+    },
+    avatarBgColor: 'hsl(342 58% 85%)',
     cliCommand: 'auggie',
     authRequired: false,
     enabled: true, // ✅ Augment Code CLI，使用 `auggie --acp` 启动
@@ -488,6 +554,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   kimi: {
     id: 'kimi',
     name: 'Kimi CLI',
+    description: "Moonshot AI's Kimi CLI — a long-context AI coding agent with strong multilingual capabilities.",
+    descriptionI18n: {
+      'zh-CN': 'Moonshot AI 出品的 Kimi CLI，支持超长上下文与多语言的 AI 编程智能体。',
+    },
+    avatarBgColor: 'hsl(237 38% 88%)',
     cliCommand: 'kimi',
     authRequired: false,
     enabled: true, // ✅ Kimi CLI (Moonshot)，使用 `kimi acp` 启动
@@ -503,13 +574,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'OpenCode，支持多种模型提供商的开源 AI 编程智能体。',
     },
     prompts: [
-      'Create a new feature based on this specification',
-      'Migrate this code to use the latest library version',
-      'Review the security of this authentication code',
+      'Build this feature using the best available model for each subtask',
+      'Migrate this service to a new framework while preserving all behavior',
+      'Audit this codebase for deprecated APIs and upgrade them all',
     ],
     promptsI18n: {
-      'zh-CN': ['根据这个规范创建新功能', '将这段代码迁移到最新的库版本', '审查这段认证代码的安全性'],
+      'zh-CN': [
+        '用最适合每个子任务的模型来实现这个功能',
+        '将这个服务迁移到新框架，同时保留所有现有行为',
+        '审查代码库中的废弃 API，并全部升级到最新版本',
+      ],
     },
+    avatarBgColor: 'hsl(163 55% 83%)',
     cliCommand: 'opencode',
     authRequired: false,
     enabled: true, // ✅ OpenCode CLI，使用 `opencode acp` 启动
@@ -519,6 +595,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   droid: {
     id: 'droid',
     name: 'Factory Droid',
+    description: "Factory's Droid — an AI software engineering agent designed for automated, end-to-end coding tasks.",
+    descriptionI18n: {
+      'zh-CN': 'Factory 出品的 Droid，专为端到端自动化编程任务设计的 AI 软件工程智能体。',
+    },
+    avatarBgColor: 'hsl(202 55% 83%)',
     cliCommand: 'droid',
     // Droid uses FACTORY_API_KEY from environment, not an interactive auth flow.
     authRequired: false,
@@ -536,13 +617,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'GitHub Copilot 智能体，由 GitHub 和微软出品的 AI 结对编程助手，深度融入代码库。',
     },
     prompts: [
-      'Suggest code completions for this module',
-      'Generate tests for the selected code',
-      'Fix the failing tests in this file',
+      'Suggest the next logical change based on my recent edits in this file',
+      'Generate a full test suite that covers edge cases in this module',
+      'Review this PR diff and flag anything that looks risky or incorrect',
     ],
     promptsI18n: {
-      'zh-CN': ['为这个模块建议代码补全', '为选中的代码生成测试', '修复这个文件中失败的测试'],
+      'zh-CN': [
+        '根据我最近的编辑，建议这个文件接下来最合理的代码变更',
+        '生成覆盖这个模块边界情况的完整测试套件',
+        '审查这个 PR 的 diff，标出看起来有风险或错误的地方',
+      ],
     },
+    avatarBgColor: 'hsl(228 62% 85%)',
     cliCommand: 'copilot',
     authRequired: false,
     enabled: true, // ✅ GitHub Copilot CLI，使用 `copilot --acp --stdio` 启动
@@ -552,6 +638,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   qoder: {
     id: 'qoder',
     name: 'Qoder CLI',
+    description: 'Qoder CLI — an AI coding assistant focused on intelligent code generation and refactoring.',
+    descriptionI18n: {
+      'zh-CN': 'Qoder CLI，专注于智能代码生成与重构的 AI 编程助手。',
+    },
+    avatarBgColor: 'hsl(295 52% 85%)',
     cliCommand: 'qodercli',
     authRequired: false,
     enabled: true, // ✅ Qoder CLI，使用 `qodercli --acp` 启动
@@ -561,6 +652,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   vibe: {
     id: 'vibe',
     name: 'Mistral Vibe',
+    description: "Mistral's Vibe — an AI coding agent powered by Mistral models for fast, expressive code generation.",
+    descriptionI18n: {
+      'zh-CN': 'Mistral 出品的 Vibe，基于 Mistral 模型的 AI 编程智能体，专注快速、流畅的代码生成。',
+    },
+    avatarBgColor: 'hsl(353 62% 85%)',
     cliCommand: 'vibe-acp',
     authRequired: false,
     enabled: true, // ✅ Mistral Vibe CLI，使用 `vibe-acp` 启动
@@ -571,6 +667,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   'openclaw-gateway': {
     id: 'openclaw-gateway',
     name: 'OpenClaw',
+    description: 'OpenClaw — an open-source AI agent gateway with real-time WebSocket streaming support.',
+    descriptionI18n: {
+      'zh-CN': 'OpenClaw，支持实时 WebSocket 流式传输的开源 AI 智能体网关。',
+    },
+    avatarBgColor: 'hsl(88 52% 83%)',
     cliCommand: 'openclaw',
     authRequired: false,
     enabled: true, // ✅ OpenClaw Gateway WebSocket mode
@@ -580,6 +681,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   nanobot: {
     id: 'nanobot',
     name: 'Nano Bot',
+    description: 'Nano Bot — a lightweight, scriptable AI agent built for focused and fast coding tasks.',
+    descriptionI18n: {
+      'zh-CN': 'Nano Bot，轻量可脚本化的 AI 智能体，专为专注、高效的编程任务而设计。',
+    },
+    avatarBgColor: 'hsl(30 18% 86%)',
     cliCommand: 'nanobot',
     authRequired: false,
     enabled: true,
@@ -594,15 +700,20 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'Cursor AI 编辑器的智能体，现可在终端中直接使用。',
     },
     prompts: [
-      'Explain this code in plain English',
-      'Refactor this component to follow best practices',
-      'Find potential performance bottlenecks',
+      'Refactor this entire feature using patterns already established in this codebase',
+      'Learn my coding style from existing files and write new code that matches it',
+      'Find and eliminate all duplication across this module',
     ],
     promptsI18n: {
-      'zh-CN': ['用简单语言解释这段代码', '重构这个组件以遵循最佳实践', '找出潜在的性能瓶颈'],
+      'zh-CN': [
+        '参照代码库中已有的模式，重构这整个功能模块',
+        '从现有文件学习我的编码风格，按风格生成新代码',
+        '找出并消除这个模块中所有的重复代码',
+      ],
     },
     // Note: Cursor CLI uses the generic command name "agent". Detection relies on `which agent`
     // which may match other tools. Users should ensure the Cursor CLI is the `agent` on their PATH.
+    avatarBgColor: 'hsl(168 55% 83%)',
     cliCommand: 'agent',
     authRequired: true, // Requires active Cursor subscription
     enabled: true, // ✅ Cursor AI Agent CLI, launched via `agent acp`
@@ -618,13 +729,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': '亚马逊出品的 Kiro，具备规范驱动开发能力的 AWS AI 编程智能体。',
     },
     prompts: [
-      'Create a technical spec for this feature',
-      'Implement this spec step by step',
-      'Review this code against the requirements',
+      'Turn this feature request into a detailed technical spec',
+      'Implement exactly what this spec says, step by step',
+      'Write a spec for a new API, then generate the full implementation',
     ],
     promptsI18n: {
-      'zh-CN': ['为这个功能创建技术规范', '按步骤实现这个规范', '根据需求审查这段代码'],
+      'zh-CN': [
+        '把这个功能需求转化为详细的技术规范',
+        '严格按照这份规范逐步实现每一项要求',
+        '先写一份新 API 的规范，再生成完整实现',
+      ],
     },
+    avatarBgColor: 'hsl(36 68% 83%)',
     cliCommand: 'kiro-cli',
     authRequired: true, // Requires Kiro / AWS Builder ID login
     enabled: true, // ✅ Kiro CLI, launched via `kiro-cli acp`
@@ -634,7 +750,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   hermes: {
     id: 'hermes',
     name: 'Hermes Agent',
-    description: 'AI agent by Nous Research with 90+ tools, persistent memory, and multi-platform support',
+    description: 'Hermes by Nous Research — an AI agent with 90+ tools, persistent memory, and multi-platform support.',
+    descriptionI18n: {
+      'zh-CN': 'Nous Research 出品的 Hermes，拥有 90+ 工具、持久记忆与多平台支持的 AI 智能体。',
+    },
+    avatarBgColor: 'hsl(128 52% 83%)',
     cliCommand: 'hermes',
     authRequired: true,
     enabled: true, // ✅ Nous Research Hermes Agent，使用 `hermes acp` 启动
@@ -644,6 +764,11 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   snow: {
     id: 'snow',
     name: 'Snow AI',
+    description: 'Snow AI — a streamlined AI coding agent for clean, focused software development workflows.',
+    descriptionI18n: {
+      'zh-CN': 'Snow AI，专注简洁、高效软件开发流程的 AI 编程智能体。',
+    },
+    avatarBgColor: 'hsl(193 55% 88%)',
     cliCommand: 'snow',
     authRequired: false,
     enabled: true,
@@ -653,6 +778,7 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
   remote: {
     id: 'remote',
     name: 'Remote Agent',
+    avatarBgColor: 'hsl(250 40% 87%)',
     cliCommand: undefined, // No local CLI — connected via WebSocket URL
     authRequired: false,
     enabled: true,
@@ -666,13 +792,18 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
       'zh-CN': 'Aion CLI，内置的高性能 AI 智能体，基于 Rust 运行时，支持流式输出。',
     },
     prompts: [
-      'Help me with this coding task',
-      'Analyze and summarize this codebase',
-      'Generate boilerplate code for this feature',
+      'Quickly scan this file and tell me exactly what it does',
+      'Prototype a working solution for this problem right now',
+      'Stream the analysis as you go through this large codebase',
     ],
     promptsI18n: {
-      'zh-CN': ['帮我完成这个编程任务', '分析并总结这个代码库', '为这个功能生成样板代码'],
+      'zh-CN': [
+        '快速扫描这个文件，精准告诉我它的作用',
+        '现在就为这个问题快速原型一个可运行的解决方案',
+        '分析这个大型代码库时，实时流式输出分析结果',
+      ],
     },
+    avatarBgColor: 'hsl(215 65% 83%)',
     cliCommand: 'aionrs',
     authRequired: false, // Auth handled via env vars from model config
     enabled: true,
@@ -704,7 +835,10 @@ export function isValidAcpBackend(backend: string): backend is AcpBackend {
 }
 
 export function getAcpBackendConfig(backend: AcpBackend): AcpBackendConfig {
-  return ACP_ENABLED_BACKENDS[backend];
+  // Enabled backends first; fall back to ACP_BACKENDS_ALL so that display
+  // metadata (description, prompts, logo) is always accessible even for
+  // backends whose enabled flag is false (e.g. the built-in gemini agent).
+  return ACP_ENABLED_BACKENDS[backend] ?? ACP_BACKENDS_ALL[backend];
 }
 
 // 获取所有启用的后端配置 / Get all enabled backend configurations

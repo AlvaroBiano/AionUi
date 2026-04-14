@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { DeleteOne, Down, EditOne, Peoples, Plus, Pushpin, Right } from '@icon-park/react';
+import { DeleteOne, Down, EditOne, Plus, Pushpin, Right } from '@icon-park/react';
 import { Dropdown, Input, Menu, Message, Modal, Tooltip } from '@arco-design/web-react';
 import classNames from 'classnames';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -19,18 +19,10 @@ import { iconColors } from '@renderer/styles/colors';
 import { useTeamList } from '@renderer/pages/team/hooks/useTeamList';
 import { useSiderTeamBadges } from '@renderer/pages/team/hooks/useSiderTeamBadges';
 import TeamCreateModal from '@renderer/pages/team/components/TeamCreateModal';
+import AgentAvatar from '@renderer/components/AgentAvatar';
 import { ipcBridge } from '@/common';
 
-const CIRCLE =
-  'w-18px h-18px rounded-full bg-[var(--color-bg-2)] border border-solid border-[var(--color-border-2)] flex items-center justify-center overflow-hidden shrink-0';
-const DASHED = 'w-18px h-18px rounded-full border border-dashed border-current opacity-20 shrink-0';
-
-/** Single avatar circle */
-const AgentCircle: React.FC<{ src: string; alt?: string }> = ({ src, alt }) => (
-  <span className={CIRCLE}>
-    <img src={src} alt={alt} className='w-full h-full object-cover' />
-  </span>
-);
+const DASHED = 'w-14px h-14px rounded-full border border-dashed border-current opacity-20 shrink-0';
 
 /** Stacked avatar: up to 2 agent logos overlapping, Accio-style.
  *  If only 1 agent, shows a dashed placeholder next to it. */
@@ -44,30 +36,23 @@ const TeamStackedAvatar: React.FC<{ agents: TeamAgent[] }> = ({ agents }) => {
     // No resolvable logos — show placeholder + dashed slot
     return (
       <div className='flex items-center shrink-0'>
-        <span className={classNames(CIRCLE, 'relative z-1')}>
-          <Peoples theme='outline' size={14} fill='currentColor' style={{ lineHeight: 0 }} />
-        </span>
+        <AgentAvatar size={18} avatarSrc={null} avatarEmoji={null} style={{ position: 'relative', zIndex: 1 }} />
         <span className={`${DASHED} -ml-8px`} />
       </div>
     );
   }
   if (logos.length === 1) {
-    // Single agent — dashed circle hints at empty slot
     return (
       <div className='flex items-center shrink-0'>
-        <span className='relative z-1'>
-          <AgentCircle src={logos[0]} />
-        </span>
+        <AgentAvatar size={18} avatarSrc={logos[0]} style={{ position: 'relative', zIndex: 1 }} />
         <span className={`${DASHED} -ml-8px`} />
       </div>
     );
   }
   return (
     <div className='flex items-center shrink-0'>
-      <AgentCircle src={logos[0]} />
-      <span className='-ml-8px'>
-        <AgentCircle src={logos[1]} />
-      </span>
+      <AgentAvatar size={18} avatarSrc={logos[0]} style={{ position: 'relative', zIndex: 1 }} />
+      <AgentAvatar size={18} avatarSrc={logos[1]} style={{ marginLeft: '-8px' }} />
     </div>
   );
 };
@@ -161,7 +146,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
     <>
       {collapsed ? (
         sortedTeams.length > 0 && (
-          <div className='shrink-0 flex flex-col gap-2px'>
+          <div className='shrink-0 flex flex-col gap-1px'>
             {sortedTeams.map((team) => {
               const isActive = pathname.startsWith(`/team/${team.id}`);
               return (
@@ -192,7 +177,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
           </div>
         )
       ) : (
-        <div className='shrink-0 flex flex-col gap-2px'>
+        <div className='shrink-0 flex flex-col gap-1px'>
           <div
             className='group h-30px flex items-center gap-4px px-10px mt-4px cursor-pointer select-none sticky top-0 z-20 bg-fill-2'
             onClick={() => setTeamsCollapsed((v) => !v)}
@@ -226,7 +211,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                   key={team.id}
                   className={classNames(
                     'group h-30px flex items-center gap-8px px-10px cursor-pointer rd-8px transition-colors min-w-0 relative',
-                    isActive ? '!bg-active' : 'hover:bg-[rgba(var(--primary-6),0.14)]'
+                    isActive ? '!bg-active' : 'hover:bg-fill-3'
                   )}
                   onClick={() => handleTeamClick(team.id)}
                 >

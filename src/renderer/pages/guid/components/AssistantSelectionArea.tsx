@@ -19,22 +19,26 @@ import SkillConfirmModals from '@/renderer/pages/settings/AgentSettings/Assistan
 import { resolveAvatarImageSrc } from '@/renderer/pages/settings/AgentSettings/AssistantManagement/assistantUtils';
 import { CUSTOM_AVATAR_IMAGE_MAP } from '../constants';
 import styles from '../index.module.css';
-import type { AcpBackendConfig, AvailableAgent, EffectiveAgentInfo } from '../types';
+import type { AcpBackend, AcpBackendConfig, AvailableAgent } from '../types';
+import { getAcpBackendConfig } from '@/common/types/acpTypes';
+import { getPresetAvatarBgColor } from '@/common/config/presets/assistantPresets';
+import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { Message } from '@arco-design/web-react';
-import { Plus, Robot } from '@icon-park/react';
+import AgentAvatar from '@/renderer/components/AgentAvatar';
+import { Comment } from '@icon-park/react';
 import React, { useCallback, useLayoutEffect, useMemo } from 'react';
 import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 type AssistantSelectionAreaProps = {
-  isPresetAgent: boolean;
   selectedAgentKey?: string;
   selectedAgentInfo: AvailableAgent | undefined;
   customAgents: AcpBackendConfig[];
   localeKey: string;
-  currentEffectiveAgentInfo: EffectiveAgentInfo;
-  onSelectAssistant: (assistantId: string) => void;
+  regularAgents: AvailableAgent[];
+  getAgentKey: (agent: AvailableAgent) => string;
+  onSelectAssistant: (key: string) => void;
   onSetInput: (text: string) => void;
   onFocusInput: () => void;
   onRegisterOpenDetails?: (openDetails: (() => void) | null) => void;
@@ -46,12 +50,12 @@ const resolveAssistantCandidateIds = (assistantId: string): string[] => {
 };
 
 const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
-  isPresetAgent,
   selectedAgentKey,
   selectedAgentInfo,
   customAgents,
   localeKey,
-  currentEffectiveAgentInfo,
+  regularAgents,
+  getAgentKey,
   onSelectAssistant,
   onSetInput,
   onFocusInput,
@@ -232,84 +236,86 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
     onRegisterOpenDetails(openAssistantDetails);
   }, [onRegisterOpenDetails, openAssistantDetails]);
 
-  // Only render if there are preset agents
-  if (!customAgents || !customAgents.some((a) => a.isPreset)) return null;
+  // Build recommendation cards: row 1 = preset assistants (up to 3),
+  // row 2 = AI agents (up to 3, padded with more assistants if needed)
+  const enabledPresets = useMemo(
+    () =>
+      customAgents
+        .filter((a) => a.isPreset && a.enabled !== false)
+        .toSorted((a, b) => {
+          if (a.id === 'cowork') return -1;
+          if (b.id === 'cowork') return 1;
+          return 0;
+        }),
+    [customAgents]
+  );
 
-  if (isPresetAgent && selectedAgentInfo) {
-    // Selected Assistant View
-    return (
-      <div className='mt-12px w-full'>
-        <div className='flex flex-col w-full animate-fade-in'>
-          {/* Main Agent Fallback Notice */}
-          {currentEffectiveAgentInfo.isFallback && (
-            <div
-              className='mb-12px px-12px py-8px rd-8px text-12px flex items-center gap-8px'
-              style={{
-                background: 'rgb(var(--warning-1))',
-                border: '1px solid rgb(var(--warning-3))',
-                color: 'rgb(var(--warning-6))',
-              }}
-            >
-              <span>
-                {t('guid.agentFallbackNotice', {
-                  original:
-                    currentEffectiveAgentInfo.originalType.charAt(0).toUpperCase() +
-                    currentEffectiveAgentInfo.originalType.slice(1),
-                  fallback:
-                    currentEffectiveAgentInfo.agentType.charAt(0).toUpperCase() +
-                    currentEffectiveAgentInfo.agentType.slice(1),
-                  defaultValue: `${currentEffectiveAgentInfo.originalType.charAt(0).toUpperCase() + currentEffectiveAgentInfo.originalType.slice(1)} is unavailable, using ${currentEffectiveAgentInfo.agentType.charAt(0).toUpperCase() + currentEffectiveAgentInfo.agentType.slice(1)} instead.`,
-                })}
-              </span>
-            </div>
-          )}
-          {/* Prompts Section */}
-          {(() => {
-            const agent = customAgents.find((a) => a.id === selectedAgentInfo.customAgentId);
-            const prompts = agent?.promptsI18n?.[localeKey] || agent?.promptsI18n?.['en-US'] || agent?.prompts;
-            if (prompts && prompts.length > 0) {
-              return (
-                <div className='mt-16px'>
-                  <div className={styles.assistantPromptHint}>
-                    {t('guid.promptExamplesHint', { defaultValue: 'Try these example prompts:' })}
-                  </div>
-                  <div className='flex flex-wrap gap-8px mt-12px'>
-                    {prompts.map((prompt: string, index: number) => (
-                      <div
-                        key={index}
-                        className={`${styles.assistantPromptChip} px-12px py-6px text-2 text-13px rd-16px cursor-pointer transition-colors shadow-sm`}
-                        onClick={() => {
-                          onSetInput(prompt);
-                          onFocusInput();
-                        }}
-                      >
-                        {prompt}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            }
-            return null;
-          })()}
-        </div>
-        {modalTree}
-      </div>
-    );
-  }
+  // displayText: shown in the card body
+  // clickPrompt: filled into the input on click — only explicit prompts, never description fallback
+  type AgentCard = {
+    kind: 'agent';
+    agent: AvailableAgent;
+    agentKey: string;
+    displayText: string;
+    clickPrompt: string;
+    avatarBgColor: string | undefined;
+  };
+  type AssistantCard = { kind: 'assistant'; assistant: AcpBackendConfig; displayText: string; clickPrompt: string };
+  type RecommendCard = AgentCard | AssistantCard;
 
-  // Assistant List View
+  const cards = useMemo((): RecommendCard[] => {
+    // Exclude the currently selected item so it doesn't appear in recommendations
+    const selectedCustomId = selectedAgentInfo?.customAgentId;
+    const isPresetSelected = selectedAgentKey?.startsWith('custom:');
+    const selectedPresetId = isPresetSelected ? selectedAgentKey.slice(7) : null;
+
+    const availablePresets = enabledPresets.filter((a) => a.id !== selectedPresetId && a.id !== selectedCustomId);
+    const availableAgents = regularAgents.filter((a) => getAgentKey(a) !== selectedAgentKey);
+
+    const row1: AssistantCard[] = availablePresets.slice(0, 3).map((a) => {
+      const prompts = a.promptsI18n?.[localeKey] || a.promptsI18n?.['en-US'] || a.prompts;
+      const clickPrompt = prompts?.[0] || '';
+      const displayText = clickPrompt || a.descriptionI18n?.[localeKey] || a.description || '';
+      return { kind: 'assistant', assistant: a, displayText, clickPrompt };
+    });
+
+    const agentSlots: AgentCard[] = availableAgents.slice(0, 3).map((agent) => {
+      let displayText = '';
+      let clickPrompt = '';
+      let avatarBgColor: string | undefined;
+      try {
+        const config = getAcpBackendConfig(agent.backend as AcpBackend);
+        const prompts = config.promptsI18n?.[localeKey] || config.prompts;
+        clickPrompt = prompts?.[0] || '';
+        // Show description in the card but never inject it into the input box
+        displayText = clickPrompt || config.descriptionI18n?.[localeKey] || config.description || '';
+        avatarBgColor = config.avatarBgColor;
+      } catch {
+        // extension agent without config
+      }
+      return { kind: 'agent', agent, agentKey: getAgentKey(agent), displayText, clickPrompt, avatarBgColor };
+    });
+
+    const fillCount = Math.max(0, 3 - agentSlots.length);
+    const row2Fill: AssistantCard[] = availablePresets.slice(3, 3 + fillCount).map((a) => {
+      const prompts = a.promptsI18n?.[localeKey] || a.promptsI18n?.['en-US'] || a.prompts;
+      const clickPrompt = prompts?.[0] || '';
+      const displayText = clickPrompt || a.descriptionI18n?.[localeKey] || a.description || '';
+      return { kind: 'assistant', assistant: a, displayText, clickPrompt };
+    });
+
+    return [...row1, ...agentSlots, ...row2Fill];
+  }, [enabledPresets, regularAgents, localeKey, getAgentKey, selectedAgentKey, selectedAgentInfo?.customAgentId]);
+
+  if (cards.length === 0) return null;
+
   return (
-    <div className='mt-12px w-full'>
-      <div className='flex flex-wrap gap-8px justify-center'>
-        {customAgents
-          .filter((a) => a.isPreset && a.enabled !== false)
-          .toSorted((a, b) => {
-            if (a.id === 'cowork') return -1;
-            if (b.id === 'cowork') return 1;
-            return 0;
-          })
-          .map((assistant) => {
+    <div className={`${styles.assistantGrid} mt-12px w-full`}>
+      <p className={styles.assistantGridLabel}>{t('guid.selectAssistant')}</p>
+      <div className={styles.assistantGridCards}>
+        {cards.map((card, idx) => {
+          if (card.kind === 'assistant') {
+            const { assistant, displayText, clickPrompt } = card;
             const avatarValue = assistant.avatar?.trim();
             const mappedAvatar = avatarValue ? CUSTOM_AVATAR_IMAGE_MAP[avatarValue] : undefined;
             const resolvedAvatar = avatarValue ? resolveExtensionAssetUrl(avatarValue) : undefined;
@@ -319,36 +325,83 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
               (/\.(svg|png|jpe?g|webp|gif)$/i.test(avatarImage) ||
                 /^(https?:|aion-asset:\/\/|file:\/\/|data:)/i.test(avatarImage))
             );
+            const name = assistant.nameI18n?.[localeKey] || assistant.name || '';
+            const presetBgColor = getPresetAvatarBgColor(assistant.id) ?? assistant.avatarBgColor;
             return (
               <div
-                key={assistant.id}
-                className='h-28px group flex items-center gap-8px px-16px rd-100px cursor-pointer transition-all b-1 b-solid bg-fill-0 hover:bg-fill-1 select-none'
-                style={{
-                  borderWidth: '1px',
-                  borderColor: 'color-mix(in srgb, var(--color-border-2) 70%, transparent)',
+                key={`a-${assistant.id}-${idx}`}
+                className={styles.assistantCard}
+                onClick={() => {
+                  onSelectAssistant(`custom:${assistant.id}`);
+                  if (clickPrompt) {
+                    onSetInput(clickPrompt);
+                    onFocusInput();
+                  }
                 }}
-                onClick={() => onSelectAssistant(`custom:${assistant.id}`)}
               >
-                {isImageAvatar ? (
-                  <img src={avatarImage} alt='' width={16} height={16} style={{ objectFit: 'contain' }} />
-                ) : avatarValue ? (
-                  <span style={{ fontSize: 16, lineHeight: '18px' }}>{avatarValue}</span>
-                ) : (
-                  <Robot theme='outline' size={16} />
-                )}
-                <span className='text-14px text-2 hover:text-1'>
-                  {assistant.nameI18n?.[localeKey] || assistant.name}
-                </span>
+                <div className={styles.assistantCardHeader}>
+                  <AgentAvatar
+                    size={22}
+                    avatarSrc={isImageAvatar ? avatarImage : null}
+                    avatarEmoji={!isImageAvatar && avatarValue ? avatarValue : null}
+                    avatarBgColor={presetBgColor}
+                  />
+                  <span className={styles.assistantCardName}>{name}</span>
+                  <span className={styles.assistantCardHoverBubble}>
+                    <Comment theme='outline' size={15} fill='currentColor' />
+                  </span>
+                </div>
+                {displayText && <p className={styles.assistantCardPrompt}>{displayText}</p>}
               </div>
             );
-          })}
-        <div
-          className='flex items-center justify-center h-28px w-28px rd-50% bg-fill-0 hover:bg-fill-2 cursor-pointer b-1 b-dashed select-none transition-colors'
-          style={{ borderWidth: '1px', borderColor: 'color-mix(in srgb, var(--color-border-2) 70%, transparent)' }}
-          onClick={() => navigate('/settings/assistants')}
-        >
-          <Plus theme='outline' size={14} className='line-height-0 text-[var(--color-text-3)]' />
-        </div>
+          }
+
+          // Agent card
+          const { agent, agentKey, displayText, clickPrompt } = card;
+          const extensionAvatar = resolveExtensionAssetUrl(agent.isExtension ? agent.avatar : undefined);
+          const emojiAvatar = agent.backend === 'remote' && agent.avatar ? agent.avatar : undefined;
+          const logoSrc =
+            extensionAvatar ||
+            (!emojiAvatar
+              ? resolveAgentLogo({
+                  backend: agent.backend,
+                  customAgentId: agent.customAgentId,
+                  isExtension: agent.isExtension,
+                })
+              : undefined);
+          return (
+            <div
+              key={`g-${agentKey}-${idx}`}
+              className={styles.assistantCard}
+              onClick={() => {
+                onSelectAssistant(agentKey);
+                if (clickPrompt) {
+                  onSetInput(clickPrompt);
+                  onFocusInput();
+                }
+              }}
+            >
+              <div className={styles.assistantCardHeader}>
+                <AgentAvatar
+                  size={22}
+                  avatarSrc={logoSrc ?? null}
+                  avatarEmoji={emojiAvatar ?? null}
+                  avatarBgColor={card.avatarBgColor}
+                />
+                <span className={styles.assistantCardName}>{agent.name}</span>
+                <span className={styles.assistantCardHoverBubble}>
+                  <Comment theme='outline' size={15} fill='currentColor' />
+                </span>
+              </div>
+              {displayText && <p className={styles.assistantCardPrompt}>{displayText}</p>}
+            </div>
+          );
+        })}
+      </div>
+      <div className={styles.assistantGridFooter}>
+        <span className={styles.assistantGridViewAll} onClick={() => navigate('/assistants')}>
+          {t('guid.addMoreAssistants')}
+        </span>
       </div>
       {modalTree}
     </div>

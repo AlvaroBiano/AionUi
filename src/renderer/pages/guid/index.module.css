@@ -15,49 +15,6 @@
   margin-bottom: 16px;
 }
 
-.heroHeaderControls {
-  width: 100%;
-  max-width: 760px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 36px;
-  flex-wrap: nowrap;
-}
-
-.heroHeaderLeft {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 36px;
-  flex: 1 1 auto;
-  white-space: nowrap;
-}
-
-.heroHeaderRight {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 36px;
-  flex: 0 0 auto;
-  padding-right: 2px;
-}
-
-.heroBackButton {
-  width: 30px !important;
-  height: 30px !important;
-  min-width: 30px !important;
-  color: var(--color-text-2) !important;
-  border-radius: 999px !important;
-  background: var(--color-fill-2) !important;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  padding: 0 !important;
-}
-
 .heroBackButton:hover {
   background: var(--color-fill-3) !important;
 }
@@ -731,4 +688,326 @@
   .presetAgentTagName {
     max-width: 100px;
   }
+}
+
+/* ── New hero: centered avatar + name ── */
+.heroHeader {
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.heroHeaderCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.heroAvatarCircle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.heroAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 50%;
+}
+
+.heroAvatarEmoji {
+  /* 64px circle × 0.7 = 44.8px — fills the inscribed square of the circle */
+  font-size: 44px;
+  line-height: 1;
+  user-select: none;
+}
+
+.heroAgentNameRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s;
+}
+
+.heroAgentNameRow:hover {
+  background: var(--color-fill-2);
+}
+
+.heroAgentName {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  line-height: 1.3;
+}
+
+/* ── Assistant recommendation grid ── */
+.assistantGrid {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.assistantGridLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.assistantGridCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.assistantCard {
+  position: relative;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+  min-width: 0;
+}
+
+.assistantCard:hover {
+  background: var(--color-bg-2);
+  border-color: var(--color-border-3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.assistantCardHoverBubble {
+  margin-left: auto;
+  flex-shrink: 0;
+  line-height: 0;
+  color: var(--color-text-3);
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  pointer-events: none;
+}
+
+.assistantCard:hover .assistantCardHoverBubble {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.assistantCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 7px;
+  min-width: 0;
+}
+
+.assistantCardName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.assistantCardPrompt {
+  font-size: 12px;
+  color: var(--color-text-3);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.assistantGridFooter {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.assistantGridViewAll {
+  font-size: 13px;
+  color: rgb(var(--primary-6));
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.assistantGridViewAll:hover {
+  opacity: 0.75;
+}
+
+/* ── Prompt cards for selected assistant ── */
+.promptCardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.promptCard {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--assistant-surface-bg);
+  border: 1px solid color-mix(in srgb, var(--color-border-2) 70%, transparent);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-2);
+  line-height: 1.5;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.promptCard:hover {
+  background: var(--assistant-surface-bg-hover);
+  border-color: var(--color-border-3);
+}
+
+@media (max-width: 768px) {
+  .assistantGridCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .promptCardGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Agent Selector Popover ── */
+.agentSelectorPanel {
+  width: 360px;
+  background: var(--color-bg-1);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  border: 1px solid var(--color-border-1);
+}
+
+.agentSelectorSearch {
+  padding: 10px 10px 6px;
+}
+
+.agentSelectorSearchInput :global(.arco-input-inner-wrapper) {
+  border-radius: 10px !important;
+  background: var(--color-fill-2) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.agentSelectorSearchInput :global(.arco-input-inner-wrapper:focus-within) {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.agentSelectorList {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 0 6px 4px;
+}
+
+.agentSelectorSectionLabel {
+  padding: 6px 10px 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-1);
+  z-index: 1;
+}
+
+.agentSelectorItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.12s;
+  min-width: 0;
+  margin-bottom: 1px;
+}
+
+.agentSelectorItem:hover {
+  background: var(--color-fill-2);
+}
+
+.agentSelectorItemActive {
+  background: var(--color-fill-2);
+}
+
+.agentSelectorItemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.agentSelectorItemName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agentSelectorItemDesc {
+  font-size: 12px;
+  color: var(--color-text-3);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.agentSelectorDivider {
+  height: 1px;
+  background: var(--color-border-1);
+  margin: 4px 10px;
+}
+
+.agentSelectorFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-top: 1px solid var(--color-border-1);
+  cursor: pointer;
+  font-size: 13px;
+  color: rgb(var(--primary-6));
+  transition: opacity 0.12s;
+}
+
+.agentSelectorFooter:hover {
+  opacity: 0.7;
 }

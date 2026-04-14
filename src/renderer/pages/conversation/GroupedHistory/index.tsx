@@ -6,8 +6,9 @@
 
 import type { TChatConversation } from '@/common/config/storage';
 import { ConfigStorage } from '@/common/config/storage';
-import { ASSISTANT_PRESETS } from '@/common/config/presets/assistantPresets';
+import { ASSISTANT_PRESETS, getPresetAvatarBgColor } from '@/common/config/presets/assistantPresets';
 import { ACP_BACKENDS_ALL } from '@/common/types/acpTypes';
+import AgentAvatar from '@/renderer/components/AgentAvatar';
 import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
 import { useCronJobsMap } from '@/renderer/pages/cron';
 import { ipcBridge } from '@/common';
@@ -18,7 +19,7 @@ import { emitter } from '@/renderer/utils/emitter';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Empty, Input, Menu, Message, Modal, Tooltip } from '@arco-design/web-react';
-import { DeleteOne, Down, FolderOpen, Plus, Right, Robot } from '@icon-park/react';
+import { DeleteOne, Down, FolderOpen, Plus, Right } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -552,6 +553,17 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
               resolveAgentLogo({
                 backend: agentGroup.agentKey.startsWith('custom:') ? undefined : agentGroup.agentKey,
               });
+            let groupAvatarBgColor: string | undefined;
+            if (agentGroup.agentKey.startsWith('custom:')) {
+              groupAvatarBgColor = getPresetAvatarBgColor(agentGroup.agentKey.slice(7));
+            } else {
+              try {
+                groupAvatarBgColor =
+                  ACP_BACKENDS_ALL[agentGroup.agentKey as keyof typeof ACP_BACKENDS_ALL]?.avatarBgColor;
+              } catch {
+                /* ignore */
+              }
+            }
             const isCollapsed = collapsedAgentGroups.has(agentGroup.agentKey);
 
             const isGroupMenuVisible = groupMenuVisibleKey === agentGroup.agentKey;
@@ -561,15 +573,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 onClick={() => handleToggleAgentGroup(agentGroup.agentKey)}
               >
                 {/* Agent avatar */}
-                <span className='shrink-0 w-18px h-18px rounded-full bg-[var(--color-bg-2)] border border-solid border-[var(--color-border-2)] flex items-center justify-center overflow-hidden'>
-                  {agentGroup.avatarEmoji ? (
-                    <span className='text-16px leading-none'>{agentGroup.avatarEmoji}</span>
-                  ) : logoSrc ? (
-                    <img src={logoSrc} alt={agentGroup.displayName} className='w-full h-full object-cover' />
-                  ) : (
-                    <Robot theme='outline' size={12} fill='currentColor' />
-                  )}
-                </span>
+                <AgentAvatar
+                  size={18}
+                  avatarSrc={logoSrc ?? null}
+                  avatarEmoji={agentGroup.avatarEmoji ?? null}
+                  avatarBgColor={groupAvatarBgColor}
+                />
                 {/* Agent name */}
                 <span className='text-13px text-t-primary font-medium truncate flex-1 min-w-0'>
                   {agentGroup.displayName}
@@ -577,9 +586,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 {/* Three-dot dropdown menu — shown on hover */}
                 <div
                   className={classNames(
-                    'ml-auto items-center justify-end',
+                    'absolute right-0 top-0 h-full items-center justify-end pr-8px',
                     isGroupMenuVisible ? 'flex' : 'hidden group-hover:flex'
                   )}
+                  style={{
+                    backgroundImage: 'linear-gradient(to right, transparent, var(--aou-1) 20%)',
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Dropdown
@@ -637,29 +649,26 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
             );
 
             return (
-              <div key={agentGroup.agentKey} className='mb-2px min-w-0'>
+              <div key={agentGroup.agentKey} className='mb-1px min-w-0'>
                 {collapsed ? (
                   <Tooltip content={agentGroup.displayName} position='right'>
                     <div
                       className='w-full h-30px flex items-center justify-center cursor-pointer rd-8px hover:bg-fill-3 transition-colors'
                       onClick={() => handleToggleAgentGroup(agentGroup.agentKey)}
                     >
-                      <span className='w-18px h-18px rounded-full bg-[var(--color-bg-2)] border border-solid border-[var(--color-border-2)] flex items-center justify-center overflow-hidden'>
-                        {agentGroup.avatarEmoji ? (
-                          <span className='text-16px leading-none'>{agentGroup.avatarEmoji}</span>
-                        ) : logoSrc ? (
-                          <img src={logoSrc} alt={agentGroup.displayName} className='w-full h-full object-cover' />
-                        ) : (
-                          <Robot theme='outline' size={12} fill='currentColor' />
-                        )}
-                      </span>
+                      <AgentAvatar
+                        size={18}
+                        avatarSrc={logoSrc ?? null}
+                        avatarEmoji={agentGroup.avatarEmoji ?? null}
+                        avatarBgColor={groupAvatarBgColor}
+                      />
                     </div>
                   </Tooltip>
                 ) : (
                   headerContent
                 )}
                 {!isCollapsed && (
-                  <div className='min-w-0 pt-2px'>
+                  <div className='min-w-0 pt-1px'>
                     {agentGroup.conversations.map((conversation) => renderConversation(conversation))}
                   </div>
                 )}

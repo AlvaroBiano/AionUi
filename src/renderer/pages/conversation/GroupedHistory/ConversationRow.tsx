@@ -97,10 +97,10 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
       <div
         id={'c-' + conversation.id}
         className={classNames(
-          'chat-history__item h-30px rd-8px flex items-center group cursor-pointer relative overflow-hidden shrink-0 conversation-item [&.conversation-item+&.conversation-item]:mt-2px min-w-0 transition-colors',
+          'chat-history__item h-30px rd-8px flex items-center group cursor-pointer relative overflow-hidden shrink-0 conversation-item [&.conversation-item+&.conversation-item]:mt-1px min-w-0 transition-colors',
           collapsed ? 'justify-center px-0' : 'justify-start pl-36px pr-10px',
           {
-            'hover:bg-[rgba(var(--primary-6),0.14)]': !batchMode,
+            'hover:bg-fill-3': !batchMode,
             '!bg-active': selected,
             'bg-[rgba(var(--primary-6),0.08)]': batchMode && checked,
           }
@@ -167,8 +167,8 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
             )}
             style={{
               backgroundImage: selected
-                ? `linear-gradient(to right, transparent, var(--aou-2) 100%)`
-                : `linear-gradient(to right, transparent, var(--aou-1) 100%)`,
+                ? 'linear-gradient(to right, transparent, var(--aou-2) 20%)'
+                : 'linear-gradient(to right, transparent, var(--aou-1) 20%)',
             }}
             onClick={(event) => {
               event.stopPropagation();

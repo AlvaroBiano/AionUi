@@ -32,31 +32,82 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-vi.mock('@/renderer/hooks/context/LayoutContext', () => ({
-  useLayoutContext: () => ({ isMobile: false }),
-}));
-
 vi.mock('@/renderer/utils/model/agentLogo', () => ({
   getAgentLogo: vi.fn((backend: string) => (backend === 'claude' ? '/claude.svg' : null)),
-  resolveAgentLogo: vi.fn((opts: { icon?: string; backend?: string }) => {
-    if (opts.icon) return opts.icon;
-    if (opts.backend === 'claude') return '/claude.svg';
-    return null;
-  }),
+  resolveAgentLogo: vi.fn((opts: { backend?: string }) => (opts.backend === 'claude' ? '/claude.svg' : null)),
 }));
 
 vi.mock('@/renderer/utils/platform', () => ({
   resolveExtensionAssetUrl: vi.fn(() => undefined),
 }));
 
+vi.mock('@/common/types/acpTypes', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/common/types/acpTypes')>();
+  return {
+    ...actual,
+    getAcpBackendConfig: vi.fn((backend: string) => ({
+      id: backend,
+      name: backend,
+      description: `Description for ${backend}`,
+      descriptionI18n: { 'en-US': `Description for ${backend}` },
+    })),
+  };
+});
+
 vi.mock('@icon-park/react', () => ({
-  Plus: () => <span data-testid='icon-plus'>PlusIcon</span>,
+  Down: () => <span data-testid='icon-down'>DownIcon</span>,
   Robot: () => <span data-testid='icon-robot'>RobotIcon</span>,
+  Comment: () => <span data-testid='icon-comment'>CommentIcon</span>,
 }));
 
 vi.mock('../../src/renderer/pages/guid/index.module.css', () => ({
-  default: { agentItemSelected: 'selected-class' },
+  default: {
+    heroAgentNameRow: 'hero-agent-name-row',
+    heroAgentName: 'hero-agent-name',
+    agentSelectorPanel: 'agent-selector-panel',
+    agentSelectorSearch: 'agent-selector-search',
+    agentSelectorList: 'agent-selector-list',
+    agentSelectorSectionLabel: 'agent-selector-section-label',
+    agentSelectorItem: 'agent-selector-item',
+    agentSelectorItemActive: 'agent-selector-item-active',
+    agentSelectorAvatar: 'agent-selector-avatar',
+    agentSelectorAvatarImg: 'agent-selector-avatar-img',
+    agentSelectorItemInfo: 'agent-selector-item-info',
+    agentSelectorItemName: 'agent-selector-item-name',
+    agentSelectorItemDesc: 'agent-selector-item-desc',
+    agentSelectorCheck: 'agent-selector-check',
+    agentSelectorDivider: 'agent-selector-divider',
+    agentSelectorFooter: 'agent-selector-footer',
+    agentSelectorSearchInput: 'agent-selector-search-input',
+  },
 }));
+
+vi.mock('../../src/renderer/pages/guid/constants', () => ({
+  CUSTOM_AVATAR_IMAGE_MAP: {},
+}));
+
+vi.mock('@arco-design/web-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@arco-design/web-react')>();
+  return {
+    ...actual,
+    Dropdown: ({
+      droplist,
+      children,
+    }: {
+      droplist: React.ReactNode;
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => (
+      <div>
+        {children}
+        {droplist}
+      </div>
+    ),
+    Input: ({ value, onChange, placeholder }: { value?: string; onChange?: (v: string) => void; placeholder?: string }) => (
+      <input value={value ?? ''} onChange={(e) => onChange?.(e.target.value)} placeholder={placeholder} />
+    ),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Imports
@@ -65,7 +116,7 @@ vi.mock('../../src/renderer/pages/guid/index.module.css', () => ({
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
-import AgentPillBar from '../../src/renderer/pages/guid/components/AgentPillBar';
+import AgentSelectorPopover from '../../src/renderer/pages/guid/components/AgentPillBar';
 import type { AvailableAgent } from '../../src/renderer/pages/guid/types';
 
 // ---------------------------------------------------------------------------
@@ -81,103 +132,91 @@ const makeAgent = (overrides: Partial<AvailableAgent> & { backend: AvailableAgen
 });
 
 const defaultProps = {
-  getAgentKey,
-  onSelectAgent: vi.fn(),
+  displayAgentName: 'Claude Code',
+  regularAgents: [makeAgent({ backend: 'claude', name: 'Claude Code' })],
+  presetAssistants: [],
   selectedAgentKey: 'claude',
+  isPresetAgent: false,
+  localeKey: 'en-US',
+  selectedCustomAgentId: undefined,
+  getAgentKey,
+  onSelect: vi.fn(),
 };
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('AgentPillBar', () => {
-  it('renders agent pills', () => {
+describe('AgentSelectorPopover', () => {
+  it('renders trigger with displayAgentName', () => {
+    render(<AgentSelectorPopover {...defaultProps} />);
+    expect(screen.getAllByText('Claude Code').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders down chevron icon in trigger', () => {
+    render(<AgentSelectorPopover {...defaultProps} />);
+    expect(screen.getByTestId('icon-down')).toBeTruthy();
+  });
+
+  it('shows agent names in popup list', () => {
     const agents: AvailableAgent[] = [
-      makeAgent({ backend: 'claude', name: 'Claude' }),
-      makeAgent({ backend: 'gemini', name: 'Gemini' }),
+      makeAgent({ backend: 'claude', name: 'Claude Code' }),
+      makeAgent({ backend: 'gemini', name: 'Gemini CLI' }),
     ];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} />);
-    expect(screen.getByText('Claude')).toBeTruthy();
-    expect(screen.getByText('Gemini')).toBeTruthy();
+    render(
+      <AgentSelectorPopover
+        {...defaultProps}
+        regularAgents={agents}
+        displayAgentName='Claude Code'
+        selectedAgentKey='claude'
+      />
+    );
+    expect(screen.getAllByText('Claude Code').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Gemini CLI')).toBeTruthy();
   });
 
-  it('calls onSelectAgent when pill clicked', () => {
-    const onSelectAgent = vi.fn();
+  it('calls onSelect with agent key when item clicked', () => {
+    const onSelect = vi.fn();
     const agents: AvailableAgent[] = [
-      makeAgent({ backend: 'claude', name: 'Claude' }),
-      makeAgent({ backend: 'gemini', name: 'Gemini' }),
+      makeAgent({ backend: 'claude', name: 'Claude Code' }),
+      makeAgent({ backend: 'gemini', name: 'Gemini CLI' }),
     ];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} onSelectAgent={onSelectAgent} />);
-    const pill = screen.getByText('Gemini').closest('[data-agent-pill]') as HTMLElement;
-    expect(pill).toBeTruthy();
-    fireEvent.click(pill);
-    expect(onSelectAgent).toHaveBeenCalledWith('gemini');
+    render(
+      <AgentSelectorPopover {...defaultProps} regularAgents={agents} selectedAgentKey='claude' onSelect={onSelect} />
+    );
+    const geminiItem = screen.getAllByText('Gemini CLI')[0].closest('.agent-selector-item') as HTMLElement;
+    fireEvent.click(geminiItem);
+    expect(onSelect).toHaveBeenCalledWith('gemini');
   });
 
-  it('marks selected agent with data attribute', () => {
-    const agents: AvailableAgent[] = [
-      makeAgent({ backend: 'claude', name: 'Claude' }),
-      makeAgent({ backend: 'gemini', name: 'Gemini' }),
+  it('applies active style on selected agent item', () => {
+    const agents: AvailableAgent[] = [makeAgent({ backend: 'claude', name: 'Claude Code' })];
+    render(
+      <AgentSelectorPopover {...defaultProps} regularAgents={agents} selectedAgentKey='claude' isPresetAgent={false} />
+    );
+    const items = document.querySelectorAll('.agent-selector-item');
+    const activeItems = Array.from(items).filter((el) => el.classList.contains('agent-selector-item-active'));
+    expect(activeItems.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders preset assistants section when provided', () => {
+    const presets = [
+      {
+        id: 'my-assistant',
+        name: 'My Assistant',
+        description: 'A helpful assistant',
+        isPreset: true,
+        enabled: true,
+      },
     ];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} selectedAgentKey='claude' />);
-    const claudePill = screen.getByText('Claude').closest('[data-agent-pill]') as HTMLElement;
-    const geminiPill = screen.getByText('Gemini').closest('[data-agent-pill]') as HTMLElement;
-    expect(claudePill.getAttribute('data-agent-selected')).toBe('true');
-    expect(geminiPill.getAttribute('data-agent-selected')).toBe('false');
+    render(<AgentSelectorPopover {...defaultProps} presetAssistants={presets as never} />);
+    expect(screen.getByText('My Assistant')).toBeTruthy();
   });
 
-  it('renders agent logo when available', () => {
-    const agents: AvailableAgent[] = [makeAgent({ backend: 'claude', name: 'Claude' })];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} />);
-    const img = screen.getByAltText('claude logo') as HTMLImageElement;
-    expect(img).toBeTruthy();
-    expect(img.src).toContain('/claude.svg');
-  });
-
-  it('renders Robot icon when no logo available', () => {
-    const agents: AvailableAgent[] = [makeAgent({ backend: 'remote', name: 'Unknown' })];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} selectedAgentKey='remote' />);
-    expect(screen.getByTestId('icon-robot')).toBeTruthy();
-  });
-
-  it('renders emoji avatar for remote agents', () => {
-    const agents: AvailableAgent[] = [makeAgent({ backend: 'remote', name: 'Remote', avatar: '🤖' })];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} selectedAgentKey='remote' />);
-    expect(screen.getByText('🤖')).toBeTruthy();
-  });
-
-  it('filters out plain custom agents', () => {
-    const agents: AvailableAgent[] = [
-      makeAgent({ backend: 'claude', name: 'Claude' }),
-      // plain custom — no customAgentId, not extension → filtered out
-      makeAgent({ backend: 'custom', name: 'Hidden Custom' }),
-      // custom with customAgentId and isPreset=false → shown
-      makeAgent({ backend: 'custom', name: 'Visible Custom', customAgentId: 'my-agent', isPreset: false }),
-    ];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} />);
-    expect(screen.getByText('Claude')).toBeTruthy();
-    expect(screen.getByText('Visible Custom')).toBeTruthy();
-    expect(screen.queryByText('Hidden Custom')).toBeNull();
-  });
-
-  it('navigates to /settings/agent?tab=local when + clicked', () => {
-    const agents: AvailableAgent[] = [makeAgent({ backend: 'claude', name: 'Claude' })];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} />);
-    const plusIcon = screen.getByTestId('icon-plus');
-    const plusDiv = plusIcon.closest('div') as HTMLElement;
-    expect(plusDiv).toBeTruthy();
-    fireEvent.click(plusDiv);
-    expect(mockNavigate).toHaveBeenCalledWith('/settings/agent?tab=local');
-  });
-
-  it('renders separator dividers between agents on desktop', () => {
-    const agents: AvailableAgent[] = [
-      makeAgent({ backend: 'claude', name: 'Claude' }),
-      makeAgent({ backend: 'gemini', name: 'Gemini' }),
-    ];
-    render(<AgentPillBar {...defaultProps} availableAgents={agents} />);
-    // One separator between the two agents plus one before the + button = 2 total
-    const separators = screen.getAllByText('|');
-    expect(separators.length).toBeGreaterThanOrEqual(2);
+  it('navigates to /assistants when footer clicked', () => {
+    render(<AgentSelectorPopover {...defaultProps} />);
+    const footer = document.querySelector('.agent-selector-footer') as HTMLElement;
+    fireEvent.click(footer);
+    expect(mockNavigate).toHaveBeenCalledWith('/assistants');
   });
 });
