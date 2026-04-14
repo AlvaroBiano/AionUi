@@ -54,6 +54,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       return next;
     });
   }, []);
+  const messagesCollapsed = collapsedSections.has('messages');
 
   // Sync active conversation ref when route changes (for URL navigation)
   // This doesn't trigger state update, avoiding double render
@@ -484,7 +485,33 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </DragOverlay>
         </DndContext>
 
-        {agentGroups.map((agentGroup) => {
+        {/* Messages section header */}
+        {!collapsed && (agentGroups.length > 0 || pinnedConversations.length === 0) && (
+          <div
+            className='group flex items-center gap-4px px-12px py-6px cursor-pointer select-none sticky top-0 z-10 bg-fill-2 min-w-0'
+            onClick={() => toggleSection('messages')}
+          >
+            <span className='text-t-secondary flex items-center mr-2px'>
+              {messagesCollapsed ? <Right theme='outline' size={12} /> : <Down theme='outline' size={12} />}
+            </span>
+            <span className='text-12px text-t-secondary font-medium flex-1 min-w-0'>
+              {t('conversation.history.messagesSection')}
+            </span>
+            <span
+              className='opacity-0 group-hover:opacity-100 transition-opacity text-t-secondary flex items-center hover:text-t-primary p-2px rd-4px hover:bg-fill-3'
+              onClick={(e) => {
+                e.stopPropagation();
+                void navigate('/guid');
+              }}
+            >
+              <svg width='14' height='14' viewBox='0 0 14 14' fill='none'>
+                <path d='M7 1v12M1 7h12' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+              </svg>
+            </span>
+          </div>
+        )}
+
+        {!messagesCollapsed && agentGroups.map((agentGroup) => {
           const logoSrc =
             agentGroup.avatarSrc ??
             resolveAgentLogo({ backend: agentGroup.agentKey.startsWith('custom:') ? undefined : agentGroup.agentKey });
@@ -563,6 +590,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           );
         })}
       </div>
+
     </>
   );
 };

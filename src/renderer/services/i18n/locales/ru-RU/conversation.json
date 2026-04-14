@@ -67,7 +67,8 @@
     "today": "Сегодня",
     "yesterday": "Вчера",
     "recent7Days": "Последние 7 дней",
-    "earlier": "Ранее"
+    "earlier": "Ранее",
+    "messagesSection": "Сообщения"
   },
   "historySearch": {
     "tooltip": "Поиск сообщений",

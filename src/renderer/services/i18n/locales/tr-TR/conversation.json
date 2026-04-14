@@ -67,7 +67,8 @@
     "pinFailed": "Pin operation failed",
     "pinnedSection": "Pinned",
     "deleteSuccess": "Başarıyla silindi",
-    "deleteFailed": "Silme başarısız oldu"
+    "deleteFailed": "Silme başarısız oldu",
+    "messagesSection": "Mesajlar"
   },
   "historySearch": {
     "tooltip": "Mesajları ara",

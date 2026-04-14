@@ -67,7 +67,8 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "recent7Days": "Last 7 Days",
-    "earlier": "Earlier"
+    "earlier": "Earlier",
+    "messagesSection": "Messages"
   },
   "historySearch": {
     "tooltip": "Search messages",
