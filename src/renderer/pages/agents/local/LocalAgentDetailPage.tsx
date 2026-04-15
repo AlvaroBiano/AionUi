@@ -130,8 +130,9 @@ const LocalAgentDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Runtime status ── */}
-        <Section title={t('common.status', { defaultValue: 'Status' })}>
+        {/* ── Connection / Status ── */}
+        <Section title={t('settings.agentManagement.cliCommand', { defaultValue: 'Connection' })}>
+          {/* Status */}
           <Row
             label={t('common.status', { defaultValue: 'Status' })}
             children={
@@ -144,30 +145,27 @@ const LocalAgentDetailPage: React.FC = () => {
               </Tag>
             }
           />
-          {detectedPath !== null && detectedPath !== undefined && detectedPath !== '' && (
+          {/* CLI Command (static config) */}
+          {backendConfig.cliCommand && (
+            <Row
+              label={t('settings.agentManagement.cliCommand', { defaultValue: 'CLI Command' })}
+              mono
+              children={backendConfig.cliCommand}
+            />
+          )}
+          {/* Detected path — only show when it's a full absolute path (contains '/'), not just the command name */}
+          {detectedPath && detectedPath.includes('/') && (
             <Row label={t('settings.aionrs.path', { defaultValue: 'Path' })} mono children={detectedPath} />
           )}
+          {/* Default CLI path (fallback invocation, e.g. npx package) */}
+          {backendConfig.defaultCliPath && (
+            <Row
+              label={t('settings.agentManagement.defaultPath', { defaultValue: 'Default Path' })}
+              mono
+              children={backendConfig.defaultCliPath}
+            />
+          )}
         </Section>
-
-        {/* ── Connection info ── */}
-        {(backendConfig.cliCommand ?? backendConfig.defaultCliPath) && (
-          <Section title={t('settings.agentManagement.cliCommand', { defaultValue: 'Connection' })}>
-            {backendConfig.cliCommand && (
-              <Row
-                label={t('settings.agentManagement.cliCommand', { defaultValue: 'CLI Command' })}
-                mono
-                children={backendConfig.cliCommand}
-              />
-            )}
-            {backendConfig.defaultCliPath && (
-              <Row
-                label={t('settings.agentManagement.defaultPath', { defaultValue: 'Default Path' })}
-                mono
-                children={backendConfig.defaultCliPath}
-              />
-            )}
-          </Section>
-        )}
 
         {/* ── Default Model ── */}
         {!loading && (
