@@ -108,5 +108,16 @@
   "agents.section.remote": "Remote Agents",
   "agents.section.assistants": "Assistants",
   "agents.section.people": "People",
-  "agents.user.defaultName": "User"
+  "agents.user.defaultName": "User",
+  "agents": {
+    "defaultModelHint": "Applied when starting new conversations with this agent.",
+    "noModelCache": "Start a conversation to populate the model list.",
+    "permissions": "Permissions",
+    "yoloMode": "Auto-approve All",
+    "yoloModeHint": "Skip permission prompts and auto-approve all tool calls.",
+    "sandboxMode": "Sandbox Mode",
+    "reasoningEffortHint": "Default reasoning effort for new conversations.",
+    "defaultMcp": "Default MCP Servers",
+    "auth": "Authentication"
+  }
 }

@@ -108,5 +108,16 @@
   "agents.section.remote": "Uzak Ajanlar",
   "agents.section.assistants": "Asistanlar",
   "agents.section.people": "İnsanlar",
-  "agents.user.defaultName": "Kullanıcı"
+  "agents.user.defaultName": "Kullanıcı",
+  "agents": {
+    "defaultModelHint": "Bu ajanla yeni konuşmalar başlatırken kullanılacak varsayılan model.",
+    "noModelCache": "Model listesini doldurmak için bir konuşma başlatın.",
+    "permissions": "İzinler",
+    "yoloMode": "Tümünü Otomatik Onayla",
+    "yoloModeHint": "İzin istemlerini atla ve tüm araç çağrılarını otomatik olarak onayla.",
+    "sandboxMode": "Korumalı Alan Modu",
+    "reasoningEffortHint": "Yeni konuşmalar için varsayılan akıl yürütme çabası.",
+    "defaultMcp": "Varsayılan MCP Sunucuları",
+    "auth": "Kimlik Doğrulama"
+  }
 }

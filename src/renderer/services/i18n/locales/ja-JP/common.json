@@ -108,5 +108,16 @@
   "agents.section.remote": "リモートエージェント",
   "agents.section.assistants": "アシスタント",
   "agents.section.people": "ユーザー",
-  "agents.user.defaultName": "ユーザー"
+  "agents.user.defaultName": "ユーザー",
+  "agents": {
+    "defaultModelHint": "このエージェントで新しい会話を開始する際のデフォルトモデル。",
+    "noModelCache": "会話を開始するとモデルリストが自動的にキャッシュされます。",
+    "permissions": "権限",
+    "yoloMode": "すべてを自動承認",
+    "yoloModeHint": "権限の確認をスキップし、すべてのツール呼び出しを自動承認します。",
+    "sandboxMode": "サンドボックスモード",
+    "reasoningEffortHint": "新しい会話でのデフォルトの推論努力量。",
+    "defaultMcp": "デフォルト MCP サーバー",
+    "auth": "認証"
+  }
 }

@@ -108,5 +108,16 @@
   "agents.section.remote": "远端 Agent",
   "agents.section.assistants": "助手",
   "agents.section.people": "人类",
-  "agents.user.defaultName": "用户"
+  "agents.user.defaultName": "用户",
+  "agents": {
+    "defaultModelHint": "新建对话时使用此 Agent 的默认模型。",
+    "noModelCache": "发起一次对话后将自动缓存可用模型列表。",
+    "permissions": "权限",
+    "yoloMode": "自动批准所有操作",
+    "yoloModeHint": "跳过权限确认弹窗，自动批准所有工具调用。",
+    "sandboxMode": "沙盒模式",
+    "reasoningEffortHint": "新建对话时的默认思考深度。",
+    "defaultMcp": "默认 MCP 服务",
+    "auth": "认证"
+  }
 }
