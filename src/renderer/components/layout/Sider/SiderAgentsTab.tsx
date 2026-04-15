@@ -6,7 +6,7 @@
 
 import AgentAvatar from '@/renderer/components/AgentAvatar';
 import { ASSISTANT_PRESETS } from '@/common/config/presets/assistantPresets';
-import { ACP_ENABLED_BACKENDS } from '@/common/types/acpTypes';
+import { ACP_BACKENDS_ALL, ACP_ENABLED_BACKENDS } from '@/common/types/acpTypes';
 import { getPresetProfile } from '@/renderer/assets/profiles';
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { cleanupSiderTooltips } from '@/renderer/utils/ui/siderTooltip';
@@ -229,25 +229,29 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
   );
 
   // Local ACP backends — only show detected (installed) agents.
-  // Gemini and aionrs are always shown (Gemini uses OAuth, aionrs is built-in).
+  // Gemini is enabled:false in ACP_ENABLED_BACKENDS (handled separately via OAuth),
+  // so pull it from ACP_BACKENDS_ALL and always show it.
   // While detection is loading (undefined), fall back to showing all.
-  const localAgents = useMemo(
-    () =>
-      Object.entries(ACP_ENABLED_BACKENDS)
-        .filter(([key]) => {
-          if (['remote', 'custom'].includes(key)) return false;
-          if (key === 'gemini' || key === 'aionrs') return true;
-          if (detectedBackends === undefined) return true; // still loading
-          return detectedBackends !== null && detectedBackends.has(key);
-        })
-        .map(([key, config]) => ({
-          key,
-          displayName: config.name,
-          avatarSrc: resolveAgentLogo({ backend: key }) ?? null,
-          avatarBgColor: (config as { avatarBgColor?: string }).avatarBgColor,
-        })),
-    [detectedBackends]
-  );
+  const localAgents = useMemo(() => {
+    const entries = Object.entries(ACP_ENABLED_BACKENDS).filter(([key]) => {
+      if (['remote', 'custom'].includes(key)) return false;
+      if (detectedBackends === undefined) return true; // still loading
+      return detectedBackends !== null && detectedBackends.has(key);
+    });
+
+    // Prepend Gemini if it exists in ACP_BACKENDS_ALL
+    const geminiConfig = ACP_BACKENDS_ALL['gemini'];
+    if (geminiConfig) {
+      entries.unshift(['gemini', geminiConfig]);
+    }
+
+    return entries.map(([key, config]) => ({
+      key,
+      displayName: config.name,
+      avatarSrc: resolveAgentLogo({ backend: key }) ?? null,
+      avatarBgColor: (config as { avatarBgColor?: string }).avatarBgColor,
+    }));
+  }, [detectedBackends]);
 
   const remoteAgents: RemoteAgentConfig[] = remoteAgentList ?? [];
 
