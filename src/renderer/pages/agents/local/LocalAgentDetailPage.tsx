@@ -85,7 +85,8 @@ const REASONING_EFFORT_OPTIONS = ['minimal', 'low', 'medium', 'high'] as const;
 const LocalAgentDetailPage: React.FC = () => {
   const { key } = useParams<{ key: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language || 'en-US';
 
   const backendConfig = key ? ACP_ENABLED_BACKENDS[key] : undefined;
   const { config, loading, save } = useAgentUserConfig(key ?? '');
@@ -140,9 +141,13 @@ const LocalAgentDetailPage: React.FC = () => {
             className='shrink-0'
           />
           <div className='flex-1 min-w-0'>
-            <span className='text-18px font-semibold text-t-primary'>{backendConfig.name}</span>
+            <span className='text-18px font-semibold text-t-primary'>
+              {backendConfig.nameI18n?.[locale] ?? backendConfig.name}
+            </span>
             {backendConfig.description && (
-              <p className='text-13px text-t-secondary mt-4px'>{backendConfig.description}</p>
+              <p className='text-13px text-t-secondary mt-4px'>
+                {backendConfig.descriptionI18n?.[locale] ?? backendConfig.description}
+              </p>
             )}
           </div>
         </div>
