@@ -7,7 +7,7 @@
 import { ipcBridge } from '@/common';
 import type { IProvider, TProviderWithModel } from '@/common/config/storage';
 import { ConfigStorage } from '@/common/config/storage';
-import { uuid } from '@/common/utils';
+import { GOOGLE_AUTH_PROVIDER_ID } from '@/common/config/constants';
 import { useGeminiGoogleAuthModels } from '@/renderer/hooks/agent/useGeminiGoogleAuthModels';
 import { hasAvailableModels } from '../utils/modelUtils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -40,6 +40,8 @@ export type GuidModelSelectionResult = {
   formatGeminiModelLabel: (provider: { platform?: string } | undefined, modelName?: string) => string;
   currentModel: TProviderWithModel | undefined;
   setCurrentModel: (modelInfo: TProviderWithModel) => Promise<void>;
+  /** Set currentModel in-memory only, without persisting to storage. Use when applying per-agent preferences. */
+  setCurrentModelTransient: (modelInfo: TProviderWithModel) => void;
 };
 
 /**
@@ -60,7 +62,7 @@ export const useGuidModelSelection = (): GuidModelSelectionResult => {
 
     if (isGoogleAuth) {
       const geminiProvider: IProvider = {
-        id: uuid(),
+        id: GOOGLE_AUTH_PROVIDER_ID,
         name: 'Gemini Google Auth',
         platform: 'gemini-with-google-auth',
         baseUrl: '',
@@ -96,6 +98,11 @@ export const useGuidModelSelection = (): GuidModelSelectionResult => {
 
   const [currentModel, _setCurrentModel] = useState<TProviderWithModel>();
   const selectedModelKeyRef = useRef<string | null>(null);
+
+  const setCurrentModelTransient = useCallback((modelInfo: TProviderWithModel) => {
+    selectedModelKeyRef.current = buildModelKey(modelInfo.id, modelInfo.useModel);
+    _setCurrentModel(modelInfo);
+  }, []);
 
   const setCurrentModel = useCallback(async (modelInfo: TProviderWithModel) => {
     selectedModelKeyRef.current = buildModelKey(modelInfo.id, modelInfo.useModel);
@@ -165,5 +172,6 @@ export const useGuidModelSelection = (): GuidModelSelectionResult => {
     formatGeminiModelLabel,
     currentModel,
     setCurrentModel,
+    setCurrentModelTransient,
   };
 };

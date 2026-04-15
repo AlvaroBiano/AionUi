@@ -115,6 +115,7 @@ const GuidPage: React.FC = () => {
     pendingConfigOptions: agentSelection.pendingConfigOptions,
     cachedConfigOptions: agentSelection.cachedConfigOptions,
     currentModel: modelSelection.currentModel,
+    defaultMcpServers: agentSelection.defaultMcpServers,
 
     // Agent helpers
     findAgentByKey: agentSelection.findAgentByKey,
@@ -412,6 +413,50 @@ const GuidPage: React.FC = () => {
       onSelect={mention.selectMentionAgent}
     />
   );
+
+  // Apply per-agent preferred model when switching agents (gemini / aionrs)
+  const prevPreferredAgentRef = useRef<string>('');
+  useEffect(() => {
+    const agent = agentSelection.selectedAgent as string;
+    if (agent === prevPreferredAgentRef.current) return;
+    prevPreferredAgentRef.current = agent;
+
+    if (agent === 'aionrs') {
+      // selectedAcpModel is already loaded from acp.config.aionrs.preferredModelId
+      const preferredModel = agentSelection.selectedAcpModel;
+      if (preferredModel && preferredModel.includes('::')) {
+        const sepIdx = preferredModel.indexOf('::');
+        const providerId = preferredModel.slice(0, sepIdx);
+        const modelName = preferredModel.slice(sepIdx + 2);
+        const nonGoogleList = modelSelection.modelList.filter(
+          (p) => !p.platform?.toLowerCase().includes('gemini-with-google-auth')
+        );
+        const provider = nonGoogleList.find((p) => p.id === providerId);
+        if (provider) {
+          modelSelection.setCurrentModelTransient({
+            ...provider,
+            useModel: modelName,
+          } as import('@/common/config/storage').TProviderWithModel);
+        }
+      }
+    } else if (agent === 'gemini') {
+      // gemini.defaultModel is kept in sync with gemini.config.preferredModelId by LocalAgentDetailPage
+      void ConfigStorage.get('gemini.defaultModel')
+        .then((saved) => {
+          if (saved && typeof saved === 'object' && 'id' in saved && 'useModel' in saved) {
+            const { id, useModel } = saved as { id: string; useModel: string };
+            const provider = modelSelection.modelList.find((p) => p.id === id);
+            if (provider && provider.model.includes(useModel)) {
+              modelSelection.setCurrentModelTransient({
+                ...provider,
+                useModel,
+              } as import('@/common/config/storage').TProviderWithModel);
+            }
+          }
+        })
+        .catch(console.error);
+    }
+  }, [agentSelection.selectedAgent, agentSelection.selectedAcpModel, modelSelection.modelList]);
 
   // AionCLI does not support Google Auth — filter it out when aionrs is selected
   const isAionrs = agentSelection.selectedAgent === 'aionrs';

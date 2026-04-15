@@ -966,6 +966,8 @@ export interface ICreateConversationParams {
     excludeBuiltinSkills?: string[];
     /** Team ownership — conversations with teamId are hidden from the sidebar */
     teamId?: string;
+    /** Per-agent default MCP server IDs (from agent settings). When set, only these servers are injected. */
+    defaultMcpServers?: string[];
   };
 }
 interface IResetConversationParams {

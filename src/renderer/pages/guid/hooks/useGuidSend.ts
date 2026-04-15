@@ -39,6 +39,7 @@ export type GuidSendDeps = {
   pendingConfigOptions: Record<string, string>;
   cachedConfigOptions: import('@/common/types/acpTypes').AcpSessionConfigOption[];
   currentModel: TProviderWithModel | undefined;
+  defaultMcpServers?: string[];
 
   // Agent helpers
   findAgentByKey: (key: string) => AvailableAgent | undefined;
@@ -95,6 +96,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     pendingConfigOptions,
     cachedConfigOptions,
     currentModel,
+    defaultMcpServers,
     findAgentByKey,
     getEffectiveAgentType,
     resolvePresetRulesAndSkills,
@@ -405,6 +407,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
           : undefined,
         sessionMode: selectedMode,
         currentModelId: selectedAcpModel || undefined,
+        defaultMcpServers: defaultMcpServers?.length ? defaultMcpServers : undefined,
         extra: {
           defaultFiles: files,
         },
@@ -472,6 +475,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     pendingConfigOptions,
     cachedConfigOptions,
     currentModel,
+    defaultMcpServers,
     findAgentByKey,
     getEffectiveAgentType,
     resolvePresetRulesAndSkills,

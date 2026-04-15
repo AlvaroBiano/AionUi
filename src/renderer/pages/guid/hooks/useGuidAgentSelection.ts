@@ -55,6 +55,8 @@ export type GuidAgentSelectionResult = {
   getEffectiveAgentType: (agentInfo: { backend: AcpBackend; customAgentId?: string } | undefined) => EffectiveAgentInfo;
   refreshCustomAgents: () => Promise<void>;
   customAgentAvatarMap: Map<string, string | undefined>;
+  /** Default MCP server IDs for the current agent (from agent settings). Empty = include all. */
+  defaultMcpServers: string[] | undefined;
 };
 
 type UseGuidAgentSelectionOptions = {
@@ -81,6 +83,7 @@ export const useGuidAgentSelection = ({
   const [selectedAcpModel, _setSelectedAcpModel] = useState<string | null>(null);
   const [cachedConfigOptions, setCachedConfigOptions] = useState<AcpSessionConfigOption[]>([]);
   const [pendingConfigOptions, setPendingConfigOptions] = useState<Record<string, string>>({});
+  const [defaultMcpServers, setDefaultMcpServers] = useState<string[] | undefined>(undefined);
 
   // Wrap setSelectedAgentKey to also save to storage
   const setSelectedAgentKey = useCallback((key: string) => {
@@ -407,9 +410,10 @@ export const useGuidAgentSelection = ({
     };
   }, [selectedAgentKey, acpCachedModels, isPresetAgent, currentEffectiveAgentInfo.agentType]);
 
-  // Read preferred mode or fallback to legacy yoloMode config
+  // Read preferred mode and defaultMcpServers or fallback to legacy yoloMode config
   useEffect(() => {
     _setSelectedMode('default');
+    setDefaultMcpServers(undefined);
     // For preset agents, use the effective backend type for config lookup and mode saving
     const configKey = isPresetAgent ? currentEffectiveAgentInfo.agentType : selectedAgent;
     selectedAgentRef.current = configKey;
@@ -422,6 +426,7 @@ export const useGuidAgentSelection = ({
         // Read preferredMode from the agent's own config, fallback to legacy yoloMode
         let preferred: string | undefined;
         let yoloMode = false;
+        let mcpServers: string[] | undefined;
 
         if (configKey === 'gemini') {
           const config = await ConfigStorage.get('gemini.config');
@@ -432,9 +437,16 @@ export const useGuidAgentSelection = ({
           const backendConfig = config?.[configKey as AcpBackend] as Record<string, unknown> | undefined;
           preferred = backendConfig?.preferredMode as string | undefined;
           yoloMode = (backendConfig?.yoloMode as boolean) ?? false;
+          const rawMcp = backendConfig?.defaultMcpServers;
+          if (Array.isArray(rawMcp) && rawMcp.length > 0) {
+            mcpServers = rawMcp as string[];
+          }
         }
 
         if (cancelled) return;
+
+        // Apply defaultMcpServers
+        setDefaultMcpServers(mcpServers);
 
         // 1. Use preferredMode if valid
         if (preferred) {
@@ -537,5 +549,6 @@ export const useGuidAgentSelection = ({
     getEffectiveAgentType,
     refreshCustomAgents,
     customAgentAvatarMap,
+    defaultMcpServers,
   };
 };

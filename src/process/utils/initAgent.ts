@@ -259,6 +259,8 @@ export const createAcpAgent = async (options: ICreateConversationParams): Promis
       sessionMode: extra.sessionMode,
       // Pre-selected model from Guid page (cached model list)
       currentModelId: extra.currentModelId,
+      // Per-agent default MCP server IDs (from agent settings)
+      defaultMcpServers: extra.defaultMcpServers,
       // Explicit marker for temporary health-check conversations
       isHealthCheck: extra.isHealthCheck,
       // Team ownership — used by sidebar filter to hide team-owned conversations

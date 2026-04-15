@@ -117,6 +117,8 @@ export interface AcpAgentConfig {
     teamMcpStdioConfig?: { name: string; command: string; args: string[]; env: Array<{ name: string; value: string }> };
     /** Pending config option selections from Guid page (applied after session creation) */
     pendingConfigOptions?: Record<string, string>;
+    /** Per-agent default MCP server IDs. When set, only these servers are injected into the session. */
+    defaultMcpServers?: string[];
   };
   onStreamEvent: (data: IResponseMessage) => void;
   onSignalEvent?: (data: IResponseMessage) => void; // 新增：仅发送信号，不更新UI
@@ -153,6 +155,8 @@ export class AcpAgent {
     teamMcpStdioConfig?: { name: string; command: string; args: string[]; env: Array<{ name: string; value: string }> };
     /** Pending config option selections from Guid page (applied after session creation) */
     pendingConfigOptions?: Record<string, string>;
+    /** Per-agent default MCP server IDs. When set, only these servers are injected into the session. */
+    defaultMcpServers?: string[];
   };
   private connection: AcpConnection;
   private adapter: AcpAdapter;
@@ -1602,7 +1606,11 @@ export class AcpAgent {
 
       if (Array.isArray(mcpConfig) && mcpConfig.length > 0) {
         const capabilities = parseAcpMcpCapabilities(this.connection.getInitializeResponse());
-        servers.push(...buildBuiltinAcpSessionMcpServers(mcpConfig as IMcpServer[], capabilities));
+        // Filter by per-agent default MCP server IDs if specified
+        const filteredConfig = this.extra.defaultMcpServers?.length
+          ? (mcpConfig as IMcpServer[]).filter((s) => this.extra.defaultMcpServers!.includes(s.id))
+          : (mcpConfig as IMcpServer[]);
+        servers.push(...buildBuiltinAcpSessionMcpServers(filteredConfig, capabilities));
       }
 
       // Inject team MCP server if this agent belongs to a team (stdio mode)
