@@ -43,41 +43,6 @@ const Row: React.FC<{
   </div>
 );
 
-// ── Runtime status (Aion CLI only) ───────────────────────────────────────────
-
-type AionrsInfo = { available: boolean; version?: string; path?: string };
-
-const AionrsRuntimeSection: React.FC<{ t: ReturnType<typeof useTranslation>['t'] }> = ({ t }) => {
-  const [info, setInfo] = useState<AionrsInfo | null>(null);
-
-  useEffect(() => {
-    void ipcBridge.acpConversation.getAvailableAgents.invoke().then((result) => {
-      if (result.success) {
-        const agent = result.data.find((a) => a.backend === 'aionrs');
-        setInfo(agent ? { available: true, path: agent.cliPath } : { available: false });
-      }
-    });
-  }, []);
-
-  return (
-    <Section title={t('common.status', { defaultValue: 'Status' })}>
-      <Row
-        label={t('common.status', { defaultValue: 'Status' })}
-        children={
-          <Tag color={info?.available ? 'green' : info === null ? 'gray' : 'red'} size='small'>
-            {info === null
-              ? '...'
-              : info.available
-                ? t('settings.aionrs.available', { defaultValue: 'Available' })
-                : t('settings.aionrs.notFound', { defaultValue: 'Not Found' })}
-          </Tag>
-        }
-      />
-      {info?.path && <Row label={t('settings.aionrs.path', { defaultValue: 'Path' })} mono children={info.path} />}
-    </Section>
-  );
-};
-
 // ── Main page ────────────────────────────────────────────────────────────────
 
 const REASONING_EFFORT_OPTIONS = ['minimal', 'low', 'medium', 'high'] as const;
@@ -93,12 +58,26 @@ const LocalAgentDetailPage: React.FC = () => {
   const { allMcpServers } = useMcpServers();
 
   const [cachedModels, setCachedModels] = useState<AcpModelInfo | null>(null);
+  // null = loading, undefined = not found, string = path
+  const [detectedPath, setDetectedPath] = useState<string | null | undefined>(null);
 
   // Load cached model list for this backend
   useEffect(() => {
     if (!key) return;
     void ConfigStorage.get('acp.cachedModels').then((all) => {
       if (all && key in all) setCachedModels(all[key] ?? null);
+    });
+  }, [key]);
+
+  // Detect runtime status for this backend
+  useEffect(() => {
+    if (!key) return;
+    setDetectedPath(null);
+    void ipcBridge.acpConversation.getAvailableAgents.invoke().then((result) => {
+      if (result.success) {
+        const found = result.data.find((a) => a.backend === key);
+        setDetectedPath(found ? (found.cliPath ?? '') : undefined);
+      }
     });
   }, [key]);
 
@@ -122,7 +101,6 @@ const LocalAgentDetailPage: React.FC = () => {
     );
   }
 
-  const isAionrs = key === 'aionrs';
   const isGemini = key === 'gemini';
   const isCodex = key === 'codex';
 
@@ -152,8 +130,24 @@ const LocalAgentDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Runtime status (Aion CLI only) ── */}
-        {isAionrs && <AionrsRuntimeSection t={t} />}
+        {/* ── Runtime status ── */}
+        <Section title={t('common.status', { defaultValue: 'Status' })}>
+          <Row
+            label={t('common.status', { defaultValue: 'Status' })}
+            children={
+              <Tag color={detectedPath === null ? 'gray' : detectedPath !== undefined ? 'green' : 'red'} size='small'>
+                {detectedPath === null
+                  ? '...'
+                  : detectedPath !== undefined
+                    ? t('settings.aionrs.available', { defaultValue: 'Available' })
+                    : t('settings.aionrs.notFound', { defaultValue: 'Not Found' })}
+              </Tag>
+            }
+          />
+          {detectedPath !== null && detectedPath !== undefined && detectedPath !== '' && (
+            <Row label={t('settings.aionrs.path', { defaultValue: 'Path' })} mono children={detectedPath} />
+          )}
+        </Section>
 
         {/* ── Connection info ── */}
         {(backendConfig.cliCommand ?? backendConfig.defaultCliPath) && (
