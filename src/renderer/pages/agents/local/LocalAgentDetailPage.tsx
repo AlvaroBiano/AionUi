@@ -232,7 +232,7 @@ const LocalAgentDetailPage: React.FC = () => {
                 >
                   {getAgentModes(key!).map((m) => (
                     <Select.Option key={m.value} value={m.value}>
-                      {m.label}
+                      {t(`agentMode.${m.value}`, { defaultValue: m.label })}
                     </Select.Option>
                   ))}
                 </Select>

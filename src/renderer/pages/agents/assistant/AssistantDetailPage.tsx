@@ -409,7 +409,7 @@ const AssistantDetailPage: React.FC = () => {
               >
                 {getAgentModes(editor.editAgent).map((m) => (
                   <Select.Option key={m.value} value={m.value}>
-                    {m.label}
+                    {t(`agentMode.${m.value}`, { defaultValue: m.label })}
                   </Select.Option>
                 ))}
               </Select>
