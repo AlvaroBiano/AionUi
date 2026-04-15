@@ -55,6 +55,12 @@ export interface IConfigStorageRefer {
       preferredModelId?: string;
       /** LLM prompt timeout in seconds (default: 300) / LLM 请求超时时间（秒，默认 300） */
       promptTimeout?: number;
+      /** Default reasoning effort for this agent (Codex only) */
+      reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
+      /** Default skill IDs to enable for new conversations with this agent */
+      defaultSkills?: string[];
+      /** Default MCP server IDs to enable for new conversations with this agent */
+      defaultMcpServers?: string[];
     };
   };
   /** Global LLM prompt timeout in seconds (default: 300). Per-backend promptTimeout overrides this. */
