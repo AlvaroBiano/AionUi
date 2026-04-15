@@ -122,6 +122,8 @@
     },
     "user": {
       "defaultName": "用戶"
-    }
+    },
+    "defaultPermission": "預設權限模式",
+    "defaultPermissionHint": "新建對話時使用的預設權限模式。"
   }
 }

@@ -122,6 +122,8 @@
     "sandboxMode": "Sandbox Mode",
     "reasoningEffortHint": "Default reasoning effort for new conversations.",
     "defaultMcp": "Default MCP Servers",
-    "auth": "Authentication"
+    "auth": "Authentication",
+    "defaultPermission": "Default Permission Mode",
+    "defaultPermissionHint": "Default permission mode applied when starting new conversations."
   }
 }

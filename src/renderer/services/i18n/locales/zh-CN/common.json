@@ -122,6 +122,8 @@
     "sandboxMode": "沙盒模式",
     "reasoningEffortHint": "新建对话时的默认思考深度。",
     "defaultMcp": "默认 MCP 服务",
-    "auth": "认证"
+    "auth": "认证",
+    "defaultPermission": "默认权限模式",
+    "defaultPermissionHint": "新建对话时使用的默认权限模式。"
   }
 }

@@ -17,6 +17,7 @@ import {
 } from '@/renderer/hooks/assistant';
 import { useAgentUserConfig } from '@/renderer/hooks/agent/useAgentUserConfig';
 import { ConfigStorage } from '@/common/config/storage';
+import { getAgentModes } from '@/renderer/utils/model/agentModes';
 import type { AcpModelInfo } from '@/common/types/acpTypes';
 import {
   hasBuiltinSkills,
@@ -27,7 +28,7 @@ import AddCustomPathModal from '@/renderer/pages/settings/AgentSettings/Assistan
 import AddSkillsModal from '@/renderer/pages/settings/AgentSettings/AssistantManagement/AddSkillsModal';
 import DeleteAssistantModal from '@/renderer/pages/settings/AgentSettings/AssistantManagement/DeleteAssistantModal';
 import SkillConfirmModals from '@/renderer/pages/settings/AgentSettings/AssistantManagement/SkillConfirmModals';
-import { Button, Checkbox, Collapse, Input, Message, Select, Switch, Tag, Typography } from '@arco-design/web-react';
+import { Button, Checkbox, Collapse, Input, Message, Select, Tag, Typography } from '@arco-design/web-react';
 import { Delete, Plus, Robot } from '@icon-park/react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -84,7 +85,7 @@ const AssistantDetailPage: React.FC = () => {
     message: messageApi,
   });
 
-  // Per-assistant config (preferredModelId, yoloMode) — only meaningful for saved assistants
+  // Per-assistant config (preferredModelId, preferredMode) — only meaningful for saved assistants
   const { config: agentConfig, save: saveAgentConfig } = useAgentUserConfig(id !== 'new' ? (id ?? '') : '');
   const [cachedModels, setCachedModels] = useState<AcpModelInfo | null>(null);
 
@@ -396,27 +397,22 @@ const AssistantDetailPage: React.FC = () => {
           )}
 
           {/* Permissions */}
-          {id !== 'new' && (
+          {id !== 'new' && getAgentModes(editor.editAgent).length > 0 && (
             <div className='flex flex-col gap-8px'>
               <Typography.Text bold>{t('common.agents.permissions', { defaultValue: 'Permissions' })}</Typography.Text>
-              <div className='bg-fill-2 rd-8px px-16px py-4px'>
-                <div className='flex items-center justify-between gap-16px py-12px'>
-                  <div className='flex flex-col gap-2px'>
-                    <span className='text-14px text-t-primary'>
-                      {t('common.agents.yoloMode', { defaultValue: 'Auto-approve All' })}
-                    </span>
-                    <span className='text-12px text-t-secondary'>
-                      {t('common.agents.yoloModeHint', {
-                        defaultValue: 'Skip permission prompts and auto-approve all tool calls.',
-                      })}
-                    </span>
-                  </div>
-                  <Switch
-                    checked={agentConfig.yoloMode ?? false}
-                    onChange={(v) => void saveAgentConfig({ yoloMode: v })}
-                  />
-                </div>
-              </div>
+              <Select
+                value={agentConfig.preferredMode ?? ''}
+                placeholder={t('common.default', { defaultValue: 'Default' })}
+                allowClear
+                className='w-full !rounded-8px'
+                onChange={(v: string) => void saveAgentConfig({ preferredMode: v || undefined })}
+              >
+                {getAgentModes(editor.editAgent).map((m) => (
+                  <Select.Option key={m.value} value={m.value}>
+                    {m.label}
+                  </Select.Option>
+                ))}
+              </Select>
             </div>
           )}
 

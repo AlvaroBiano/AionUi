@@ -11,9 +11,10 @@ import AgentAvatar from '@/renderer/components/AgentAvatar';
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { useAgentUserConfig } from '@/renderer/hooks/agent/useAgentUserConfig';
 import { useMcpServers } from '@/renderer/hooks/mcp';
+import { getAgentModes } from '@/renderer/utils/model/agentModes';
 import GeminiModalContent from '@/renderer/components/settings/SettingsModal/contents/GeminiModalContent';
 import { ipcBridge } from '@/common';
-import { Button, Checkbox, Message, Select, Switch, Tag } from '@arco-design/web-react';
+import { Button, Checkbox, Message, Select, Tag } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -208,37 +209,32 @@ const LocalAgentDetailPage: React.FC = () => {
         )}
 
         {/* ── Permissions ── */}
-        <Section title={t('common.agents.permissions', { defaultValue: 'Permissions' })}>
-          <Row
-            label={t('common.agents.yoloMode', { defaultValue: 'Auto-approve All' })}
-            hint={t('common.agents.yoloModeHint', {
-              defaultValue: 'Skip permission prompts and auto-approve all tool calls.',
-            })}
-            children={
-              <Switch
-                checked={config.yoloMode ?? false}
-                onChange={(v) => void handleSave({ yoloMode: v })}
-              />
-            }
-          />
-          {isCodex && (
+        {getAgentModes(key!).length > 0 && (
+          <Section title={t('common.agents.permissions', { defaultValue: 'Permissions' })}>
             <Row
-              label={t('common.agents.sandboxMode', { defaultValue: 'Sandbox Mode' })}
+              label={t('common.agents.defaultPermission', { defaultValue: 'Default Permission Mode' })}
+              hint={t('common.agents.defaultPermissionHint', {
+                defaultValue: 'Default permission mode applied when starting new conversations.',
+              })}
               children={
                 <Select
                   size='small'
-                  style={{ width: 200 }}
-                  value={config.preferredMode ?? 'read-only'}
-                  onChange={(v: string) => void handleSave({ preferredMode: v })}
+                  style={{ width: 180 }}
+                  value={config.preferredMode ?? ''}
+                  placeholder={t('common.default', { defaultValue: 'Default' })}
+                  allowClear
+                  onChange={(v: string) => void handleSave({ preferredMode: v || undefined })}
                 >
-                  <Select.Option value='read-only'>Read Only</Select.Option>
-                  <Select.Option value='workspace-write'>Workspace Write</Select.Option>
-                  <Select.Option value='danger-full-access'>Full Access</Select.Option>
+                  {getAgentModes(key!).map((m) => (
+                    <Select.Option key={m.value} value={m.value}>
+                      {m.label}
+                    </Select.Option>
+                  ))}
                 </Select>
               }
             />
-          )}
-        </Section>
+          </Section>
+        )}
 
         {/* ── Thinking Depth (Codex only) ── */}
         {isCodex && (
@@ -281,9 +277,7 @@ const LocalAgentDetailPage: React.FC = () => {
                       checked={enabled}
                       onChange={(v) => {
                         const current = config.defaultMcpServers ?? [];
-                        const next = v
-                          ? [...current, server.id]
-                          : current.filter((id) => id !== server.id);
+                        const next = v ? [...current, server.id] : current.filter((id) => id !== server.id);
                         void handleSave({ defaultMcpServers: next.length ? next : undefined });
                       }}
                     />
@@ -305,11 +299,7 @@ const LocalAgentDetailPage: React.FC = () => {
 
         {/* ── Backend info ── */}
         <Section title={t('settings.agentManagement.backendKey', { defaultValue: 'Backend Info' })}>
-          <Row
-            label={t('settings.agentManagement.backendKey', { defaultValue: 'Backend ID' })}
-            mono
-            children={key}
-          />
+          <Row label={t('settings.agentManagement.backendKey', { defaultValue: 'Backend ID' })} mono children={key} />
           {backendConfig.presetAgentType && (
             <Row
               label={t('settings.agentManagement.agentType', { defaultValue: 'Agent Type' })}

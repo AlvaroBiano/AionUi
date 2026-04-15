@@ -122,6 +122,8 @@
     },
     "user": {
       "defaultName": "사용자"
-    }
+    },
+    "defaultPermission": "기본 권한 모드",
+    "defaultPermissionHint": "새 대화를 시작할 때 적용할 기본 권한 모드입니다."
   }
 }
