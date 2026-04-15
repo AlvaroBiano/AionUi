@@ -15,6 +15,9 @@ import {
   useAssistantList,
   useAssistantSkills,
 } from '@/renderer/hooks/assistant';
+import { useAgentUserConfig } from '@/renderer/hooks/agent/useAgentUserConfig';
+import { ConfigStorage } from '@/common/config/storage';
+import type { AcpModelInfo } from '@/common/types/acpTypes';
 import {
   hasBuiltinSkills,
   resolveAvatarImageSrc,
@@ -24,7 +27,7 @@ import AddCustomPathModal from '@/renderer/pages/settings/AgentSettings/Assistan
 import AddSkillsModal from '@/renderer/pages/settings/AgentSettings/AssistantManagement/AddSkillsModal';
 import DeleteAssistantModal from '@/renderer/pages/settings/AgentSettings/AssistantManagement/DeleteAssistantModal';
 import SkillConfirmModals from '@/renderer/pages/settings/AgentSettings/AssistantManagement/SkillConfirmModals';
-import { Button, Checkbox, Collapse, Input, Message, Select, Tag, Typography } from '@arco-design/web-react';
+import { Button, Checkbox, Collapse, Input, Message, Select, Switch, Tag, Typography } from '@arco-design/web-react';
 import { Delete, Plus, Robot } from '@icon-park/react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -80,6 +83,20 @@ const AssistantDetailPage: React.FC = () => {
     setSelectedSkills: editor.setSelectedSkills,
     message: messageApi,
   });
+
+  // Per-assistant config (preferredModelId, yoloMode) — only meaningful for saved assistants
+  const { config: agentConfig, save: saveAgentConfig } = useAgentUserConfig(id !== 'new' ? (id ?? '') : '');
+  const [cachedModels, setCachedModels] = useState<AcpModelInfo | null>(null);
+
+  // Reload model cache whenever the selected backend changes
+  useEffect(() => {
+    if (!editor.editAgent) return;
+    void ConfigStorage.get('acp.cachedModels').then((all) => {
+      const key = editor.editAgent as string;
+      if (all && key in all) setCachedModels((all as Record<string, AcpModelInfo>)[key] ?? null);
+      else setCachedModels(null);
+    });
+  }, [editor.editAgent]);
 
   const [initialized, setInitialized] = useState(false);
   const initIdRef = useRef<string | null>(null);
@@ -349,6 +366,59 @@ const AssistantDetailPage: React.FC = () => {
               {totalActiveSkillsCount > 0 ? `${totalActiveSkillsCount}/${totalSkillsCount}` : totalSkillsCount}
             </Tag>
           </div>
+
+          {/* Default Model */}
+          {id !== 'new' && (
+            <div className='flex flex-col gap-8px'>
+              <Typography.Text bold>{t('common.defaultModel', { defaultValue: 'Default Model' })}</Typography.Text>
+              {cachedModels && cachedModels.availableModels.length > 0 ? (
+                <Select
+                  value={agentConfig.preferredModelId ?? ''}
+                  placeholder={t('common.default', { defaultValue: 'Default' })}
+                  allowClear
+                  className='w-full !rounded-8px'
+                  onChange={(v: string) => void saveAgentConfig({ preferredModelId: v || undefined })}
+                >
+                  {cachedModels.availableModels.map((m) => (
+                    <Select.Option key={m.id} value={m.id}>
+                      {m.label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              ) : (
+                <span className='text-12px text-t-secondary'>
+                  {t('common.agents.noModelCache', {
+                    defaultValue: 'Start a conversation to populate the model list.',
+                  })}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Permissions */}
+          {id !== 'new' && (
+            <div className='flex flex-col gap-8px'>
+              <Typography.Text bold>{t('common.agents.permissions', { defaultValue: 'Permissions' })}</Typography.Text>
+              <div className='bg-fill-2 rd-8px px-16px py-4px'>
+                <div className='flex items-center justify-between gap-16px py-12px'>
+                  <div className='flex flex-col gap-2px'>
+                    <span className='text-14px text-t-primary'>
+                      {t('common.agents.yoloMode', { defaultValue: 'Auto-approve All' })}
+                    </span>
+                    <span className='text-12px text-t-secondary'>
+                      {t('common.agents.yoloModeHint', {
+                        defaultValue: 'Skip permission prompts and auto-approve all tool calls.',
+                      })}
+                    </span>
+                  </div>
+                  <Switch
+                    checked={agentConfig.yoloMode ?? false}
+                    onChange={(v) => void saveAgentConfig({ yoloMode: v })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Rules / System Prompt */}
           <div className='flex flex-col gap-8px'>
