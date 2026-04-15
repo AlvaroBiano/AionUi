@@ -124,6 +124,9 @@
     "defaultMcp": "Default MCP Servers",
     "auth": "Authentication",
     "defaultPermission": "Default Permission Mode",
-    "defaultPermissionHint": "Default permission mode applied when starting new conversations."
+    "defaultPermissionHint": "Default permission mode applied when starting new conversations.",
+    "connection": "Connection",
+    "llmProvider": "LLM Provider",
+    "noProviderHint": "Configure a model provider in Settings > Models first."
   }
 }

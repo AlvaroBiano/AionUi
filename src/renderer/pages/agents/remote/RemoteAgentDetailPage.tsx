@@ -155,12 +155,7 @@ const RemoteAgentDetailPage: React.FC = () => {
         </div>
 
         {/* ── Edit form ── */}
-        <Form
-          form={form}
-          layout='vertical'
-          autoComplete='off'
-          onChange={() => setDirty(true)}
-        >
+        <Form form={form} layout='vertical' autoComplete='off' onChange={() => setDirty(true)}>
           <Section title={t('common.agents.section.remote', { defaultValue: 'Connection' })}>
             <div className='py-8px flex flex-col gap-12px'>
               <FormItem
@@ -179,8 +174,12 @@ const RemoteAgentDetailPage: React.FC = () => {
               </FormItem>
               <FormItem field='authType' label={t('settings.remoteAgent.authType', { defaultValue: 'Auth Type' })}>
                 <Select>
-                  <Select.Option value='none'>{t('settings.remoteAgent.authNone', { defaultValue: 'None' })}</Select.Option>
-                  <Select.Option value='bearer'>{t('settings.remoteAgent.authBearer', { defaultValue: 'Bearer Token' })}</Select.Option>
+                  <Select.Option value='none'>
+                    {t('settings.remoteAgent.authNone', { defaultValue: 'None' })}
+                  </Select.Option>
+                  <Select.Option value='bearer'>
+                    {t('settings.remoteAgent.authBearer', { defaultValue: 'Bearer Token' })}
+                  </Select.Option>
                 </Select>
               </FormItem>
               {authType === 'bearer' && (
@@ -192,7 +191,10 @@ const RemoteAgentDetailPage: React.FC = () => {
                   <Input.Password placeholder={t('settings.remoteAgent.tokenPlaceholder')} />
                 </FormItem>
               )}
-              <FormItem field='description' label={t('settings.remoteAgent.description', { defaultValue: 'Description' })}>
+              <FormItem
+                field='description'
+                label={t('settings.remoteAgent.description', { defaultValue: 'Description' })}
+              >
                 <Input placeholder={t('settings.remoteAgent.descriptionPlaceholder')} />
               </FormItem>
               <FormItem
@@ -210,17 +212,23 @@ const RemoteAgentDetailPage: React.FC = () => {
         <Section title={t('settings.remoteAgent.protocol', { defaultValue: 'Protocol' })}>
           <div className='py-8px flex flex-col gap-4px'>
             <div className='flex justify-between py-8px border-b border-border-2'>
-              <span className='text-13px text-t-secondary'>{t('settings.remoteAgent.protocol', { defaultValue: 'Protocol' })}</span>
+              <span className='text-13px text-t-secondary'>
+                {t('settings.remoteAgent.protocol', { defaultValue: 'Protocol' })}
+              </span>
               <span className='text-13px text-t-primary font-mono'>{agent.protocol}</span>
             </div>
             {agent.lastConnectedAt && (
               <div className='flex justify-between py-8px border-b border-border-2'>
-                <span className='text-13px text-t-secondary'>{t('settings.remoteAgent.lastConnected', { defaultValue: 'Last Connected' })}</span>
+                <span className='text-13px text-t-secondary'>
+                  {t('settings.remoteAgent.lastConnected', { defaultValue: 'Last Connected' })}
+                </span>
                 <span className='text-13px text-t-primary'>{new Date(agent.lastConnectedAt).toLocaleString()}</span>
               </div>
             )}
             <div className='flex justify-between py-8px'>
-              <span className='text-13px text-t-secondary'>{t('settings.remoteAgent.created', { defaultValue: 'Created' })}</span>
+              <span className='text-13px text-t-secondary'>
+                {t('settings.remoteAgent.created', { defaultValue: 'Created' })}
+              </span>
               <span className='text-13px text-t-primary'>{new Date(agent.createdAt).toLocaleDateString()}</span>
             </div>
           </div>

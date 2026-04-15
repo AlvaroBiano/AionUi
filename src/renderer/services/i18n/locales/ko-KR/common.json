@@ -124,6 +124,9 @@
       "defaultName": "사용자"
     },
     "defaultPermission": "기본 권한 모드",
-    "defaultPermissionHint": "새 대화를 시작할 때 적용할 기본 권한 모드입니다."
+    "defaultPermissionHint": "새 대화를 시작할 때 적용할 기본 권한 모드입니다.",
+    "connection": "연결",
+    "llmProvider": "LLM 제공자",
+    "noProviderHint": "설정 > 모델에서 LLM 제공자를 먼저 구성하세요."
   }
 }

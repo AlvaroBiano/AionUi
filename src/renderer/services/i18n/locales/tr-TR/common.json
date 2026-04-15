@@ -124,6 +124,9 @@
       "defaultName": "Kullanıcı"
     },
     "defaultPermission": "Varsayılan İzin Modu",
-    "defaultPermissionHint": "Yeni konuşmalar başlatılırken uygulanan varsayılan izin modu."
+    "defaultPermissionHint": "Yeni konuşmalar başlatılırken uygulanan varsayılan izin modu.",
+    "connection": "Bağlantı",
+    "llmProvider": "LLM Sağlayıcı",
+    "noProviderHint": "Önce Ayarlar > Modeller'den bir LLM sağlayıcısı yapılandırın."
   }
 }

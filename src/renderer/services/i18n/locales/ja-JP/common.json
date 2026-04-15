@@ -124,6 +124,9 @@
       "defaultName": "ユーザー"
     },
     "defaultPermission": "デフォルト権限モード",
-    "defaultPermissionHint": "新しい会話を開始する際のデフォルト権限モード。"
+    "defaultPermissionHint": "新しい会話を開始する際のデフォルト権限モード。",
+    "connection": "接続",
+    "llmProvider": "LLMプロバイダー",
+    "noProviderHint": "設定 > モデルでLLMプロバイダーを設定してください。"
   }
 }

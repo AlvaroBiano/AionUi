@@ -3,9 +3,10 @@ import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { getModelDisplayLabel } from '@/renderer/utils/model/agentLogo';
 import { Button, Dropdown, Menu, Tooltip } from '@arco-design/web-react';
-import { Down } from '@icon-park/react';
+import { Down, Plus } from '@icon-park/react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import classNames from 'classnames';
 import useSWR from 'swr';
 import { ipcBridge } from '@/common';
@@ -24,6 +25,8 @@ const GeminiModelSelector: React.FC<{
   const compact = variant === 'header' && (isPreviewOpen || layout?.isMobile);
   const isMobileHeaderCompact = variant === 'header' && Boolean(layout?.isMobile);
   const defaultModelLabel = t('common.defaultModel');
+
+  const navigate = useNavigate();
 
   // 获取模型配置数据（包含健康状态）
   const { data: modelConfig } = useSWR<IProvider[]>('model.config', () => ipcBridge.mode.getModelConfig.invoke());
@@ -209,6 +212,14 @@ const GeminiModelSelector: React.FC<{
               </Menu.ItemGroup>
             );
           })}
+          <Menu.Item
+            key='add-model'
+            className='text-12px text-t-secondary'
+            onClick={() => void navigate('/settings/model')}
+          >
+            <Plus theme='outline' size='12' />
+            {t('settings.addModel')}
+          </Menu.Item>
         </Menu>
       }
     >

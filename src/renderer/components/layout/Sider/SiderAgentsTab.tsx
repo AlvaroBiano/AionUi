@@ -229,23 +229,25 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
   );
 
   // Local ACP backends — only show detected (installed) agents.
-  // Gemini is enabled:false in ACP_ENABLED_BACKENDS (handled separately via OAuth),
-  // so pull it from ACP_BACKENDS_ALL and always show it.
+  // Gemini and Aion CLI are built-in agents — always shown first regardless of detection.
+  // Other ACP agents are filtered to only detected ones.
   // While detection is loading (undefined), fall back to showing all.
   const localAgents = useMemo(() => {
-    const entries = Object.entries(ACP_ENABLED_BACKENDS).filter(([key]) => {
-      if (['remote', 'custom'].includes(key)) return false;
+    // Built-in agents always shown first: Gemini CLI, then Aion CLI
+    const BUILTIN_KEYS = ['gemini', 'aionrs'] as const;
+    const builtinEntries = BUILTIN_KEYS.flatMap((k) => {
+      const cfg = ACP_BACKENDS_ALL[k] ?? ACP_ENABLED_BACKENDS[k];
+      return cfg ? [[k, cfg] as [string, typeof cfg]] : [];
+    });
+
+    // Remaining ACP agents (excluding builtins, remote, custom), filtered by detection
+    const otherEntries = Object.entries(ACP_ENABLED_BACKENDS).filter(([key]) => {
+      if (['remote', 'custom', ...BUILTIN_KEYS].includes(key as (typeof BUILTIN_KEYS)[number])) return false;
       if (detectedBackends === undefined) return true; // still loading
       return detectedBackends !== null && detectedBackends.has(key);
     });
 
-    // Prepend Gemini if it exists in ACP_BACKENDS_ALL
-    const geminiConfig = ACP_BACKENDS_ALL['gemini'];
-    if (geminiConfig) {
-      entries.unshift(['gemini', geminiConfig]);
-    }
-
-    return entries.map(([key, config]) => ({
+    return [...builtinEntries, ...otherEntries].map(([key, config]) => ({
       key,
       displayName: config.name,
       avatarSrc: resolveAgentLogo({ backend: key }) ?? null,

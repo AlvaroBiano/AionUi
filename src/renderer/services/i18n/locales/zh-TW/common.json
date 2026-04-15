@@ -124,6 +124,9 @@
       "defaultName": "用戶"
     },
     "defaultPermission": "預設權限模式",
-    "defaultPermissionHint": "新建對話時使用的預設權限模式。"
+    "defaultPermissionHint": "新建對話時使用的預設權限模式。",
+    "connection": "連線",
+    "llmProvider": "LLM 提供商",
+    "noProviderHint": "請先在設定 > 模型中配置 LLM 提供商。"
   }
 }

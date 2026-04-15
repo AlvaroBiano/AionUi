@@ -124,6 +124,9 @@
     "defaultMcp": "默认 MCP 服务",
     "auth": "认证",
     "defaultPermission": "默认权限模式",
-    "defaultPermissionHint": "新建对话时使用的默认权限模式。"
+    "defaultPermissionHint": "新建对话时使用的默认权限模式。",
+    "connection": "连接",
+    "llmProvider": "LLM 提供商",
+    "noProviderHint": "请先在设置 > 模型中配置 LLM 提供商。"
   }
 }
