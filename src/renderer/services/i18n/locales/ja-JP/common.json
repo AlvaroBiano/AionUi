@@ -104,11 +104,6 @@
   "assistants.tab.remote": "リモートエージェント",
   "assistants.card.chat": "チャット",
   "assistants.card.edit": "編集",
-  "agents.section.local": "ローカルエージェント",
-  "agents.section.remote": "リモートエージェント",
-  "agents.section.assistants": "アシスタント",
-  "agents.section.people": "ユーザー",
-  "agents.user.defaultName": "ユーザー",
   "agents": {
     "defaultModelHint": "このエージェントで新しい会話を開始する際のデフォルトモデル。",
     "noModelCache": "会話を開始するとモデルリストが自動的にキャッシュされます。",
@@ -118,6 +113,15 @@
     "sandboxMode": "サンドボックスモード",
     "reasoningEffortHint": "新しい会話でのデフォルトの推論努力量。",
     "defaultMcp": "デフォルト MCP サーバー",
-    "auth": "認証"
+    "auth": "認証",
+    "section": {
+      "local": "ローカルエージェント",
+      "remote": "リモートエージェント",
+      "assistants": "アシスタント",
+      "people": "ユーザー"
+    },
+    "user": {
+      "defaultName": "ユーザー"
+    }
   }
 }

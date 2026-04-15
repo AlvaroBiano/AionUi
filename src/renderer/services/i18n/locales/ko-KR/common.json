@@ -104,11 +104,6 @@
   "assistants.tab.remote": "원격 에이전트",
   "assistants.card.chat": "채팅",
   "assistants.card.edit": "편집",
-  "agents.section.local": "로컬 에이전트",
-  "agents.section.remote": "원격 에이전트",
-  "agents.section.assistants": "어시스턴트",
-  "agents.section.people": "사람",
-  "agents.user.defaultName": "사용자",
   "agents": {
     "defaultModelHint": "이 에이전트로 새 대화를 시작할 때 사용할 기본 모델입니다.",
     "noModelCache": "대화를 시작하면 모델 목록이 자동으로 캐시됩니다.",
@@ -118,6 +113,15 @@
     "sandboxMode": "샌드박스 모드",
     "reasoningEffortHint": "새 대화의 기본 추론 노력입니다.",
     "defaultMcp": "기본 MCP 서버",
-    "auth": "인증"
+    "auth": "인증",
+    "section": {
+      "local": "로컬 에이전트",
+      "remote": "원격 에이전트",
+      "assistants": "어시스턴트",
+      "people": "사람"
+    },
+    "user": {
+      "defaultName": "사용자"
+    }
   }
 }

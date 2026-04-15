@@ -104,11 +104,6 @@
   "assistants.tab.remote": "遠端 Agent",
   "assistants.card.chat": "對話",
   "assistants.card.edit": "編輯",
-  "agents.section.local": "本地 Agent",
-  "agents.section.remote": "遠端 Agent",
-  "agents.section.assistants": "助手",
-  "agents.section.people": "人類",
-  "agents.user.defaultName": "用戶",
   "agents": {
     "defaultModelHint": "新建對話時使用此 Agent 的預設模型。",
     "noModelCache": "發起一次對話後將自動快取可用模型清單。",
@@ -118,6 +113,15 @@
     "sandboxMode": "沙盒模式",
     "reasoningEffortHint": "新建對話時的預設思考深度。",
     "defaultMcp": "預設 MCP 服務",
-    "auth": "認證"
+    "auth": "認證",
+    "section": {
+      "local": "本地 Agent",
+      "remote": "遠端 Agent",
+      "assistants": "助手",
+      "people": "人類"
+    },
+    "user": {
+      "defaultName": "用戶"
+    }
   }
 }

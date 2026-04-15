@@ -104,12 +104,16 @@
   "assistants.tab.remote": "Remote Agents",
   "assistants.card.chat": "Chat",
   "assistants.card.edit": "Edit",
-  "agents.section.local": "Local Agents",
-  "agents.section.remote": "Remote Agents",
-  "agents.section.assistants": "Assistants",
-  "agents.section.people": "People",
-  "agents.user.defaultName": "User",
   "agents": {
+    "section": {
+      "local": "Local Agents",
+      "remote": "Remote Agents",
+      "assistants": "Assistants",
+      "people": "People"
+    },
+    "user": {
+      "defaultName": "User"
+    },
     "defaultModelHint": "Applied when starting new conversations with this agent.",
     "noModelCache": "Start a conversation to populate the model list.",
     "permissions": "Permissions",

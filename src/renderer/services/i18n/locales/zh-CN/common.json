@@ -104,12 +104,16 @@
   "assistants.tab.remote": "远程 Agent",
   "assistants.card.chat": "对话",
   "assistants.card.edit": "编辑",
-  "agents.section.local": "本地 Agent",
-  "agents.section.remote": "远端 Agent",
-  "agents.section.assistants": "助手",
-  "agents.section.people": "人类",
-  "agents.user.defaultName": "用户",
   "agents": {
+    "section": {
+      "local": "本地 Agent",
+      "remote": "远端 Agent",
+      "assistants": "助手",
+      "people": "人类"
+    },
+    "user": {
+      "defaultName": "用户"
+    },
     "defaultModelHint": "新建对话时使用此 Agent 的默认模型。",
     "noModelCache": "发起一次对话后将自动缓存可用模型列表。",
     "permissions": "权限",

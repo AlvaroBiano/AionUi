@@ -102,11 +102,6 @@
   "assistants.tab.remote": "Удалённые агенты",
   "assistants.card.chat": "Чат",
   "assistants.card.edit": "Изменить",
-  "agents.section.local": "Локальные агенты",
-  "agents.section.remote": "Удалённые агенты",
-  "agents.section.assistants": "Ассистенты",
-  "agents.section.people": "Люди",
-  "agents.user.defaultName": "Пользователь",
   "agents": {
     "defaultModelHint": "Модель по умолчанию при начале новых разговоров с этим агентом.",
     "noModelCache": "Начните разговор, чтобы заполнить список моделей.",
@@ -116,6 +111,15 @@
     "sandboxMode": "Режим песочницы",
     "reasoningEffortHint": "Усилие рассуждения по умолчанию для новых разговоров.",
     "defaultMcp": "MCP-серверы по умолчанию",
-    "auth": "Аутентификация"
+    "auth": "Аутентификация",
+    "section": {
+      "local": "Локальные агенты",
+      "remote": "Удалённые агенты",
+      "assistants": "Ассистенты",
+      "people": "Люди"
+    },
+    "user": {
+      "defaultName": "Пользователь"
+    }
   }
 }

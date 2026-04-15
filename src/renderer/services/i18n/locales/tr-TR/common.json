@@ -104,11 +104,6 @@
   "assistants.tab.remote": "Uzak Ajanlar",
   "assistants.card.chat": "Sohbet",
   "assistants.card.edit": "Düzenle",
-  "agents.section.local": "Yerel Ajanlar",
-  "agents.section.remote": "Uzak Ajanlar",
-  "agents.section.assistants": "Asistanlar",
-  "agents.section.people": "İnsanlar",
-  "agents.user.defaultName": "Kullanıcı",
   "agents": {
     "defaultModelHint": "Bu ajanla yeni konuşmalar başlatırken kullanılacak varsayılan model.",
     "noModelCache": "Model listesini doldurmak için bir konuşma başlatın.",
@@ -118,6 +113,15 @@
     "sandboxMode": "Korumalı Alan Modu",
     "reasoningEffortHint": "Yeni konuşmalar için varsayılan akıl yürütme çabası.",
     "defaultMcp": "Varsayılan MCP Sunucuları",
-    "auth": "Kimlik Doğrulama"
+    "auth": "Kimlik Doğrulama",
+    "section": {
+      "local": "Yerel Ajanlar",
+      "remote": "Uzak Ajanlar",
+      "assistants": "Asistanlar",
+      "people": "İnsanlar"
+    },
+    "user": {
+      "defaultName": "Kullanıcı"
+    }
   }
 }
