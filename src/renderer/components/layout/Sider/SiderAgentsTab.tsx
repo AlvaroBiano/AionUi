@@ -127,7 +127,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
   );
 
   // Detect which local backends are actually installed
-  const { data: detectedBackends } = useSWR('acp.agents.available', async () => {
+  const { data: detectedBackends } = useSWR('sider.local-agents.detected', async () => {
     const result = await ipcBridge.acpConversation.getAvailableAgents.invoke();
     if (result.success) return new Set(result.data.map((a) => a.backend as string));
     return null;
