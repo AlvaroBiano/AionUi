@@ -5,7 +5,7 @@
  */
 
 import { GeminiAgent, GeminiApprovalStore } from '@process/agent/gemini';
-import type { TChatConversation, TProviderWithModel } from '@/common/config/storage';
+import type { TChatConversation } from '@/common/config/storage';
 import type { IAgentManager } from '@process/task/IAgentManager';
 import type { IConversationService, CreateConversationParams } from '@process/services/IConversationService';
 import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
@@ -31,6 +31,7 @@ import fs from 'fs';
 import path from 'path';
 import { migrateConversationToDatabase } from './migrationUtils';
 import { ConversationSideQuestionService } from './services/ConversationSideQuestionService';
+import { SessionPreheatPool } from '../task/SessionPreheatPool';
 
 const refreshTrayMenuSafely = async (): Promise<void> => {
   try {
@@ -134,6 +135,42 @@ export function initConversationBridge(
         params.type === 'codex'
           ? { ...params, type: 'acp' as const, extra: { ...params.extra, backend: 'codex' as const } }
           : params;
+
+      // Attempt to claim a preheated session from the pool
+      if (createParams.type === 'acp') {
+        const backend = (createParams.extra as Record<string, unknown>)?.backend as string | undefined;
+        if (backend) {
+          const pool = SessionPreheatPool.getInstance();
+          const pooled = pool.claim(backend);
+          if (pooled) {
+            // Create the real conversation in DB
+            const conversation = await conversationService.createConversation({
+              ...createParams,
+              source: 'aionui',
+            } as CreateConversationParams);
+            // Rebind the preheated manager to the real conversation
+            const extra = (conversation.extra ?? {}) as Record<string, unknown>;
+            pooled.manager.rebindToConversation(conversation.id, {
+              workspace: (extra.workspace as string) || '',
+              customWorkspace: extra.customWorkspace as boolean | undefined,
+              currentModelId: extra.currentModelId as string | undefined,
+              sessionMode: extra.sessionMode as string | undefined,
+              pendingConfigOptions: extra.pendingConfigOptions as Record<string, string> | undefined,
+              presetContext: extra.presetContext as string | undefined,
+              enabledSkills: extra.enabledSkills as string[] | undefined,
+            });
+            // Register in WorkerTaskManager so the rest of the system finds it
+            workerTaskManager.addTask(
+              conversation.id,
+              pooled.manager as unknown as import('../task/IAgentManager').IAgentManager
+            );
+            emitConversationListChanged(conversation, 'created');
+            await refreshTrayMenuSafely();
+            return conversation;
+          }
+        }
+      }
+
       const conversation = await conversationService.createConversation({
         ...createParams,
         source: 'aionui',
@@ -334,103 +371,14 @@ export function initConversationBridge(
     }
   });
 
-  // Create a hidden conversation and kick off agent bootstrap in the background.
-  // The conversation is marked with extra.preheat=true so it's filtered out of
-  // the sidebar until the user actually sends a message and claims it.
-  ipcBridge.conversation.preheat.provider(
-    async ({ backend, workspace, currentModelId, sessionMode, pendingConfigOptions }) => {
-      let conversationId: string | undefined;
-      try {
-        const conversation = await conversationService.createConversation({
-          type: 'acp',
-          // model is not used by ACP agent factory; provide a minimal stub to satisfy the type
-          model: { platform: backend, useModel: '' } as TProviderWithModel,
-          source: 'aionui',
-          extra: {
-            backend: backend as import('@/common/types/acpTypes').AcpBackendAll,
-            workspace,
-            currentModelId,
-            sessionMode,
-            pendingConfigOptions,
-            preheat: true,
-          },
-        });
-        conversationId = conversation.id;
-        // Fire-and-forget: initAgent() starts the CLI subprocess (~7s) in the background.
-        // Errors are caught below so they never propagate to the renderer.
-        workerTaskManager
-          .getOrBuildTask(conversationId)
-          .then((task) => {
-            if (task && task.type === 'acp') {
-              return (task as unknown as AcpAgentManager).initAgent();
-            }
-          })
-          .catch((err) => {
-            console.warn('[conversationBridge] preheat: initAgent failed, cleaning up', conversationId, err);
-            if (conversationId) {
-              workerTaskManager.kill(conversationId);
-              conversationService.deleteConversation(conversationId).catch(() => {});
-            }
-          });
-        return { conversation_id: conversationId };
-      } catch (err) {
-        console.error('[conversationBridge] preheat: failed to create conversation', err);
-        if (conversationId) {
-          workerTaskManager.kill(conversationId);
-          conversationService.deleteConversation(conversationId).catch(() => {});
-        }
-        throw err;
-      }
-    }
-  );
-
-  // Cancel a previously created preheat conversation: kill the agent process and
-  // remove the DB record. Graceful — either resource may already be gone.
-  ipcBridge.conversation.cancelPreheat.provider(async ({ conversation_id }) => {
-    try {
-      workerTaskManager.kill(conversation_id);
-    } catch {
-      // task may not exist yet
-    }
-    try {
-      await conversationService.deleteConversation(conversation_id);
-    } catch {
-      // conversation may already be claimed or deleted
-    }
+  // Pool acquire: increment refcount, start preheating if needed
+  ipcBridge.conversation.poolAcquire.provider(async ({ backend }) => {
+    SessionPreheatPool.getInstance().acquire(backend);
   });
 
-  // Claim a preheat conversation when the user sends their first message.
-  // Merges the provided extra metadata (e.g. workspace, skills, presetContext),
-  // clears the preheat marker, and emits listChanged so the sidebar picks it up.
-  ipcBridge.conversation.claimPreheat.provider(async ({ conversation_id, name, extra }) => {
-    const conversation = await conversationService.getConversation(conversation_id);
-    if (!conversation) {
-      throw new Error(`[conversationBridge] claimPreheat: conversation not found: ${conversation_id}`);
-    }
-    const existingExtra = (conversation.extra ?? {}) as Record<string, unknown>;
-
-    // Prefer the caller's workspace when it is non-empty; fall back to the preheat workspace.
-    // An empty string workspace in `extra` means the user did not specify one — keep the
-    // auto-generated workspace that was created during preheat bootstrap.
-    const resolvedWorkspace =
-      typeof extra.workspace === 'string' && extra.workspace !== ''
-        ? extra.workspace
-        : (existingExtra.workspace as string | undefined) || '';
-
-    const mergedExtra: Record<string, unknown> = {
-      ...existingExtra,
-      ...extra,
-      workspace: resolvedWorkspace,
-      preheat: undefined, // clear preheat marker
-    };
-    // Remove the key entirely so it doesn't linger as undefined in DB
-    delete mergedExtra['preheat'];
-    const updates: Partial<TChatConversation> = { extra: mergedExtra as TChatConversation['extra'] };
-    if (name) updates.name = name;
-    await conversationService.updateConversation(conversation_id, updates);
-    emitConversationListChanged({ ...conversation, ...updates }, 'created');
-    await refreshTrayMenuSafely();
-    return { conversation_id };
+  // Pool release: decrement refcount, start idle timer if zero
+  ipcBridge.conversation.poolRelease.provider(async ({ backend }) => {
+    SessionPreheatPool.getInstance().release(backend);
   });
 
   ipcBridge.conversation.reset.provider(async ({ id }) => {

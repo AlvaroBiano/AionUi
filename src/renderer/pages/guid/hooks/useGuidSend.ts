@@ -54,9 +54,6 @@ export type GuidSendDeps = {
   currentEffectiveAgentInfo: EffectiveAgentInfo;
   isGoogleAuth: boolean;
 
-  // Preheat ref — shared with GuidPage for session warm-up reuse
-  preheatRef?: React.RefObject<{ conversationId: string; backend: string } | null>;
-
   // Mention state reset
   setMentionOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setMentionQuery: React.Dispatch<React.SetStateAction<string | null>>;
@@ -106,7 +103,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     getAvailableFallbackAgent,
     currentEffectiveAgentInfo,
     isGoogleAuth,
-    preheatRef,
     setMentionOpen,
     setMentionQuery,
     setMentionSelectorOpen,
@@ -437,54 +433,15 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
           agentConversationParams.extra = { ...agentConversationParams.extra, pendingConfigOptions };
         }
 
-        let conversationId: string | undefined;
-
-        // Attempt to reuse a preheated session when backend matches and no custom workspace.
-        // Custom-workspace sends always use create so that openTab receives the full conversation object.
-        const preheat = preheatRef?.current;
-        if (!isCustomWorkspace && preheat && preheat.backend === agentBackend) {
-          preheatRef!.current = null;
-          try {
-            // The underlying bridge invoke() never rejects — if the main-process provider
-            // throws (e.g. preheat conversation not found), the Promise hangs forever.
-            // Wrap with a timeout so we always fall through to the create() fallback.
-            const claimTimeoutMs = 5000;
-            const claimWithTimeout = new Promise<{ conversation_id: string }>((resolve, reject) => {
-              const timer = setTimeout(() => reject(new Error('[GuidSend] claimPreheat timed out')), claimTimeoutMs);
-              ipcBridge.conversation.claimPreheat
-                .invoke({
-                  conversation_id: preheat.conversationId,
-                  name: input,
-                  extra: agentConversationParams.extra as Record<string, unknown>,
-                })
-                .then((result) => {
-                  clearTimeout(timer);
-                  resolve(result);
-                })
-                .catch((err) => {
-                  clearTimeout(timer);
-                  reject(err);
-                });
-            });
-            const claimed = await claimWithTimeout;
-            conversationId = claimed.conversation_id;
-          } catch (claimError) {
-            console.warn('[GuidSend] claimPreheat failed, falling back to create:', claimError);
-          }
+        const conversation = await ipcBridge.conversation.create.invoke(agentConversationParams);
+        if (!conversation || !conversation.id) {
+          console.error('Failed to create ACP conversation - conversation object is null or missing id');
+          return;
         }
-
-        if (!conversationId) {
-          const conversation = await ipcBridge.conversation.create.invoke(agentConversationParams);
-          if (!conversation || !conversation.id) {
-            console.error('Failed to create ACP conversation - conversation object is null or missing id');
-            return;
-          }
-          if (isCustomWorkspace) {
-            closeAllTabs();
-            updateWorkspaceTime(finalWorkspace);
-            openTab(conversation);
-          }
-          conversationId = conversation.id;
+        if (isCustomWorkspace) {
+          closeAllTabs();
+          updateWorkspaceTime(finalWorkspace);
+          openTab(conversation);
         }
 
         emitter.emit('chat.history.refresh');
@@ -493,9 +450,9 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
           input,
           files: files.length > 0 ? files : undefined,
         };
-        sessionStorage.setItem(`acp_initial_message_${conversationId}`, JSON.stringify(initialMessage));
+        sessionStorage.setItem(`acp_initial_message_${conversation.id}`, JSON.stringify(initialMessage));
 
-        await navigate(`/conversation/${conversationId}`);
+        await navigate(`/conversation/${conversation.id}`);
       } catch (error: unknown) {
         console.error('Failed to create ACP conversation:', error);
         throw error;

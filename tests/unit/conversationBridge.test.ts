@@ -35,9 +35,8 @@ vi.mock('../../src/common', () => ({
       getWorkspace: makeChannel('getWorkspace'),
       responseSearchWorkSpace: makeChannel('responseSearchWorkSpace'),
       warmup: makeChannel('warmup'),
-      preheat: makeChannel('preheat'),
-      cancelPreheat: makeChannel('cancelPreheat'),
-      claimPreheat: makeChannel('claimPreheat'),
+      poolAcquire: makeChannel('poolAcquire'),
+      poolRelease: makeChannel('poolRelease'),
       confirmation: {
         confirm: makeChannel('confirmation.confirm'),
         list: makeChannel('confirmation.list'),

@@ -58,10 +58,6 @@ const GuidPage: React.FC = () => {
   const guidContainerRef = useRef<HTMLDivElement>(null);
   const openAssistantDetailsRef = useRef<(() => void) | null>(null);
   const descriptionTextRef = useRef<HTMLDivElement>(null);
-  // Holds the current preheated conversation so useGuidSend can claim it on send
-  const preheatRef = useRef<{ conversationId: string; backend: string } | null>(null);
-  // Tracks the latest requested preheat backend so in-flight .then() can detect staleness
-  const pendingPreheatBackendRef = useRef<string | null>(null);
   const { closeAllTabs, openTab } = useConversationTabs();
   const { activeBorderColor, inactiveBorderColor, activeShadow } = useInputFocusRing();
   const { availableBackends, extensionAcpAdapters } = useAssistantBackends();
@@ -130,9 +126,6 @@ const GuidPage: React.FC = () => {
     getAvailableFallbackAgent: agentSelection.getAvailableFallbackAgent,
     currentEffectiveAgentInfo: agentSelection.currentEffectiveAgentInfo,
     isGoogleAuth: modelSelection.isGoogleAuth,
-
-    // Preheat ref for session warm-up reuse
-    preheatRef,
 
     // Mention state reset
     setMentionOpen: mention.setMentionOpen,
@@ -239,68 +232,16 @@ const GuidPage: React.FC = () => {
     [mention, guidInput.input, send.sendMessageHandler]
   );
 
-  const triggerPreheat = useCallback(
-    (backend: string) => {
-      if (NON_ACP_BACKENDS.has(backend)) return;
-      if (backend.startsWith('custom:') || backend.startsWith('remote:')) return;
-
-      const prev = preheatRef.current;
-      if (prev) {
-        // Cancel the previous preheat before starting a new one
-        ipcBridge.conversation.cancelPreheat.invoke({ conversation_id: prev.conversationId }).catch((err) => {
-          console.warn('[GuidPage] cancelPreheat failed:', err);
-        });
-        preheatRef.current = null;
-      }
-
-      // Mark this backend as the latest pending preheat so in-flight callbacks
-      // from earlier invocations can detect they are stale and self-cancel.
-      pendingPreheatBackendRef.current = backend;
-
-      ipcBridge.conversation.preheat
-        .invoke({ backend })
-        .then((result) => {
-          // If another preheat was triggered while this one was in-flight,
-          // this result is stale — cancel it instead of adopting it.
-          if (pendingPreheatBackendRef.current !== backend) {
-            ipcBridge.conversation.cancelPreheat
-              .invoke({ conversation_id: result.conversation_id })
-              .catch((err) => {
-                console.warn('[GuidPage] cancelPreheat (stale) failed:', err);
-              });
-            return;
-          }
-          preheatRef.current = { conversationId: result.conversation_id, backend };
-        })
-        .catch((err) => {
-          console.warn('[GuidPage] preheat failed:', err);
-        });
-    },
-    // NON_ACP_BACKENDS is a module-level set — no deps needed for it
-    []
-  );
-
-  // Trigger preheat whenever the user selects a different backend.
-  // Cancellation of the previous preheat is handled inside triggerPreheat.
+  // Acquire/release pool session when backend selection changes
   useEffect(() => {
-    triggerPreheat(agentSelection.selectedAgent as string);
-  }, [agentSelection.selectedAgent, triggerPreheat]);
-
-  // Cancel any pending preheat when the GuidPage unmounts
-  useEffect(() => {
+    const backend = agentSelection.selectedAgent as string;
+    if (NON_ACP_BACKENDS.has(backend)) return;
+    if (backend.startsWith('custom:') || backend.startsWith('remote:')) return;
+    ipcBridge.conversation.poolAcquire.invoke({ backend }).catch(() => {});
     return () => {
-      // Invalidate any in-flight preheat so its .then() self-cancels
-      pendingPreheatBackendRef.current = null;
-
-      const current = preheatRef.current;
-      if (current) {
-        ipcBridge.conversation.cancelPreheat.invoke({ conversation_id: current.conversationId }).catch((err) => {
-          console.warn('[GuidPage] cancelPreheat on unmount failed:', err);
-        });
-        preheatRef.current = null;
-      }
+      ipcBridge.conversation.poolRelease.invoke({ backend }).catch(() => {});
     };
-  }, []);
+  }, [agentSelection.selectedAgent]);
 
   const handleSelectAgentFromPillBar = useCallback(
     (key: string) => {
