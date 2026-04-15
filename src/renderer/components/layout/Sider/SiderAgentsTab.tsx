@@ -126,6 +126,13 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
     ipcBridge.remoteAgent.list.invoke()
   );
 
+  // Detect which local backends are actually installed
+  const { data: detectedBackends } = useSWR('acp.agents.available', async () => {
+    const result = await ipcBridge.acpConversation.getAvailableAgents.invoke();
+    if (result.success) return new Set(result.data.map((a) => a.backend as string));
+    return null;
+  });
+
   // Assistant list for "..." delete/duplicate
   const { assistants, loadAssistants } = useAssistantList();
 
@@ -221,18 +228,25 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
     [locale]
   );
 
-  // Local ACP backends (exclude non-CLI virtual backends)
+  // Local ACP backends — only show detected (installed) agents.
+  // Gemini and aionrs are always shown (Gemini uses OAuth, aionrs is built-in).
+  // While detection is loading (undefined), fall back to showing all.
   const localAgents = useMemo(
     () =>
       Object.entries(ACP_ENABLED_BACKENDS)
-        .filter(([key]) => !['remote', 'custom'].includes(key))
+        .filter(([key]) => {
+          if (['remote', 'custom'].includes(key)) return false;
+          if (key === 'gemini' || key === 'aionrs') return true;
+          if (detectedBackends === undefined) return true; // still loading
+          return detectedBackends !== null && detectedBackends.has(key);
+        })
         .map(([key, config]) => ({
           key,
           displayName: config.name,
           avatarSrc: resolveAgentLogo({ backend: key }) ?? null,
           avatarBgColor: (config as { avatarBgColor?: string }).avatarBgColor,
         })),
-    []
+    [detectedBackends]
   );
 
   const remoteAgents: RemoteAgentConfig[] = remoteAgentList ?? [];
