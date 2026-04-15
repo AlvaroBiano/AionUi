@@ -63,6 +63,12 @@ export type ConversationRowProps = {
   checked: boolean;
   selected: boolean;
   menuVisible: boolean;
+  /** Agent avatar image URL for the conversation row */
+  avatarSrc?: string | null;
+  /** Agent avatar emoji for the conversation row */
+  avatarEmoji?: string;
+  /** Agent avatar background color for the conversation row */
+  avatarBgColor?: string;
   onToggleChecked: (conversation: TChatConversation) => void;
   onConversationClick: (conversation: TChatConversation) => void;
   onOpenMenu: (conversation: TChatConversation) => void;

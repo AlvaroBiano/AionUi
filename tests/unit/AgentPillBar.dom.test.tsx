@@ -103,9 +103,15 @@ vi.mock('@arco-design/web-react', async (importOriginal) => {
         {droplist}
       </div>
     ),
-    Input: ({ value, onChange, placeholder }: { value?: string; onChange?: (v: string) => void; placeholder?: string }) => (
-      <input value={value ?? ''} onChange={(e) => onChange?.(e.target.value)} placeholder={placeholder} />
-    ),
+    Input: ({
+      value,
+      onChange,
+      placeholder,
+    }: {
+      value?: string;
+      onChange?: (v: string) => void;
+      placeholder?: string;
+    }) => <input value={value ?? ''} onChange={(e) => onChange?.(e.target.value)} placeholder={placeholder} />,
   };
 });
 

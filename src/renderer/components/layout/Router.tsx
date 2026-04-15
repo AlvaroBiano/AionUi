@@ -22,6 +22,10 @@ const ScheduledTasksPage = React.lazy(() => import('@renderer/pages/cron/Schedul
 const TaskDetailPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage/TaskDetailPage'));
 const TeamIndex = React.lazy(() => import('@renderer/pages/team'));
 const AssistantsPage = React.lazy(() => import('@renderer/pages/assistants'));
+const AssistantDetailPage = React.lazy(() => import('@renderer/pages/agents/assistant/AssistantDetailPage'));
+const RemoteAgentDetailPage = React.lazy(() => import('@renderer/pages/agents/remote/RemoteAgentDetailPage'));
+const LocalAgentDetailPage = React.lazy(() => import('@renderer/pages/agents/local/LocalAgentDetailPage'));
+const UserProfilePage = React.lazy(() => import('@renderer/pages/agents/user/UserProfilePage'));
 
 const withRouteFallback = (Component: React.LazyExoticComponent<React.ComponentType>) => (
   <Suspense fallback={<AppLoader />}>
@@ -79,6 +83,11 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           <Route path='/settings' element={<Navigate to='/settings/gemini' replace />} />
           <Route path='/test/components' element={withRouteFallback(ComponentsShowcase)} />
           <Route path='/assistants' element={withRouteFallback(AssistantsPage)} />
+          <Route path='/agents/assistant/new' element={withRouteFallback(AssistantDetailPage)} />
+          <Route path='/agents/assistant/:id' element={withRouteFallback(AssistantDetailPage)} />
+          <Route path='/agents/remote/:id' element={withRouteFallback(RemoteAgentDetailPage)} />
+          <Route path='/agents/local/:key' element={withRouteFallback(LocalAgentDetailPage)} />
+          <Route path='/agents/user' element={withRouteFallback(UserProfilePage)} />
           <Route path='/scheduled' element={withRouteFallback(ScheduledTasksPage)} />
           <Route path='/scheduled/:jobId' element={withRouteFallback(TaskDetailPage)} />
         </Route>

@@ -10,6 +10,7 @@ import { Tooltip } from '@arco-design/web-react';
 import { People } from '@icon-park/react';
 import classNames from 'classnames';
 import type { SiderTooltipProps } from '@renderer/utils/ui/siderTooltip';
+import SiderRow from '../SiderRow';
 
 type SiderAssistantsEntryProps = {
   isMobile: boolean;
@@ -28,39 +29,11 @@ const SiderAssistantsEntry: React.FC<SiderAssistantsEntryProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  if (collapsed) {
-    return (
-      <Tooltip {...siderTooltipProps} content={t('common.nav.assistants')} position='right'>
-        <div
-          className={classNames(
-            'w-full h-30px flex items-center justify-center cursor-pointer transition-colors rd-8px text-t-primary',
-            isActive ? 'bg-[rgba(var(--primary-6),0.12)] text-primary' : 'hover:bg-fill-3 active:bg-fill-4'
-          )}
-          onClick={onClick}
-        >
-          <People
-            theme='outline'
-            size='20'
-            fill='currentColor'
-            className='block leading-none shrink-0'
-            style={{ lineHeight: 0 }}
-          />
-        </div>
-      </Tooltip>
-    );
-  }
-
   return (
     <Tooltip {...siderTooltipProps} content={t('common.nav.assistants')} position='right'>
-      <div
-        className={classNames(
-          'box-border h-30px w-full flex items-center justify-start gap-8px px-10px rd-0.5rem cursor-pointer shrink-0 transition-all text-t-primary',
-          isMobile && 'sider-action-btn-mobile',
-          isActive ? 'bg-[rgba(var(--primary-6),0.12)] text-primary' : 'hover:bg-fill-3 active:bg-fill-4'
-        )}
-        onClick={onClick}
-      >
-        <span className='w-18px h-18px flex items-center justify-center shrink-0'>
+      <SiderRow
+        level={1}
+        icon={
           <People
             theme='outline'
             size='18'
@@ -68,11 +41,14 @@ const SiderAssistantsEntry: React.FC<SiderAssistantsEntryProps> = ({
             className='block leading-none'
             style={{ lineHeight: 0 }}
           />
-        </span>
-        <span className='collapsed-hidden text-t-primary text-13px font-medium leading-24px'>
-          {t('common.nav.assistants')}
-        </span>
-      </div>
+        }
+        label={t('common.nav.assistants')}
+        isActive={isActive}
+        activeStyle='primary'
+        collapsed={collapsed}
+        onClick={onClick}
+        className={classNames(isMobile && 'sider-action-btn-mobile')}
+      />
     </Tooltip>
   );
 };

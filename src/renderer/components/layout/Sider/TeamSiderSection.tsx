@@ -11,51 +11,23 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSWRConfig } from 'swr';
-import type { TeamAgent } from '@/common/types/teamTypes';
 import { cleanupSiderTooltips } from '@renderer/utils/ui/siderTooltip';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
-import { resolveAgentLogo } from '@renderer/utils/model/agentLogo';
-import { iconColors } from '@renderer/styles/colors';
 import { useTeamList } from '@renderer/pages/team/hooks/useTeamList';
 import { useSiderTeamBadges } from '@renderer/pages/team/hooks/useSiderTeamBadges';
 import TeamCreateModal from '@renderer/pages/team/components/TeamCreateModal';
-import AgentAvatar from '@renderer/components/AgentAvatar';
+import SiderRow from './SiderRow';
 import { ipcBridge } from '@/common';
 
-const DASHED = 'w-14px h-14px rounded-full border border-dashed border-current opacity-20 shrink-0';
-
-/** Stacked avatar: up to 2 agent logos overlapping, Accio-style.
- *  If only 1 agent, shows a dashed placeholder next to it. */
-const TeamStackedAvatar: React.FC<{ agents: TeamAgent[] }> = ({ agents }) => {
-  const logos = agents
-    .slice(0, 2)
-    .map((a) => resolveAgentLogo({ backend: a.agentType }))
-    .filter((l): l is string => Boolean(l));
-
-  if (logos.length === 0) {
-    // No resolvable logos — show placeholder + dashed slot
-    return (
-      <div className='flex items-center shrink-0'>
-        <AgentAvatar size={18} avatarSrc={null} avatarEmoji={null} style={{ position: 'relative', zIndex: 1 }} />
-        <span className={`${DASHED} -ml-8px`} />
-      </div>
-    );
-  }
-  if (logos.length === 1) {
-    return (
-      <div className='flex items-center shrink-0'>
-        <AgentAvatar size={18} avatarSrc={logos[0]} style={{ position: 'relative', zIndex: 1 }} />
-        <span className={`${DASHED} -ml-8px`} />
-      </div>
-    );
-  }
-  return (
-    <div className='flex items-center shrink-0'>
-      <AgentAvatar size={18} avatarSrc={logos[0]} style={{ position: 'relative', zIndex: 1 }} />
-      <AgentAvatar size={18} avatarSrc={logos[1]} style={{ marginLeft: '-8px' }} />
-    </div>
-  );
-};
+/** Slack-style # icon for team channels */
+const TeamHashIcon: React.FC = () => (
+  <span
+    className='shrink-0 flex items-center justify-center text-t-primary select-none'
+    style={{ width: 20, height: 20, fontSize: 14, fontWeight: 500, lineHeight: 1 }}
+  >
+    #
+  </span>
+);
 
 const TEAM_PINNED_KEY = 'team-pinned-ids';
 
@@ -149,28 +121,30 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
           <div className='shrink-0 flex flex-col gap-1px'>
             {sortedTeams.map((team) => {
               const isActive = pathname.startsWith(`/team/${team.id}`);
+              const badge = teamBadgeCounts.get(team.id) ?? 0;
               return (
                 <Tooltip key={team.id} {...siderTooltipProps} content={team.name} position='right'>
-                  <div
-                    data-testid={`collapsed-team-item-${team.id}`}
-                    className={classNames(
-                      'relative w-full h-30px flex items-center justify-center cursor-pointer transition-colors rd-8px',
-                      isActive ? '!bg-active' : 'hover:bg-fill-3 active:bg-fill-4'
-                    )}
+                  <SiderRow
+                    level={2}
+                    collapsed
+                    icon={
+                      <span data-testid={`collapsed-team-icon-${team.id}`}>
+                        <TeamHashIcon />
+                      </span>
+                    }
+                    isActive={isActive}
                     onClick={() => handleTeamClick(team.id)}
+                    data-testid={`collapsed-team-item-${team.id}`}
                   >
-                    <span data-testid={`collapsed-team-icon-${team.id}`} data-icon-fill={iconColors.primary}>
-                      <TeamStackedAvatar agents={team.agents} />
-                    </span>
-                    {(teamBadgeCounts.get(team.id) ?? 0) > 0 && (
+                    {badge > 0 && (
                       <span
                         className='absolute top-4px right-4px w-18px h-18px rounded-full text-10px font-bold flex items-center justify-center leading-none'
                         style={{ backgroundColor: '#F53F3F', color: '#fff', lineHeight: 1 }}
                       >
-                        {(teamBadgeCounts.get(team.id) ?? 0) > 99 ? '99+' : teamBadgeCounts.get(team.id)}
+                        {badge > 99 ? '99+' : badge}
                       </span>
                     )}
-                  </div>
+                  </SiderRow>
                 </Tooltip>
               );
             })}
@@ -178,50 +152,99 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
         )
       ) : (
         <div className='shrink-0 flex flex-col gap-1px'>
+          {/* Section header */}
           <div
-            className='group h-30px flex items-center gap-4px px-10px mt-4px cursor-pointer select-none sticky top-0 z-20 bg-fill-2'
+            className='group h-30px flex items-center gap-8px px-10px mt-4px cursor-pointer select-none sticky top-0 z-20 bg-fill-2'
             onClick={() => setTeamsCollapsed((v) => !v)}
           >
-            <span className='text-t-tertiary flex items-center mr-2px'>
+            <span className='w-18px h-18px flex items-center justify-center shrink-0 text-t-primary'>
               {teamsCollapsed ? (
-                <Right theme='outline' size={14} style={{ lineHeight: 0 }} />
+                <Right theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
               ) : (
-                <Down theme='outline' size={14} style={{ lineHeight: 0 }} />
+                <Down theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
               )}
             </span>
-            <span className='text-12px text-t-tertiary font-medium flex-1 min-w-0'>{t('team.sider.title')}</span>
+            <span className='text-13px font-medium text-t-primary flex-1 min-w-0'>{t('team.sider.title')}</span>
             <div
-              className='opacity-0 group-hover:opacity-100 transition-opacity h-18px w-18px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
+              className='opacity-0 group-hover:opacity-100 transition-opacity h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
               onClick={(e) => {
                 e.stopPropagation();
                 setCreateTeamVisible(true);
               }}
             >
-              <Plus theme='outline' size='14' fill='var(--color-text-3)' style={{ lineHeight: 0 }} />
+              <Plus theme='outline' size='16' fill='var(--color-text-3)' style={{ lineHeight: 0 }} />
             </div>
           </div>
+
+          {/* Team rows */}
           {!teamsCollapsed &&
             sortedTeams.length > 0 &&
             sortedTeams.map((team) => {
               const isPinned = pinnedIds.includes(team.id);
               const isActive = pathname.startsWith(`/team/${team.id}`);
               const teamBadge = teamBadgeCounts.get(team.id) ?? 0;
+
+              const teamDroplist = (
+                <Menu
+                  onClickMenuItem={(key) => {
+                    if (key === 'pin') {
+                      togglePin(team.id);
+                    } else if (key === 'rename') {
+                      setRenameId(team.id);
+                      setRenameName(team.name);
+                      setRenameVisible(true);
+                    } else if (key === 'delete') {
+                      Modal.confirm({
+                        title: t('team.sider.deleteConfirm'),
+                        content: t('team.sider.deleteConfirmContent'),
+                        okText: t('team.sider.deleteOk'),
+                        cancelText: t('team.sider.deleteCancel'),
+                        okButtonProps: { status: 'warning' },
+                        onOk: async () => {
+                          await removeTeam(team.id);
+                          Message.success(t('team.sider.deleteSuccess'));
+                          if (pathname.startsWith(`/team/${team.id}`)) {
+                            Promise.resolve(navigate('/')).catch(() => {});
+                          }
+                        },
+                        style: { borderRadius: '12px' },
+                        alignCenter: true,
+                        getPopupContainer: () => document.body,
+                      });
+                    }
+                  }}
+                >
+                  <Menu.Item key='pin'>
+                    <div className='flex items-center gap-8px'>
+                      <Pushpin theme='outline' size='14' />
+                      <span>{isPinned ? t('team.sider.unpin') : t('team.sider.pin')}</span>
+                    </div>
+                  </Menu.Item>
+                  <Menu.Item key='rename'>
+                    <div className='flex items-center gap-8px'>
+                      <EditOne theme='outline' size='14' />
+                      <span>{t('team.sider.rename')}</span>
+                    </div>
+                  </Menu.Item>
+                  <Menu.Item key='delete'>
+                    <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
+                      <DeleteOne theme='outline' size='14' />
+                      <span>{t('team.sider.delete')}</span>
+                    </div>
+                  </Menu.Item>
+                </Menu>
+              );
+
               return (
-                <div
+                <SiderRow
                   key={team.id}
-                  className={classNames(
-                    'group h-30px flex items-center gap-8px px-10px cursor-pointer rd-8px transition-colors min-w-0 relative',
-                    isActive ? '!bg-active' : 'hover:bg-fill-3'
-                  )}
+                  level={2}
+                  icon={<TeamHashIcon />}
+                  label={team.name}
+                  isActive={isActive}
                   onClick={() => handleTeamClick(team.id)}
                 >
-                  {/* Stacked agent avatar */}
-                  <span className='shrink-0 flex items-center justify-center'>
-                    <TeamStackedAvatar agents={team.agents} />
-                  </span>
-                  {/* Team name */}
-                  <span className='text-13px text-t-primary font-medium truncate flex-1 min-w-0'>{team.name}</span>
-                  {/* Unread badge (hidden on hover, replaced by three-dot) */}
+                  {/* Unread badge (hidden on hover) */}
                   {teamBadge > 0 && (
                     <span
                       className='w-18px h-18px rounded-full text-10px font-bold flex items-center justify-center shrink-0 group-hover:hidden'
@@ -230,18 +253,15 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                       {teamBadge > 99 ? '99+' : teamBadge}
                     </span>
                   )}
-                  {/* Pin indicator */}
+                  {/* Pin indicator (hidden on hover) */}
                   {isPinned && (
                     <span className='absolute right-8px top-1/2 -translate-y-1/2 text-t-secondary pointer-events-none group-hover:hidden'>
                       <Pushpin theme='outline' size='14' />
                     </span>
                   )}
-                  {/* Three-dot menu */}
+                  {/* Three-dot menu (shown on hover) */}
                   <div
-                    className={classNames(
-                      'absolute right-0 top-0 h-full items-center justify-end pr-8px hidden group-hover:flex',
-                      { flex: false }
-                    )}
+                    className='absolute right-0 top-0 h-full items-center justify-end pr-8px hidden group-hover:flex'
                     style={{
                       backgroundImage: isActive
                         ? 'linear-gradient(to right, transparent, var(--aou-2) 20%)'
@@ -250,56 +270,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Dropdown
-                      droplist={
-                        <Menu
-                          onClickMenuItem={(key) => {
-                            if (key === 'pin') {
-                              togglePin(team.id);
-                            } else if (key === 'rename') {
-                              setRenameId(team.id);
-                              setRenameName(team.name);
-                              setRenameVisible(true);
-                            } else if (key === 'delete') {
-                              Modal.confirm({
-                                title: t('team.sider.deleteConfirm'),
-                                content: t('team.sider.deleteConfirmContent'),
-                                okText: t('team.sider.deleteOk'),
-                                cancelText: t('team.sider.deleteCancel'),
-                                okButtonProps: { status: 'warning' },
-                                onOk: async () => {
-                                  await removeTeam(team.id);
-                                  Message.success(t('team.sider.deleteSuccess'));
-                                  if (pathname.startsWith(`/team/${team.id}`)) {
-                                    Promise.resolve(navigate('/')).catch(() => {});
-                                  }
-                                },
-                                style: { borderRadius: '12px' },
-                                alignCenter: true,
-                                getPopupContainer: () => document.body,
-                              });
-                            }
-                          }}
-                        >
-                          <Menu.Item key='pin'>
-                            <div className='flex items-center gap-8px'>
-                              <Pushpin theme='outline' size='14' />
-                              <span>{isPinned ? t('team.sider.unpin') : t('team.sider.pin')}</span>
-                            </div>
-                          </Menu.Item>
-                          <Menu.Item key='rename'>
-                            <div className='flex items-center gap-8px'>
-                              <EditOne theme='outline' size='14' />
-                              <span>{t('team.sider.rename')}</span>
-                            </div>
-                          </Menu.Item>
-                          <Menu.Item key='delete'>
-                            <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
-                              <DeleteOne theme='outline' size='14' />
-                              <span>{t('team.sider.delete')}</span>
-                            </div>
-                          </Menu.Item>
-                        </Menu>
-                      }
+                      droplist={teamDroplist}
                       trigger='click'
                       position='br'
                       getPopupContainer={() => document.body}
@@ -320,7 +291,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                       </span>
                     </Dropdown>
                   </div>
-                </div>
+                </SiderRow>
               );
             })}
         </div>

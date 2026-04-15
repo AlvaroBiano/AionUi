@@ -8,7 +8,6 @@ import type { TChatConversation } from '@/common/config/storage';
 import { ConfigStorage } from '@/common/config/storage';
 import { ASSISTANT_PRESETS, getPresetAvatarBgColor } from '@/common/config/presets/assistantPresets';
 import { ACP_BACKENDS_ALL } from '@/common/types/acpTypes';
-import AgentAvatar from '@/renderer/components/AgentAvatar';
 import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
 import { useCronJobsMap } from '@/renderer/pages/cron';
 import { ipcBridge } from '@/common';
@@ -17,16 +16,17 @@ import { getPresetProfile } from '@/renderer/assets/profiles';
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 import { emitter } from '@/renderer/utils/emitter';
+import { cleanupSiderTooltips } from '@/renderer/utils/ui/siderTooltip';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Dropdown, Empty, Input, Menu, Message, Modal, Tooltip } from '@arco-design/web-react';
+import { Button, Empty, Input, Menu, Message, Modal } from '@arco-design/web-react';
 import { DeleteOne, Down, FolderOpen, Plus, Right } from '@icon-park/react';
-import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import useSWR from 'swr';
 
+import AgentContactRow from './AgentContactRow';
 import ConversationRow from './ConversationRow';
 import DragOverlayContent from './DragOverlayContent';
 import SortableConversationRow from './SortableConversationRow';
@@ -35,7 +35,7 @@ import { useConversationActions } from './hooks/useConversationActions';
 import { useConversations } from './hooks/useConversations';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useExport } from './hooks/useExport';
-import { buildAgentGroupedHistory } from './utils/groupingHelpers';
+import { buildAgentGroupedHistory, resolveAgentKey } from './utils/groupingHelpers';
 import type { ConversationRowProps, WorkspaceGroupedHistoryProps } from './types';
 
 const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
@@ -50,7 +50,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const navigate = useNavigate();
   const { getJobStatus, markAsRead, setActiveConversation } = useCronJobsMap();
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
-  const [groupMenuVisibleKey, setGroupMenuVisibleKey] = useState<string | null>(null);
+  const [messagesCollapsed, setMessagesCollapsed] = useState(false);
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
@@ -59,8 +59,6 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       return next;
     });
   }, []);
-  const messagesCollapsed = collapsedSections.has('messages');
-
   const handleDeleteGroup = useCallback(
     (conversationIds: string[]) => {
       Modal.confirm({
@@ -94,6 +92,22 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     [t]
   );
 
+  const handleNavigate = useCallback(
+    (conversationId: string) => {
+      cleanupSiderTooltips();
+      onSessionClick?.();
+      void navigate(`/conversation/${conversationId}`);
+    },
+    [navigate, onSessionClick]
+  );
+
+  const handleNewConversation = useCallback(
+    (agentKey: string) => {
+      void navigate(`/guid?agent=${encodeURIComponent(agentKey)}`);
+    },
+    [navigate]
+  );
+
   // Sync active conversation ref when route changes (for URL navigation)
   // This doesn't trigger state update, avoiding double render
   useEffect(() => {
@@ -102,14 +116,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     }
   }, [id, setActiveConversation]);
 
-  const {
-    conversations,
-    isConversationGenerating,
-    hasCompletionUnread,
-    pinnedConversations,
-    collapsedAgentGroups,
-    handleToggleAgentGroup,
-  } = useConversations();
+  const { conversations, isConversationGenerating, hasCompletionUnread, pinnedConversations } = useConversations();
 
   // Fetch custom agents to populate display map with correct avatars
   const { data: customAgents } = useSWR('acp.customAgents', () => ConfigStorage.get('acp.customAgents'));
@@ -256,26 +263,43 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     });
 
   const getConversationRowProps = useCallback(
-    (conversation: TChatConversation): ConversationRowProps => ({
-      conversation,
-      isGenerating: isConversationGenerating(conversation.id),
-      hasCompletionUnread: hasCompletionUnread(conversation.id),
-      collapsed,
-      tooltipEnabled,
-      batchMode,
-      checked: selectedConversationIds.has(conversation.id),
-      selected: id === conversation.id,
-      menuVisible: dropdownVisibleId === conversation.id,
-      onToggleChecked: toggleSelectedConversation,
-      onConversationClick: handleConversationClick,
-      onOpenMenu: handleOpenMenu,
-      onMenuVisibleChange: handleMenuVisibleChange,
-      onEditStart: handleEditStart,
-      onDelete: handleDeleteClick,
-      onExport: handleExportConversation,
-      onTogglePin: handleTogglePin,
-      getJobStatus,
-    }),
+    (conversation: TChatConversation): ConversationRowProps => {
+      const agentKey = resolveAgentKey(conversation);
+      const meta = agentDisplayMap.get(agentKey);
+      let avatarBgColor: string | undefined;
+      if (agentKey.startsWith('custom:')) {
+        avatarBgColor = getPresetAvatarBgColor(agentKey.slice(7));
+      } else {
+        try {
+          avatarBgColor = ACP_BACKENDS_ALL[agentKey as keyof typeof ACP_BACKENDS_ALL]?.avatarBgColor;
+        } catch {
+          /* ignore */
+        }
+      }
+      return {
+        conversation,
+        isGenerating: isConversationGenerating(conversation.id),
+        hasCompletionUnread: hasCompletionUnread(conversation.id),
+        collapsed,
+        tooltipEnabled,
+        batchMode,
+        checked: selectedConversationIds.has(conversation.id),
+        selected: id === conversation.id,
+        menuVisible: dropdownVisibleId === conversation.id,
+        avatarSrc: meta?.avatarSrc ?? null,
+        avatarEmoji: meta?.avatarEmoji,
+        avatarBgColor,
+        onToggleChecked: toggleSelectedConversation,
+        onConversationClick: handleConversationClick,
+        onOpenMenu: handleOpenMenu,
+        onMenuVisibleChange: handleMenuVisibleChange,
+        onEditStart: handleEditStart,
+        onDelete: handleDeleteClick,
+        onExport: handleExportConversation,
+        onTogglePin: handleTogglePin,
+        getJobStatus,
+      };
+    },
     [
       collapsed,
       tooltipEnabled,
@@ -285,6 +309,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       selectedConversationIds,
       id,
       dropdownVisibleId,
+      agentDisplayMap,
       toggleSelectedConversation,
       handleConversationClick,
       handleOpenMenu,
@@ -485,17 +510,17 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
             <div className='mb-8px min-w-0'>
               {!collapsed && (
                 <div
-                  className='group flex items-center px-12px py-6px cursor-pointer select-none sticky top-0 z-10 bg-fill-2'
+                  className='group h-30px flex items-center px-12px cursor-pointer select-none sticky top-0 z-10 bg-fill-2'
                   onClick={() => toggleSection('pinned')}
                 >
-                  <span className='text-12px text-t-secondary font-medium'>
+                  <span className='text-13px font-medium text-t-primary'>
                     {t('conversation.history.pinnedSection')}
                   </span>
-                  <span className='ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-t-secondary flex items-center'>
+                  <span className='ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-t-primary flex items-center'>
                     {collapsedSections.has('pinned') ? (
-                      <Right theme='outline' size={12} />
+                      <Right theme='outline' size={16} />
                     ) : (
-                      <Down theme='outline' size={12} />
+                      <Down theme='outline' size={16} />
                     )}
                   </span>
                 </div>
@@ -522,163 +547,74 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </DragOverlay>
         </DndContext>
 
-        {/* Messages section header — subtle label,退到背景 */}
-        {!collapsed && (agentGroups.length > 0 || pinnedConversations.length === 0) && (
+        {/* Messages section header */}
+        {!collapsed && (
           <div
-            className='group h-30px flex items-center gap-4px px-10px cursor-pointer select-none sticky top-0 z-20 bg-fill-2 min-w-0 mt-4px'
-            onClick={() => toggleSection('messages')}
+            className='group h-30px flex items-center gap-8px px-10px select-none sticky top-0 z-20 bg-fill-2 min-w-0 mt-4px cursor-pointer'
+            onClick={() => setMessagesCollapsed((v) => !v)}
           >
-            <span className='text-t-tertiary flex items-center mr-2px'>
+            <span className='w-18px h-18px flex items-center justify-center shrink-0 text-t-primary'>
               {messagesCollapsed ? (
-                <Right theme='outline' size={14} style={{ lineHeight: 0 }} />
+                <Right theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
               ) : (
-                <Down theme='outline' size={14} style={{ lineHeight: 0 }} />
+                <Down theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
               )}
             </span>
-            <span className='text-12px text-t-tertiary font-medium flex-1 min-w-0'>
+            <span className='text-13px font-medium text-t-primary flex-1 min-w-0'>
               {t('conversation.history.messagesSection')}
             </span>
             <div
-              className='opacity-0 group-hover:opacity-100 transition-opacity h-18px w-18px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
+              className='opacity-0 group-hover:opacity-100 transition-opacity h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
               onClick={(e) => {
                 e.stopPropagation();
                 void navigate('/guid');
               }}
             >
-              <Plus theme='outline' size='14' fill='var(--color-text-3)' style={{ lineHeight: 0 }} />
+              <Plus theme='outline' size='16' fill='var(--color-text-3)' style={{ lineHeight: 0 }} />
             </div>
           </div>
         )}
 
-        {!messagesCollapsed &&
-          agentGroups.map((agentGroup) => {
-            const logoSrc =
-              agentGroup.avatarSrc ??
-              resolveAgentLogo({
-                backend: agentGroup.agentKey.startsWith('custom:') ? undefined : agentGroup.agentKey,
-              });
-            let groupAvatarBgColor: string | undefined;
-            if (agentGroup.agentKey.startsWith('custom:')) {
-              groupAvatarBgColor = getPresetAvatarBgColor(agentGroup.agentKey.slice(7));
-            } else {
-              try {
-                groupAvatarBgColor =
-                  ACP_BACKENDS_ALL[agentGroup.agentKey as keyof typeof ACP_BACKENDS_ALL]?.avatarBgColor;
-              } catch {
-                /* ignore */
+        {!messagesCollapsed && (
+          <div className='flex flex-col gap-1px'>
+            {agentGroups.map((agentGroup) => {
+              const logoSrc =
+                agentGroup.avatarSrc ??
+                resolveAgentLogo({
+                  backend: agentGroup.agentKey.startsWith('custom:') ? undefined : agentGroup.agentKey,
+                });
+              let groupAvatarBgColor: string | undefined;
+              if (agentGroup.agentKey.startsWith('custom:')) {
+                groupAvatarBgColor = getPresetAvatarBgColor(agentGroup.agentKey.slice(7));
+              } else {
+                try {
+                  groupAvatarBgColor =
+                    ACP_BACKENDS_ALL[agentGroup.agentKey as keyof typeof ACP_BACKENDS_ALL]?.avatarBgColor;
+                } catch {
+                  /* ignore */
+                }
               }
-            }
-            const isCollapsed = collapsedAgentGroups.has(agentGroup.agentKey);
-
-            const isGroupMenuVisible = groupMenuVisibleKey === agentGroup.agentKey;
-            const headerContent = (
-              <div
-                className='group h-30px flex items-center gap-8px px-10px cursor-pointer select-none sticky top-30px z-10 bg-fill-2 hover:bg-fill-3 rd-8px transition-colors min-w-0'
-                onClick={() => handleToggleAgentGroup(agentGroup.agentKey)}
-              >
-                {/* Agent avatar */}
-                <AgentAvatar
-                  size={18}
+              return (
+                <AgentContactRow
+                  key={agentGroup.agentKey}
+                  agentKey={agentGroup.agentKey}
+                  displayName={agentGroup.displayName}
                   avatarSrc={logoSrc ?? null}
-                  avatarEmoji={agentGroup.avatarEmoji ?? null}
+                  avatarEmoji={agentGroup.avatarEmoji}
                   avatarBgColor={groupAvatarBgColor}
+                  lastConversation={agentGroup.conversations[0]}
+                  conversationIds={agentGroup.conversations.map((c) => c.id)}
+                  isActive={agentGroup.conversations.some((c) => c.id === id)}
+                  collapsed={collapsed}
+                  tooltipEnabled={tooltipEnabled}
+                  onNavigate={handleNavigate}
+                  onNewConversation={handleNewConversation}
+                  onDeleteGroup={(ids) => handleDeleteGroup(ids)}
                 />
-                {/* Agent name */}
-                <span className='text-13px text-t-primary font-medium truncate flex-1 min-w-0'>
-                  {agentGroup.displayName}
-                </span>
-                {/* Three-dot dropdown menu — shown on hover */}
-                <div
-                  className={classNames(
-                    'absolute right-0 top-0 h-full items-center justify-end pr-8px',
-                    isGroupMenuVisible ? 'flex' : 'hidden group-hover:flex'
-                  )}
-                  style={{
-                    backgroundImage: 'linear-gradient(to right, transparent, var(--aou-1) 20%)',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Dropdown
-                    droplist={
-                      <Menu
-                        onClickMenuItem={(key) => {
-                          setGroupMenuVisibleKey(null);
-                          if (key === 'new-chat') {
-                            void navigate(`/guid?agent=${encodeURIComponent(agentGroup.agentKey)}`);
-                          } else if (key === 'delete') {
-                            handleDeleteGroup(agentGroup.conversations.map((c) => c.id));
-                          }
-                        }}
-                      >
-                        <Menu.Item key='new-chat'>
-                          <div className='flex items-center gap-8px'>
-                            <Plus theme='outline' size='14' />
-                            <span>{t('conversation.welcome.newConversation')}</span>
-                          </div>
-                        </Menu.Item>
-                        <Menu.Item key='delete'>
-                          <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
-                            <DeleteOne theme='outline' size='14' />
-                            <span>{t('conversation.history.deleteAgentGroup')}</span>
-                          </div>
-                        </Menu.Item>
-                      </Menu>
-                    }
-                    trigger='click'
-                    position='br'
-                    popupVisible={isGroupMenuVisible}
-                    onVisibleChange={(visible) => setGroupMenuVisibleKey(visible ? agentGroup.agentKey : null)}
-                    getPopupContainer={() => document.body}
-                    unmountOnExit={false}
-                  >
-                    <span
-                      className='flex-center cursor-pointer hover:bg-fill-2 rd-4px p-4px transition-colors text-t-primary'
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setGroupMenuVisibleKey(agentGroup.agentKey);
-                      }}
-                    >
-                      <div
-                        className='flex flex-col gap-2px items-center justify-center'
-                        style={{ width: 16, height: 16 }}
-                      >
-                        <div className='w-2px h-2px rounded-full bg-current' />
-                        <div className='w-2px h-2px rounded-full bg-current' />
-                        <div className='w-2px h-2px rounded-full bg-current' />
-                      </div>
-                    </span>
-                  </Dropdown>
-                </div>
-              </div>
-            );
-
-            return (
-              <div key={agentGroup.agentKey} className='mb-1px min-w-0'>
-                {collapsed ? (
-                  <Tooltip content={agentGroup.displayName} position='right'>
-                    <div
-                      className='w-full h-30px flex items-center justify-center cursor-pointer rd-8px hover:bg-fill-3 transition-colors'
-                      onClick={() => handleToggleAgentGroup(agentGroup.agentKey)}
-                    >
-                      <AgentAvatar
-                        size={18}
-                        avatarSrc={logoSrc ?? null}
-                        avatarEmoji={agentGroup.avatarEmoji ?? null}
-                        avatarBgColor={groupAvatarBgColor}
-                      />
-                    </div>
-                  </Tooltip>
-                ) : (
-                  headerContent
-                )}
-                {!isCollapsed && (
-                  <div className='min-w-0 pt-1px'>
-                    {agentGroup.conversations.map((conversation) => renderConversation(conversation))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );

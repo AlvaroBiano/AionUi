@@ -1,0 +1,184 @@
+/**
+ * @license
+ * Copyright 2025 AionUi (aionui.com)
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import AgentAvatar from '@/renderer/components/AgentAvatar';
+import SiderRow from '@/renderer/components/layout/Sider/SiderRow';
+import { cleanupSiderTooltips } from '@/renderer/utils/ui/siderTooltip';
+import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
+import { Dropdown, Menu, Tooltip } from '@arco-design/web-react';
+import { DeleteOne, Plus } from '@icon-park/react';
+import classNames from 'classnames';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import type { TChatConversation } from '@/common/config/storage';
+
+type AgentContactRowProps = {
+  agentKey: string;
+  displayName: string;
+  avatarSrc: string | null;
+  avatarEmoji?: string;
+  avatarBgColor?: string;
+  lastConversation?: TChatConversation;
+  conversationIds: string[];
+  isActive: boolean;
+  collapsed: boolean;
+  tooltipEnabled: boolean;
+  onNavigate: (conversationId: string) => void;
+  onNewConversation: (agentKey: string) => void;
+  onDeleteGroup: (conversationIds: string[]) => void;
+};
+
+const AgentContactRow: React.FC<AgentContactRowProps> = ({
+  agentKey,
+  displayName,
+  avatarSrc,
+  avatarEmoji,
+  avatarBgColor,
+  lastConversation,
+  conversationIds,
+  isActive,
+  collapsed,
+  tooltipEnabled,
+  onNavigate,
+  onNewConversation,
+  onDeleteGroup,
+}) => {
+  const layout = useLayoutContext();
+  const isMobile = layout?.isMobile ?? false;
+  const { t } = useTranslation();
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  const handleRowClick = () => {
+    cleanupSiderTooltips();
+    if (lastConversation) {
+      onNavigate(lastConversation.id);
+    } else {
+      onNewConversation(agentKey);
+    }
+  };
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    cleanupSiderTooltips();
+    setMenuVisible(true);
+  };
+
+  const icon = <AgentAvatar size={20} avatarSrc={avatarSrc} avatarEmoji={avatarEmoji} avatarBgColor={avatarBgColor} />;
+
+  const droplist = (
+    <Menu
+      onClickMenuItem={(key) => {
+        setMenuVisible(false);
+        if (key === 'new-chat') {
+          onNewConversation(agentKey);
+        } else if (key === 'delete') {
+          onDeleteGroup(conversationIds);
+        }
+      }}
+    >
+      <Menu.Item key='new-chat'>
+        <div className='flex items-center gap-8px'>
+          <Plus theme='outline' size='14' />
+          <span>{t('conversation.welcome.newConversation')}</span>
+        </div>
+      </Menu.Item>
+      <Menu.Item key='delete'>
+        <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
+          <DeleteOne theme='outline' size='14' />
+          <span>{t('conversation.history.deleteAgentGroup')}</span>
+        </div>
+      </Menu.Item>
+    </Menu>
+  );
+
+  // Collapsed sidebar: centered avatar only
+  if (collapsed) {
+    return (
+      <Tooltip content={displayName} position='right' disabled={!tooltipEnabled}>
+        <SiderRow
+          level={2}
+          collapsed
+          icon={icon}
+          isActive={isActive}
+          onClick={handleRowClick}
+          onContextMenu={handleContextMenu}
+        />
+      </Tooltip>
+    );
+  }
+
+  // Expanded: compact Slack-style row — icon + name, three-dot on hover
+  return (
+    <Dropdown
+      droplist={droplist}
+      trigger='contextMenu'
+      position='br'
+      popupVisible={menuVisible}
+      onVisibleChange={(visible) => setMenuVisible(visible)}
+      getPopupContainer={() => document.body}
+      unmountOnExit={false}
+    >
+      <SiderRow
+        level={2}
+        icon={icon}
+        label={displayName}
+        isActive={isActive}
+        onClick={handleRowClick}
+        onContextMenu={handleContextMenu}
+        className={classNames({ '!hover:bg-fill-3': !menuVisible })}
+      >
+        {/* Three-dot hover menu */}
+        {!isMobile && (
+          <div
+            className={classNames('absolute right-0px top-0px h-full items-center justify-end pr-8px', {
+              flex: menuVisible,
+              'hidden group-hover:flex': !menuVisible,
+            })}
+            style={{
+              backgroundImage: isActive
+                ? 'linear-gradient(to right, transparent, var(--aou-2) 20%)'
+                : 'linear-gradient(to right, transparent, var(--aou-1) 20%)',
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <Dropdown
+              droplist={droplist}
+              trigger='click'
+              position='br'
+              popupVisible={menuVisible}
+              onVisibleChange={(visible) => setMenuVisible(visible)}
+              getPopupContainer={() => document.body}
+              unmountOnExit={false}
+            >
+              <span
+                className='flex-center cursor-pointer hover:bg-fill-2 rd-4px p-4px transition-colors text-t-primary'
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuVisible(true);
+                }}
+              >
+                <div
+                  className='flex flex-col gap-2px items-center justify-center'
+                  style={{ width: '16px', height: '16px' }}
+                >
+                  <div className='w-2px h-2px rounded-full bg-current' />
+                  <div className='w-2px h-2px rounded-full bg-current' />
+                  <div className='w-2px h-2px rounded-full bg-current' />
+                </div>
+              </span>
+            </Dropdown>
+          </div>
+        )}
+      </SiderRow>
+    </Dropdown>
+  );
+};
+
+export default AgentContactRow;

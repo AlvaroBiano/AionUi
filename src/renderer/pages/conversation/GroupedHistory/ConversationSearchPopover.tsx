@@ -427,7 +427,7 @@ const ConversationSearchPopover: React.FC<ConversationSearchPopoverProps> = ({
   const hasSearchResults = items.length > 0;
   const useCompactHeight = !debouncedKeyword || (!loading && !hasSearchResults);
   const triggerClassName = fullWidth
-    ? 'conversation-search-trigger-full h-30px w-full p-0 bg-transparent border-none outline-none flex items-center justify-start gap-8px px-10px rd-0.5rem cursor-pointer shrink-0 transition-all group text-t-primary focus:outline-none focus-visible:outline-none'
+    ? 'conversation-search-trigger-full h-30px w-full p-0 bg-transparent border-none outline-none flex items-center justify-start gap-8px px-10px rd-8px cursor-pointer shrink-0 transition-all group text-t-primary focus:outline-none focus-visible:outline-none'
     : 'h-30px w-30px p-0 bg-transparent rd-0.5rem flex items-center justify-center cursor-pointer shrink-0 transition-all border border-solid border-transparent text-t-primary';
 
   return (
@@ -452,10 +452,10 @@ const ConversationSearchPopover: React.FC<ConversationSearchPopoverProps> = ({
           disabled={disabled}
         >
           {fullWidth ? (
-            <span className='w-24px h-24px flex items-center justify-center shrink-0'>
+            <span className='w-18px h-18px flex items-center justify-center shrink-0'>
               <Search
                 theme='outline'
-                size='20'
+                size='18'
                 fill='currentColor'
                 className='block leading-none'
                 style={{ lineHeight: 0 }}

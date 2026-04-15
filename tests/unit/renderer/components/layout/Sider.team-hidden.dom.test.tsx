@@ -41,12 +41,16 @@ vi.mock('@/renderer/components/layout/Sider/SiderNav/SiderScheduledEntry', () =>
   default: () => <div data-testid='sider-scheduled-entry' />,
 }));
 
+vi.mock('@/renderer/components/layout/Sider/SiderNav/SiderSearchEntry', () => ({
+  default: () => <div data-testid='sider-search-entry' />,
+}));
+
 vi.mock('@/renderer/components/layout/Sider/SiderFooter', () => ({
   default: () => <div data-testid='sider-footer' />,
 }));
 
-vi.mock('@/renderer/components/layout/Sider/SiderNav/SiderAssistantsEntry', () => ({
-  default: () => <div data-testid='sider-assistants-entry' />,
+vi.mock('@/renderer/components/layout/Sider/SiderAgentsTab', () => ({
+  default: () => <div data-testid='sider-agents-tab' />,
 }));
 
 vi.mock('@/renderer/pages/conversation/GroupedHistory', () => ({
@@ -99,7 +103,6 @@ describe('Sider team entry visibility', () => {
     const teamIcon = screen.getByTestId('collapsed-team-icon-team-1');
 
     expect(teamItem.className).toContain('!bg-active');
-    expect(teamIcon).toHaveAttribute('data-icon-fill', 'var(--text-primary)');
   });
 
   it('shows the team section when team mode is enabled', async () => {
@@ -112,8 +115,8 @@ describe('Sider team entry visibility', () => {
     );
 
     expect(screen.getByTestId('sider-toolbar')).toBeInTheDocument();
+    expect(screen.getByTestId('sider-search-entry')).toBeInTheDocument();
     expect(screen.getByTestId('sider-scheduled-entry')).toBeInTheDocument();
-    expect(screen.getByTestId('sider-assistants-entry')).toBeInTheDocument();
     expect(await screen.findByTestId('workspace-grouped-history')).toBeInTheDocument();
     expect(screen.getByTestId('sider-footer')).toBeInTheDocument();
     expect(screen.getByText('team.sider.title')).toBeInTheDocument();

@@ -6,13 +6,20 @@ import { cleanupSiderTooltips, getSiderTooltipProps } from '@renderer/utils/ui/s
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
-import { SiderToolbar, SiderScheduledEntry, SiderAssistantsEntry } from './SiderNav';
+import { SiderToolbar, SiderScheduledEntry, SiderSearchEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
+import SiderAgentsTab from './SiderAgentsTab';
+import SiderRow from './SiderRow';
 import TeamSiderSection from './TeamSiderSection';
 import siderStyles from './Sider.module.css';
+import { useTranslation } from 'react-i18next';
+import { Tooltip } from '@arco-design/web-react';
+import { Comments, MessageOne, People, Peoples } from '@icon-park/react';
 
 const WorkspaceGroupedHistory = React.lazy(() => import('@renderer/pages/conversation/GroupedHistory'));
 const SettingsSider = React.lazy(() => import('@renderer/pages/settings/components/SettingsSider'));
+
+type SiderTab = 'messages' | 'agents';
 
 interface SiderProps {
   onSessionClick?: () => void;
@@ -24,11 +31,13 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
   const isMobile = layout?.isMobile ?? false;
   const location = useLocation();
   const { pathname, search, hash } = location;
+  const { t } = useTranslation();
 
   const navigate = useNavigate();
   const { closePreview } = usePreviewContext();
   const { theme, setTheme } = useThemeContext();
   const [isBatchMode, setIsBatchMode] = useState(false);
+  const [siderTab, setSiderTab] = useState<SiderTab>('messages');
   const isSettings = pathname.startsWith('/settings');
   const lastNonSettingsPathRef = useRef('/guid');
 
@@ -93,19 +102,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     void setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
-  const handleAssistantsClick = () => {
-    cleanupSiderTooltips();
-    blurActiveElement();
-    closePreview();
-    setIsBatchMode(false);
-    Promise.resolve(navigate('/assistants')).catch((error) => {
-      console.error('Navigation failed:', error);
-    });
-    if (onSessionClick) {
-      onSessionClick();
-    }
-  };
-
   const tooltipEnabled = collapsed && !isMobile;
   const siderTooltipProps = getSiderTooltipProps(tooltipEnabled);
 
@@ -117,6 +113,64 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     onBatchModeChange: setIsBatchMode,
   };
 
+  const renderTabSwitcher = () => {
+    if (collapsed) {
+      return (
+        <div className='shrink-0 flex flex-col gap-1px py-2px'>
+          <Tooltip content={t('common.nav.messages')} position='right' disabled={!tooltipEnabled}>
+            <div
+              className={classNames(
+                'h-28px flex items-center justify-center cursor-pointer rd-6px transition-colors',
+                siderTab === 'messages' ? 'text-primary' : 'text-t-secondary hover:text-t-primary hover:bg-fill-2'
+              )}
+              onClick={() => setSiderTab('messages')}
+            >
+              <MessageOne theme='outline' size={14} fill='currentColor' style={{ lineHeight: 0 }} />
+            </div>
+          </Tooltip>
+          <Tooltip content={t('common.nav.agents')} position='right' disabled={!tooltipEnabled}>
+            <div
+              className={classNames(
+                'h-28px flex items-center justify-center cursor-pointer rd-6px transition-colors',
+                siderTab === 'agents' ? 'text-primary' : 'text-t-secondary hover:text-t-primary hover:bg-fill-2'
+              )}
+              onClick={() => setSiderTab('agents')}
+            >
+              <Peoples theme='outline' size={14} fill='currentColor' style={{ lineHeight: 0 }} />
+            </div>
+          </Tooltip>
+        </div>
+      );
+    }
+
+    return (
+      <div className='shrink-0 flex gap-2px mx-4px mt-4px mb-8px bg-fill-3 rd-8px p-2px'>
+        <div
+          className={classNames(
+            'flex-1 h-30px flex items-center justify-center rd-6px cursor-pointer transition-all select-none',
+            siderTab === 'messages'
+              ? 'bg-[var(--color-bg-1)] text-t-primary shadow-sm'
+              : 'text-t-secondary hover:text-t-primary'
+          )}
+          onClick={() => setSiderTab('messages')}
+        >
+          <MessageOne theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
+        </div>
+        <div
+          className={classNames(
+            'flex-1 h-30px flex items-center justify-center rd-6px cursor-pointer transition-all select-none',
+            siderTab === 'agents'
+              ? 'bg-[var(--color-bg-1)] text-t-primary shadow-sm'
+              : 'text-t-secondary hover:text-t-primary'
+          )}
+          onClick={() => setSiderTab('agents')}
+        >
+          <Peoples theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className='size-full flex flex-col'>
       {/* Main content area */}
@@ -126,54 +180,86 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
             <SettingsSider collapsed={collapsed} tooltipEnabled={tooltipEnabled} />
           </Suspense>
         ) : (
-          <div className='size-full flex flex-col gap-2px'>
-            <SiderToolbar
-              isMobile={isMobile}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onNewChat={handleNewChat}
-              onConversationSelect={handleConversationSelect}
-              onSessionClick={onSessionClick}
-            />
-            {/* Scheduled tasks nav entry */}
-            <SiderScheduledEntry
-              isMobile={isMobile}
-              isActive={pathname === '/scheduled'}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onClick={handleScheduledClick}
-            />
-            {/* Assistants nav entry */}
-            <SiderAssistantsEntry
-              isMobile={isMobile}
-              isActive={pathname === '/assistants'}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onClick={handleAssistantsClick}
-            />
-            {/* Divider between fixed top nav and scrollable content area */}
-            <div
-              className={classNames(
-                'shrink-0 mt-4px mb-4px h-1px bg-[var(--color-border-2)]',
-                collapsed ? 'mx-6px' : 'mx-10px'
-              )}
-            />
-            {/* Scrollable content: messages first, teams second */}
-            <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
-              {/* Messages: agent-grouped conversation history */}
-              <Suspense fallback={<div className='min-h-200px' />}>
-                <WorkspaceGroupedHistory {...workspaceHistoryProps} />
-              </Suspense>
-              {/* Team section — mt-4px separates it from Messages */}
-              <div className='mt-4px'>
-                <TeamSiderSection
+          <div className='size-full flex flex-col gap-1px'>
+            {/* Tab switcher: Messages / Agents */}
+            {renderTabSwitcher()}
+
+            {/* Messages tab */}
+            {siderTab === 'messages' && (
+              <div className='flex-1 min-h-0 flex flex-col gap-1px'>
+                {/* New conversation */}
+                <SiderToolbar
+                  isMobile={isMobile}
                   collapsed={collapsed}
-                  pathname={pathname}
                   siderTooltipProps={siderTooltipProps}
+                  onNewChat={handleNewChat}
+                />
+                {/* Search */}
+                <SiderSearchEntry
+                  isMobile={isMobile}
+                  collapsed={collapsed}
+                  siderTooltipProps={siderTooltipProps}
+                  onConversationSelect={handleConversationSelect}
                   onSessionClick={onSessionClick}
                 />
+                {/* Scheduled tasks */}
+                <SiderScheduledEntry
+                  isMobile={isMobile}
+                  isActive={pathname === '/scheduled'}
+                  collapsed={collapsed}
+                  siderTooltipProps={siderTooltipProps}
+                  onClick={handleScheduledClick}
+                />
+                {/* Threads placeholder */}
+                <Tooltip {...siderTooltipProps} content={t('common.nav.threads')} position='right'>
+                  <SiderRow
+                    level={1}
+                    hoverable
+                    icon={
+                      <Comments
+                        theme='outline'
+                        size={18}
+                        fill='currentColor'
+                        className='block leading-none'
+                        style={{ lineHeight: 0 }}
+                      />
+                    }
+                    label={t('common.nav.threads')}
+                    collapsed={collapsed}
+                  />
+                </Tooltip>
+
+                {/* Divider */}
+                <div
+                  className={classNames(
+                    'shrink-0 mt-6px mb-2px h-1px bg-[var(--color-border-2)]',
+                    collapsed ? 'mx-6px' : 'mx-10px'
+                  )}
+                />
+
+                {/* Scrollable: conversation history + teams */}
+                <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
+                  <Suspense fallback={<div className='min-h-200px' />}>
+                    <WorkspaceGroupedHistory {...workspaceHistoryProps} />
+                  </Suspense>
+                  <div className='mt-4px'>
+                    <TeamSiderSection
+                      collapsed={collapsed}
+                      pathname={pathname}
+                      siderTooltipProps={siderTooltipProps}
+                      onSessionClick={onSessionClick}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Agents tab */}
+            {siderTab === 'agents' && (
+              <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
+                <SiderAgentsTab collapsed={collapsed} tooltipEnabled={tooltipEnabled} onSessionClick={onSessionClick} />
+              </div>
+            )}
           </div>
         )}
       </div>
