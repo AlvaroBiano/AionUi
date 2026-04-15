@@ -27,6 +27,12 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import useSWR from 'swr';
 
+/** Maps local agent backend key → its dedicated settings route */
+const LOCAL_SETTINGS_ROUTE: Record<string, string> = {
+  aionrs: '/settings/aionrs',
+  gemini: '/settings/gemini',
+};
+
 type SiderAgentsTabProps = {
   collapsed: boolean;
   tooltipEnabled: boolean;
@@ -215,11 +221,11 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
     [locale]
   );
 
-  // Local ACP backends (exclude gemini)
+  // Local ACP backends (exclude non-CLI virtual backends)
   const localAgents = useMemo(
     () =>
       Object.entries(ACP_ENABLED_BACKENDS)
-        .filter(([key]) => key !== 'gemini')
+        .filter(([key]) => !['remote', 'custom'].includes(key))
         .map(([key, config]) => ({
           key,
           displayName: config.name,
@@ -255,7 +261,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
         <Menu.Item key='detail' onClick={() => navigate_(`/agents/local/${agent.key}`)}>
           {t('common.viewDetails', { defaultValue: 'View Details' })}
         </Menu.Item>
-        <Menu.Item key='settings' onClick={() => navigate_('/settings/agent')}>
+        <Menu.Item key='settings' onClick={() => navigate_(LOCAL_SETTINGS_ROUTE[agent.key] ?? '/settings/agent')}>
           {t('settings.configure', { defaultValue: 'Settings' })}
         </Menu.Item>
       </Menu>

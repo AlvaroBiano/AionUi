@@ -6,7 +6,6 @@
 
 import AgentAvatar from '@/renderer/components/AgentAvatar';
 import { useAuth } from '@/renderer/hooks/context/AuthContext';
-import { Left } from '@icon-park/react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -31,14 +30,6 @@ const UserProfilePage: React.FC = () => {
       <div className='px-12px md:px-40px py-32px mx-auto w-full md:max-w-800px'>
         {/* Header */}
         <div className='flex items-start gap-12px mb-28px'>
-          <button
-            type='button'
-            className='mt-2px flex items-center justify-center w-28px h-28px rd-6px hover:bg-fill-2 transition-colors cursor-pointer text-t-secondary hover:text-t-primary shrink-0'
-            onClick={() => navigate(-1)}
-          >
-            <Left size={18} />
-          </button>
-
           <AgentAvatar size={56} avatarEmoji={initial} avatarBgColor='var(--color-fill-3)' className='shrink-0' />
 
           <div className='flex-1 min-w-0'>

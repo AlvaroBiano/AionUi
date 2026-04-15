@@ -25,7 +25,7 @@ import AddSkillsModal from '@/renderer/pages/settings/AgentSettings/AssistantMan
 import DeleteAssistantModal from '@/renderer/pages/settings/AgentSettings/AssistantManagement/DeleteAssistantModal';
 import SkillConfirmModals from '@/renderer/pages/settings/AgentSettings/AssistantManagement/SkillConfirmModals';
 import { Button, Checkbox, Collapse, Input, Message, Select, Tag, Typography } from '@arco-design/web-react';
-import { Delete, Left, Plus, Robot } from '@icon-park/react';
+import { Delete, Plus, Robot } from '@icon-park/react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -159,14 +159,6 @@ const AssistantDetailPage: React.FC = () => {
       <div className='px-12px md:px-40px py-32px mx-auto w-full md:max-w-800px'>
         {/* ── Header ── */}
         <div className='flex items-start gap-12px mb-28px'>
-          <button
-            type='button'
-            className='mt-2px flex items-center justify-center w-28px h-28px rd-6px hover:bg-fill-2 transition-colors cursor-pointer text-t-secondary hover:text-t-primary shrink-0'
-            onClick={() => navigate(-1)}
-          >
-            <Left size={18} />
-          </button>
-
           {/* Avatar (large, clickable if editable) */}
           {canEditIdentity ? (
             <EmojiPicker value={editor.editAvatar} onChange={editor.setEditAvatar} placement='br'>
