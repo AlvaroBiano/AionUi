@@ -397,22 +397,28 @@ const AssistantDetailPage: React.FC = () => {
           )}
 
           {/* Permissions */}
-          {id !== 'new' && getAgentModes(editor.editAgent).length > 0 && (
+          {id !== 'new' && (
             <div className='flex flex-col gap-8px'>
               <Typography.Text bold>{t('common.agents.permissions', { defaultValue: 'Permissions' })}</Typography.Text>
-              <Select
-                value={agentConfig.preferredMode ?? ''}
-                placeholder={t('common.default', { defaultValue: 'Default' })}
-                allowClear
-                className='w-full !rounded-8px'
-                onChange={(v: string) => void saveAgentConfig({ preferredMode: v || undefined })}
-              >
-                {getAgentModes(editor.editAgent).map((m) => (
-                  <Select.Option key={m.value} value={m.value}>
-                    {t(`agentMode.${m.value}`, { defaultValue: m.label })}
-                  </Select.Option>
-                ))}
-              </Select>
+              {getAgentModes(editor.editAgent).length > 0 ? (
+                <Select
+                  value={agentConfig.preferredMode ?? ''}
+                  placeholder={t('common.default', { defaultValue: 'Default' })}
+                  allowClear
+                  className='w-full !rounded-8px'
+                  onChange={(v: string) => void saveAgentConfig({ preferredMode: v || undefined })}
+                >
+                  {getAgentModes(editor.editAgent).map((m) => (
+                    <Select.Option key={m.value} value={m.value}>
+                      {t(`agentMode.${m.value}`, { defaultValue: m.label })}
+                    </Select.Option>
+                  ))}
+                </Select>
+              ) : (
+                <span className='text-13px text-t-secondary'>
+                  {t('agentMode.default', { defaultValue: 'Default' })}
+                </span>
+              )}
             </div>
           )}
 

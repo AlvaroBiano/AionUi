@@ -208,14 +208,14 @@ const LocalAgentDetailPage: React.FC = () => {
         )}
 
         {/* ── Permissions ── */}
-        {getAgentModes(key!).length > 0 && (
-          <Section title={t('common.agents.permissions', { defaultValue: 'Permissions' })}>
-            <Row
-              label={t('common.agents.defaultPermission', { defaultValue: 'Default Permission Mode' })}
-              hint={t('common.agents.defaultPermissionHint', {
-                defaultValue: 'Default permission mode applied when starting new conversations.',
-              })}
-              children={
+        <Section title={t('common.agents.permissions', { defaultValue: 'Permissions' })}>
+          <Row
+            label={t('common.agents.defaultPermission', { defaultValue: 'Default Permission Mode' })}
+            hint={t('common.agents.defaultPermissionHint', {
+              defaultValue: 'Default permission mode applied when starting new conversations.',
+            })}
+            children={
+              getAgentModes(key!).length > 0 ? (
                 <Select
                   size='small'
                   style={{ width: 180 }}
@@ -230,10 +230,14 @@ const LocalAgentDetailPage: React.FC = () => {
                     </Select.Option>
                   ))}
                 </Select>
-              }
-            />
-          </Section>
-        )}
+              ) : (
+                <span className='text-13px text-t-secondary'>
+                  {t('agentMode.default', { defaultValue: 'Default' })}
+                </span>
+              )
+            }
+          />
+        </Section>
 
         {/* ── Thinking Depth (Codex only) ── */}
         {isCodex && (
