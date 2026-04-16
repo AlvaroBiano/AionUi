@@ -72,9 +72,9 @@
     "historyPanel": "歷史對話",
     "deleteAgentGroup": "刪除全部對話",
     "deleteAgentGroupConfirm": "確定刪除此助手下全部 {{count}} 個對話？此操作無法撤銷。",
-    "deleteAgentGroupSuccess": "已刪除 {{count}} 個對話",
+    "deleteAgentGroupSuccess": "已將 Agent 從私信中移除",
     "removeContact": "移除",
-    "removeContactConfirm": "移除聯絡人後，與該助手的全部 {{count}} 個對話將被永久刪除，此操作無法撤銷。",
+    "removeContactConfirm": "移除 Agent 後，與該 Agent 的全部 {{count}} 個對話將被永久刪除，此操作無法撤銷。",
     "messagesEmpty": "暫無私信"
   },
   "historySearch": {

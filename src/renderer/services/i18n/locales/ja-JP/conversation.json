@@ -72,9 +72,9 @@
     "historyPanel": "会話履歴",
     "deleteAgentGroup": "すべての会話を削除",
     "deleteAgentGroupConfirm": "このエージェント下の {{count}} 件の会話をすべて削除しますか？この操作は元に戻せません。",
-    "deleteAgentGroupSuccess": "{{count}} 件の会話を削除しました",
+    "deleteAgentGroupSuccess": "エージェントをDMから削除しました",
     "removeContact": "削除",
-    "removeContactConfirm": "連絡先を削除すると、このエージェントとの {{count}} 件の会話がすべて完全に削除されます。この操作は元に戻せません。",
+    "removeContactConfirm": "エージェントを削除すると、このエージェントとの {{count}} 件の会話がすべて完全に削除されます。この操作は元に戻せません。",
     "messagesEmpty": "メッセージはまだありません"
   },
   "historySearch": {
