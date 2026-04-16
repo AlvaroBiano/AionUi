@@ -23,6 +23,7 @@ import { useGuidAgentSelection } from './hooks/useGuidAgentSelection';
 import { useGuidInput } from './hooks/useGuidInput';
 import { useGuidMention } from './hooks/useGuidMention';
 import { useGuidModelSelection } from './hooks/useGuidModelSelection';
+import GuidModelSelector from './components/GuidModelSelector';
 import { useGuidSend } from './hooks/useGuidSend';
 import { useTypewriterPlaceholder } from './hooks/useTypewriterPlaceholder';
 import { ConfigStorage } from '@/common/config/storage';
@@ -44,6 +45,7 @@ const GuidPage: React.FC = () => {
   const location = useLocation();
   const guidContainerRef = useRef<HTMLDivElement>(null);
   const openAssistantDetailsRef = useRef<(() => void) | null>(null);
+  const descriptionTextRef = useRef<HTMLDivElement>(null);
 
   const { closeAllTabs, openTab } = useConversationTabs();
   const { activeBorderColor, inactiveBorderColor, activeShadow } = useInputFocusRing();
@@ -279,6 +281,9 @@ const GuidPage: React.FC = () => {
     if (i18nName) return i18nName;
     return mention.selectedAgentLabel || t('conversation.welcome.title');
   }, [agentSelection.isPresetAgent, selectedAssistantRecord, localeKey, mention.selectedAgentLabel, t]);
+  const selectedAssistantDescription = useMemo(() => {
+    return selectedAssistantRecord?.descriptionI18n?.[localeKey] || selectedAssistantRecord?.description || '';
+  }, [selectedAssistantRecord, localeKey]);
   const selectedAssistantAvatar = useMemo(() => {
     if (!agentSelection.isPresetAgent) return null;
     const selectedId = agentSelection.selectedAgentInfo?.customAgentId;
@@ -308,6 +313,9 @@ const GuidPage: React.FC = () => {
     agentSelection.selectedAgentInfo?.avatar,
     agentSelection.selectedAgentInfo?.customAgentId,
   ]);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [canExpandDescription, setCanExpandDescription] = useState(false);
+
   // Reset UI state whenever the user navigates to /guid fresh
   // (agent selection is preserved via saved preference in useGuidAgentSelection)
   useEffect(() => {
@@ -384,7 +392,6 @@ const GuidPage: React.FC = () => {
     observer.observe(node);
     return () => observer.disconnect();
   }, [agentSelection.isPresetAgent, selectedAssistantDescription]);
-
 
   const currentPresetAgentType = (selectedAssistantRecord?.presetAgentType as PresetAgentType | undefined) || 'gemini';
   const agentSwitcherItems = useMemo(() => {
@@ -470,7 +477,6 @@ const GuidPage: React.FC = () => {
   const isGeminiMode =
     PROVIDER_BASED_AGENTS.has(effectiveAgentType) &&
     (!agentSelection.isPresetAgent || agentSelection.currentEffectiveAgentInfo.isAvailable);
-
 
   // Build the mention dropdown node
   const mentionDropdownNode = (

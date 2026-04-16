@@ -189,8 +189,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
           )}
         </div>
 
-
-
         {!hidePresetTag && isPresetAgent && selectedAgentInfo && (
           <div className={styles.actionPresetAgent}>
             <PresetAgentTag

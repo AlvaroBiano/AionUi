@@ -186,6 +186,5 @@ export const useGuidModelSelection = (agentKey: ProviderAgentKey = 'gemini'): Gu
     formatGeminiModelLabel,
     currentModel,
     setCurrentModel,
-    setCurrentModelTransient,
   };
 };
