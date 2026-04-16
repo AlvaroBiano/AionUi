@@ -368,16 +368,18 @@ const AionrsSendBox: React.FC<{
             <SendBoxSettingsPopover
               modelNode={<AionrsModelSelector selection={modelSelection} variant='settings' />}
               permissionNode={
-                <AgentModeSelector
-                  backend='aionrs'
-                  conversationId={conversation_id}
-                  compact
-                  dynamicModes={dynamicModes}
-                  compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-                  modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
-                  compactLabelPrefix={t('agentMode.permission')}
-                  hideCompactLabelPrefixOnMobile
-                />
+                dynamicModes.length > 0 ? (
+                  <AgentModeSelector
+                    backend='aionrs'
+                    conversationId={conversation_id}
+                    compact
+                    dynamicModes={dynamicModes}
+                    compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+                    modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
+                    compactLabelPrefix={t('agentMode.permission')}
+                    hideCompactLabelPrefixOnMobile
+                  />
+                ) : undefined
               }
             />
           </div>
