@@ -46,6 +46,7 @@ export const formatMessageTime = (timestamp: number): string => {
 import MessageCronBadge from './MessageCronBadge';
 import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { useMessageAvatar } from '@/renderer/pages/conversation/Messages/MessageAvatarContext';
+import { useUserProfile } from '@/renderer/hooks/user/useUserProfile';
 import { User } from '@icon-park/react';
 
 const parseFileMarker = (content: string) => {
@@ -118,6 +119,7 @@ const MessageText: React.FC<{ message: IMessageText; showAvatar?: boolean }> = (
   const isTeammateMessage = message.position === 'left' && message.content.teammateMessage === true;
   const shouldRenderPlainText = isUserMessage;
   const conversationContext = useConversationContextSafe();
+  const { profile } = useUserProfile();
   const resolvedFiles = useMemo(
     () => files.map((filePath) => resolveMessageFilePath(filePath, conversationContext?.workspace)),
     [conversationContext?.workspace, files]
@@ -176,9 +178,7 @@ const MessageText: React.FC<{ message: IMessageText; showAvatar?: boolean }> = (
           <span className='text-12px text-t-secondary'>{senderName}</span>
         </div>
       )}
-      {!isTeammateMessage && !isUserMessage && showAvatar && avatarInfo?.agentName && (
-        <span className='text-12px text-t-secondary mb-4px leading-none'>{avatarInfo.agentName}</span>
-      )}
+
       {files.length > 0 && (
         <div className={classNames('mt-6px', { 'self-end': isUserMessage })}>
           {resolvedFiles.length === 1 ? (
@@ -236,15 +236,25 @@ const MessageText: React.FC<{ message: IMessageText; showAvatar?: boolean }> = (
     </div>
   );
 
-  // User message: content on the left of the row, user avatar circle on the right
+  // User message: name + avatar header row above content, right-aligned
   if (isUserMessage) {
+    const userDisplayName = profile.displayName;
     return (
       <>
-        <div className='flex items-start gap-8px'>
+        <div className='flex flex-col items-end gap-4px'>
+          {showAvatar && (
+            <div className='flex items-center gap-6px'>
+              {userDisplayName && <span className='text-12px text-t-secondary'>{userDisplayName}</span>}
+              <div className='flex-shrink-0 w-20px h-20px rd-full bg-fill-3 flex items-center justify-center text-10px text-t-secondary font-medium select-none'>
+                {userDisplayName ? (
+                  userDisplayName.charAt(0).toUpperCase()
+                ) : (
+                  <User theme='outline' size='14' fill={iconColors.secondary} />
+                )}
+              </div>
+            </div>
+          )}
           {messageContent}
-          <div className='flex-shrink-0 self-start w-28px h-28px rd-full bg-fill-3 flex items-center justify-center'>
-            <User theme='outline' size='14' fill={iconColors.secondary} />
-          </div>
         </div>
         {showCopyAlert && (
           <Alert
@@ -260,26 +270,27 @@ const MessageText: React.FC<{ message: IMessageText; showAvatar?: boolean }> = (
     );
   }
 
-  // Agent message with avatar context: show avatar or spacer for alignment
+  // Agent message with avatar context: avatar + name header row above content, left-aligned
   if (!isTeammateMessage && avatarInfo) {
-    const avatarNode = showAvatar ? (
-      <div className='flex-shrink-0 self-start w-28px h-28px rd-full overflow-hidden bg-fill-3 flex items-center justify-center'>
-        {avatarInfo.agentLogoIsEmoji ? (
-          <span className='text-14px leading-none'>{avatarInfo.agentLogo}</span>
-        ) : avatarInfo.agentLogo ? (
-          <img src={avatarInfo.agentLogo} alt={avatarInfo.agentName} className='w-full h-full object-contain' />
-        ) : (
-          <User theme='outline' size='14' fill={iconColors.secondary} />
-        )}
-      </div>
-    ) : (
-      <div className='flex-shrink-0 w-28px' aria-hidden />
-    );
-
     return (
       <>
-        <div className='flex items-start gap-8px'>
-          {avatarNode}
+        <div className='flex flex-col items-start gap-4px'>
+          {showAvatar && (
+            <div className='flex items-center gap-6px'>
+              <div className='flex-shrink-0 w-20px h-20px rd-full overflow-hidden bg-fill-3 flex items-center justify-center'>
+                {avatarInfo.agentLogoIsEmoji ? (
+                  <span className='text-14px leading-none'>{avatarInfo.agentLogo}</span>
+                ) : avatarInfo.agentLogo ? (
+                  <img src={avatarInfo.agentLogo} alt={avatarInfo.agentName} className='w-full h-full object-contain' />
+                ) : (
+                  <User theme='outline' size='14' fill={iconColors.secondary} />
+                )}
+              </div>
+              {avatarInfo.agentName && (
+                <span className='text-12px text-t-secondary'>{avatarInfo.agentName}</span>
+              )}
+            </div>
+          )}
           {messageContent}
         </div>
         {showCopyAlert && (
