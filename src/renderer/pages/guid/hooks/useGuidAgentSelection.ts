@@ -401,7 +401,6 @@ export const useGuidAgentSelection = ({
       : selectedAgentKey.startsWith('custom:')
         ? selectedAgentKey.slice(7)
         : selectedAgent;
-    console.log('[Guid] Selected agent changed:', { selectedAgentKey, configKey, isPresetAgent, effectiveType: currentEffectiveAgentInfo.agentType });
     selectedAgentRef.current = configKey;
     if (!configKey) return;
 
@@ -431,7 +430,7 @@ export const useGuidAgentSelection = ({
 
         // 1. Use preferredMode if valid
         if (preferred) {
-          const modes = getAgentModes(configKey, cachedConfigOptions);
+          const modes = getAgentModes(configKey);
           if (modes.some((m) => m.value === preferred)) {
             _setSelectedMode(preferred);
             return;
@@ -459,7 +458,7 @@ export const useGuidAgentSelection = ({
     return () => {
       cancelled = true;
     };
-  }, [selectedAgent, selectedAgentKey, isPresetAgent, currentEffectiveAgentInfo.agentType, cachedConfigOptions]);
+  }, [selectedAgent, selectedAgentKey, isPresetAgent, currentEffectiveAgentInfo.agentType]);
 
   const currentAcpCachedModelInfo = useMemo(() => {
     // For preset agents, resolve to the actual backend type for model list lookup

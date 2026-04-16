@@ -199,6 +199,7 @@ export class AcpConnection {
     acpArgs?: string[],
     customEnv?: Record<string, string>
   ): Promise<void> {
+    console.log(`[ACPConnection] Connecting to backend: ${backend}, cliPath: ${cliPath}, acpArgs: ${acpArgs}, workingDir: ${workingDir}, customEnv keys: ${customEnv ? Object.keys(customEnv).join(',') : 'none'}`);
     if (this.child) {
       await this.disconnect();
     }

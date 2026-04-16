@@ -46,8 +46,10 @@ export function useHubAgents() {
         })
       );
 
-      // After install/uninstall completes, revalidate agent list so home page & settings reflect changes
+      // After install/uninstall completes, re-fetch full list so derived fields
+      // (like _devInstallSource) are refreshed, and revalidate other SWR caches.
       if (payload.status === 'installed' || payload.status === 'not_installed') {
+        fetchAgents();
         mutate(DETECTED_AGENTS_SWR_KEY);
         mutate('acp.agents.available.settings');
       }

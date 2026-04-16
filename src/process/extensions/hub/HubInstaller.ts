@@ -57,6 +57,15 @@ function verifyInstallation(extName: string, extDir: string): VerifyResult {
   const missing: string[] = [];
   for (const adapter of adapters) {
     if (!adapter.cliCommand) continue;
+    // Skip validation if cliCommand contains spaces (e.g. "bunx @pkg/name") — not a binary name
+    if (adapter.cliCommand.includes(' ')) {
+      console.warn(
+        `[HubInstaller] Skipping binary verification for adapter ${adapter.id}: ` +
+          `cliCommand "${adapter.cliCommand}" contains spaces and is not a valid binary name. ` +
+          `Fix the manifest to use the actual CLI binary name.`
+      );
+      continue;
+    }
     const binaryPath = path.join(installDir, 'bin', adapter.cliCommand);
     if (!fs.existsSync(binaryPath)) {
       missing.push(`${adapter.id} (bin/${adapter.cliCommand})`);
@@ -219,7 +228,7 @@ export class HubInstallerImpl {
 
       // Step 5: Reload registry + refresh detector
       await ExtensionRegistry.hotReload();
-      await acpDetector.refreshExtensionAgents();
+      await agentRegistry.refreshAll();
 
       hubStateManager.setTransientState(name, 'not_installed');
     } catch (error) {

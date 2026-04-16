@@ -36,39 +36,3 @@ export const GOOSE_YOLO_ENV_VALUE = 'auto' as const;
  *
  * @see https://github.com/iOfficeAI/AionUi/issues/788
  */
-
-// --- YOLO mode fallback map (hardcoded, used when configOptions unavailable) ---
-
-import type { AcpSessionConfigOption } from '@/common/types/acpTypes';
-
-/** Hardcoded YOLO mode values per backend, used as fallback when configOptions is unavailable. */
-export const YOLO_MODE_FALLBACK: Record<string, string> = {
-  claude: CLAUDE_YOLO_SESSION_MODE,
-  codebuddy: CODEBUDDY_YOLO_SESSION_MODE,
-  qwen: QWEN_YOLO_SESSION_MODE,
-  iflow: IFLOW_YOLO_SESSION_MODE,
-};
-
-/** Mode values recognized as YOLO / auto-approve behavior. */
-const YOLO_MODE_VALUES = new Set(['bypassPermissions', 'yolo']);
-
-/**
- * Detect the YOLO (auto-approve) session mode for a backend.
- * Prefers dynamic detection from configOptions; falls back to YOLO_MODE_FALLBACK.
- *
- * Strategy:
- * 1. If configOptions has a mode-category option, look for an option whose value is in YOLO_MODE_VALUES.
- * 2. Otherwise fall back to the hardcoded YOLO_MODE_FALLBACK map.
- *
- * @returns The YOLO mode value string, or undefined if the backend doesn't support YOLO.
- */
-export function resolveYoloMode(backend: string, configOptions?: AcpSessionConfigOption[] | null): string | undefined {
-  if (configOptions && configOptions.length > 0) {
-    const modeOption = configOptions.find((opt) => opt.category === 'mode' && opt.type === 'select');
-    if (modeOption?.options) {
-      const yoloOpt = modeOption.options.find((opt) => YOLO_MODE_VALUES.has(opt.value));
-      if (yoloOpt) return yoloOpt.value;
-    }
-  }
-  return YOLO_MODE_FALLBACK[backend];
-}

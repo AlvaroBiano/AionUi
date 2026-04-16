@@ -1515,9 +1515,6 @@ ${collectedResponses.join('\n')}`;
    * Save non-model/mode config options to database for resume support.
    * Allows AcpConfigSelector to render immediately from cached data
    * even when the ACP session has expired.
-   *
-   * Also caches the FULL config options (including mode/model categories)
-   * to ProcessConfig so the Guid page can dynamically discover available modes.
    */
   private async saveConfigOptions(configOptions: AcpSessionConfigOption[]): Promise<void> {
     try {
@@ -1531,21 +1528,6 @@ ${collectedResponses.join('\n')}`;
       }
     } catch (error) {
       mainError('[AcpAgentManager]', 'Failed to save config options', error);
-    }
-
-    // Cache full configOptions (including mode/model) to ProcessConfig per agent.
-    // This allows the Guid page to dynamically discover modes via acp.cachedConfigOptions.
-    try {
-      const fullOptions = this.agent?.getAllConfigOptions() ?? [];
-      if (fullOptions.length > 0) {
-        const cached = (await ProcessConfig.get('acp.cachedConfigOptions')) || {};
-        await ProcessConfig.set('acp.cachedConfigOptions', {
-          ...cached,
-          [this.cacheKey]: fullOptions,
-        });
-      }
-    } catch {
-      // Silent — ConfigStorage cache is best-effort
     }
   }
 

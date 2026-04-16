@@ -160,6 +160,11 @@ class HubStateManagerImpl {
         if (fs.existsSync(manifestPath)) {
           const localManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
           if (localManifest.dist?.integrity && localManifest.dist.integrity !== ext.dist.integrity) {
+            console.warn(
+              `[HubStateManager] Integrity mismatch for ${ext.name}:\n` +
+                `  local:  ${localManifest.dist.integrity}\n` +
+                `  remote: ${ext.dist.integrity}`
+            );
             return { status: 'update_available', source: 'extension' };
           }
         }
