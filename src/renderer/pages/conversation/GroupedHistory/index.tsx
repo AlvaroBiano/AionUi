@@ -62,34 +62,22 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     });
   }, []);
   const handleDeleteGroup = useCallback(
-    (conversationIds: string[]) => {
-      Modal.confirm({
-        title: t('conversation.history.deleteAgentGroup'),
-        content: t('conversation.history.deleteAgentGroupConfirm', { count: conversationIds.length }),
-        okText: t('conversation.history.confirmDelete'),
-        cancelText: t('conversation.history.cancelDelete'),
-        okButtonProps: { status: 'warning' },
-        onOk: async () => {
-          try {
-            const results = await Promise.all(
-              conversationIds.map((cid) => ipcBridge.conversation.remove.invoke({ id: cid }))
-            );
-            const successCount = results.filter(Boolean).length;
-            emitter.emit('chat.history.refresh');
-            if (successCount > 0) {
-              Message.success(t('conversation.history.deleteAgentGroupSuccess', { count: successCount }));
-            } else {
-              Message.error(t('conversation.history.deleteFailed'));
-            }
-          } catch (err) {
-            console.error('Failed to delete agent group:', err);
-            Message.error(t('conversation.history.deleteFailed'));
-          }
-        },
-        style: { borderRadius: '12px' },
-        alignCenter: true,
-        getPopupContainer: () => document.body,
-      });
+    async (conversationIds: string[]) => {
+      try {
+        const results = await Promise.all(
+          conversationIds.map((cid) => ipcBridge.conversation.remove.invoke({ id: cid }))
+        );
+        const successCount = results.filter(Boolean).length;
+        emitter.emit('chat.history.refresh');
+        if (successCount > 0) {
+          Message.success(t('conversation.history.deleteAgentGroupSuccess', { count: successCount }));
+        } else {
+          Message.error(t('conversation.history.deleteFailed'));
+        }
+      } catch (err) {
+        console.error('Failed to delete agent group:', err);
+        Message.error(t('conversation.history.deleteFailed'));
+      }
     },
     [t]
   );
