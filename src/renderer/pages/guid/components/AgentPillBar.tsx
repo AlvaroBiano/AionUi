@@ -234,7 +234,7 @@ const AgentSelectorPopover: React.FC<AgentSelectorPopoverProps> = ({
       unmountOnExit={false}
     >
       {triggerNode ?? (
-        <div className={styles.heroAgentNameRow}>
+        <div className={styles.heroAgentNameRow} data-testid='guid-agent-selector'>
           <span className={styles.heroAgentName}>{displayAgentName}</span>
           <Down theme='outline' size={14} fill='currentColor' style={{ lineHeight: 0, flexShrink: 0 }} />
         </div>
