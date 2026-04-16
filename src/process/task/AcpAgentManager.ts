@@ -40,7 +40,7 @@ import { extractAndStripThinkTags } from './ThinkTagDetector';
 import type { AgentKillReason } from './IAgentManager';
 import { hasNativeSkillSupport } from '@/common/types/acpTypes';
 import { prepareFirstMessageWithSkillsIndex } from '@process/task/agentUtils';
-import { shouldInjectTeamGuideMcp } from '@process/resources/prompts/teamGuidePrompt';
+import { shouldInjectTeamGuideMcp } from '@process/team/prompts/teamGuideCapability.ts';
 import { extractTextFromMessage, processCronInMessage } from './MessageMiddleware';
 import { ConversationTurnCompletionService } from './ConversationTurnCompletionService';
 
@@ -112,7 +112,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   private readonly missingFinishFallbackDelayMs = 15000;
 
   constructor(data: AcpAgentManagerData) {
-    super('acp', data, new IpcAgentEventEmitter());
+    super('acp', data, new IpcAgentEventEmitter(), false);
     this.conversation_id = data.conversation_id;
     this.workspace = data.workspace;
     this.options = data;
@@ -862,10 +862,8 @@ ${collectedResponses.join('\n')}`;
       }
     }
 
-    const modelInfo = this.agent.getModelInfo();
-    if (modelInfo && modelInfo.availableModels?.length > 0) {
-      void this.cacheModelList(modelInfo);
-    }
+    // Note: model list caching is now handled by AcpAgent.cacheSessionCapabilities()
+    // during start(), so we don't need to call cacheModelList() here.
   }
 
   // ── initAgent ────────────────────────────────────────────────────────
@@ -1007,19 +1005,21 @@ ${collectedResponses.join('\n')}`;
             // Native skill discovery via workspace symlinks — inject preset rules + team guide
             const parts: string[] = [];
             if (this.options.presetContext) parts.push(this.options.presetContext);
-            if (!isInTeam && shouldInjectTeamGuideMcp(this.options.backend)) {
-              const { getTeamGuidePrompt } = await import('@process/resources/prompts/teamGuidePrompt');
+            if (!isInTeam && (await shouldInjectTeamGuideMcp(this.options.backend))) {
+              const { getTeamGuidePrompt } = await import('@process/team/prompts/teamGuidePrompt.ts');
               parts.push(getTeamGuidePrompt(this.options.backend));
             }
             if (parts.length > 0) {
-              contentToSend = `[Assistant Rules - You MUST follow these instructions]\n${parts.join('\n\n')}\n\n[User Request]\n${contentToSend}`;
+              contentToSend = `[Assistant Rules - You MUST follow these instructions]\n${parts.join(
+                '\n\n'
+              )}\n\n[User Request]\n${contentToSend}`;
             }
           } else {
             // Custom workspace or no native support — inject rules + skills via prompt
             contentToSend = await prepareFirstMessageWithSkillsIndex(contentToSend, {
               presetContext: this.options.presetContext,
               enabledSkills: this.options.enabledSkills,
-              enableTeamGuide: !isInTeam && shouldInjectTeamGuideMcp(this.options.backend),
+              enableTeamGuide: !isInTeam && (await shouldInjectTeamGuideMcp(this.options.backend)),
               backend: this.options.backend,
             });
           }
@@ -1046,7 +1046,9 @@ ${collectedResponses.join('\n')}`;
       const agentSendStart = Date.now();
       const result = await this.sendAgentMessageWithFinishFallback(data);
       console.log(
-        `[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`
+        `[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${
+          Date.now() - managerSendStart
+        }ms)`
       );
       if (!result.success) {
         this.clearBusyState();
@@ -1259,6 +1261,7 @@ ${collectedResponses.join('\n')}`;
       if (this.persistedModelId) {
         return {
           source: 'models',
+          sourceDetail: 'persisted-model',
           currentModelId: this.persistedModelId,
           currentModelLabel: this.persistedModelId,
           canSwitch: false,
@@ -1345,6 +1348,20 @@ ${collectedResponses.join('\n')}`;
       const sandboxMode = getCodexSandboxModeForSessionMode(mode, this.options.sandboxMode);
       this.options.sandboxMode = sandboxMode;
       await writeCodexSandboxMode(sandboxMode);
+      this.saveSessionMode(mode);
+
+      if (this.isYoloMode(prev) && !this.isYoloMode(mode)) {
+        void this.clearLegacyYoloConfig();
+      }
+      return { success: true, data: { mode: this.currentMode } };
+    }
+
+    // Snow CLI does not support ACP session/set_mode — it returns "Method not found".
+    // Like Codex, manage mode at the Manager layer only.
+    if (this.options.backend === 'snow') {
+      const prev = this.currentMode;
+      this.currentMode = mode;
+      this.yoloMode = this.isYoloMode(mode);
       this.saveSessionMode(mode);
 
       if (this.isYoloMode(prev) && !this.isYoloMode(mode)) {

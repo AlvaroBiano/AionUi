@@ -78,7 +78,6 @@ export const useGuidAgentSelection = ({
   const [selectedMode, _setSelectedMode] = useState<string>('default');
   // Track whether mode was loaded from preferences to avoid overwriting during initial load
   const selectedAgentRef = useRef<string | null>(null);
-  const probedModelBackendsRef = useRef(new Set<string>());
   const [acpCachedModels, setAcpCachedModels] = useState<Record<string, AcpModelInfo>>({});
   const [selectedAcpModel, _setSelectedAcpModel] = useState<string | null>(null);
   const [cachedConfigOptions, setCachedConfigOptions] = useState<AcpSessionConfigOption[]>([]);
@@ -288,54 +287,6 @@ export const useGuidAgentSelection = ({
     };
   }, []);
 
-  // Probe Codex model info on first selection so the Guid page can show
-  // the real account-scoped models before the first conversation starts.
-  useEffect(() => {
-    if (selectedAgentKey !== 'codex') return;
-    if (probedModelBackendsRef.current.has('codex')) return;
-
-    let cancelled = false;
-    probedModelBackendsRef.current.add('codex');
-
-    ipcBridge.acpConversation.probeModelInfo
-      .invoke({ backend: 'codex' })
-      .then(async (result) => {
-        if (cancelled) return;
-        const modelInfo = result.success ? result.data?.modelInfo : null;
-        if (!modelInfo?.availableModels?.length) {
-          probedModelBackendsRef.current.delete('codex');
-          return;
-        }
-
-        console.log('[Guid][codex] Probed model info:', modelInfo);
-
-        const cached = (await ConfigStorage.get('acp.cachedModels').catch(() => ({}))) || {};
-        if (cancelled) return;
-
-        const nextCachedModels = {
-          ...cached,
-          codex: modelInfo,
-        };
-
-        setAcpCachedModels((prev) => ({
-          ...prev,
-          codex: modelInfo,
-        }));
-
-        await ConfigStorage.set('acp.cachedModels', nextCachedModels).catch((error) => {
-          console.error('Failed to save probed ACP model info:', error);
-        });
-      })
-      .catch((error) => {
-        probedModelBackendsRef.current.delete('codex');
-        console.warn('[Guid][codex] Failed to probe model info:', error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedAgentKey]);
-
   const currentEffectiveAgentInfo = useMemo(() => {
     if (!isPresetAgent) {
       const isAvailable = isMainAgentAvailable(selectedAgent as string);
@@ -362,7 +313,13 @@ export const useGuidAgentSelection = ({
       .then((cached) => {
         if (!isActive) return;
         const options = cached?.[backend];
-        setCachedConfigOptions(Array.isArray(options) ? options : []);
+        // Filter out model/mode categories — those are handled by AcpModelSelector / AgentModeSelector
+        const filtered = Array.isArray(options)
+          ? (options as Array<{ category?: string }>).filter(
+              (opt) => opt.category !== 'model' && opt.category !== 'mode'
+            )
+          : [];
+        setCachedConfigOptions(filtered as AcpSessionConfigOption[]);
         setPendingConfigOptions({});
       })
       .catch(() => {
@@ -432,6 +389,9 @@ export const useGuidAgentSelection = ({
           const config = await ConfigStorage.get('gemini.config');
           preferred = config?.preferredMode;
           yoloMode = config?.yoloMode ?? false;
+        } else if (configKey === 'aionrs') {
+          const config = await ConfigStorage.get('aionrs.config');
+          preferred = config?.preferredMode;
         } else {
           const config = await ConfigStorage.get('acp.config');
           const backendConfig = config?.[configKey as AcpBackend] as Record<string, unknown> | undefined;

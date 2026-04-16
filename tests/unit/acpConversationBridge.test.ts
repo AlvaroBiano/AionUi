@@ -24,7 +24,6 @@ vi.mock('../../src/common', () => ({
       checkAgentHealth: makeChannel('checkAgentHealth'),
       getMode: makeChannel('getMode'),
       getModelInfo: makeChannel('getModelInfo'),
-      probeModelInfo: makeChannel('probeModelInfo'),
       setModel: makeChannel('setModel'),
       setMode: makeChannel('setMode'),
       getConfigOptions: makeChannel('getConfigOptions'),
@@ -38,22 +37,18 @@ vi.mock('../../src/process/agent/acp/AcpDetector', () => ({
 }));
 
 vi.mock('../../src/process/agent/acp/AcpConnection', () => ({
-  AcpConnection: vi.fn(() => ({
-    connect: vi.fn(async () => {}),
-    newSession: vi.fn(async () => {}),
-    sendPrompt: vi.fn(async () => {}),
-    disconnect: vi.fn(async () => {}),
-    getConfigOptions: vi.fn(() => []),
-    getModels: vi.fn(() => []),
-    getInitializeResponse: vi.fn(() => null),
-  })),
+  AcpConnection: vi.fn(function () {
+    return {
+      connect: vi.fn(async () => {}),
+      newSession: vi.fn(async () => {}),
+      sendPrompt: vi.fn(async () => {}),
+      disconnect: vi.fn(async () => {}),
+      getConfigOptions: vi.fn(() => []),
+      getModels: vi.fn(() => []),
+      getInitializeResponse: vi.fn(() => null),
+    };
+  }),
 }));
-
-vi.mock('../../src/process/agent/acp/modelInfo', () => ({
-  buildAcpModelInfo: vi.fn(() => ({})),
-  summarizeAcpModelInfo: vi.fn(() => ({})),
-}));
-
 vi.mock('../../src/process/task/AcpAgentManager', () => ({ default: class AcpAgentManager {} }));
 vi.mock('../../src/process/task/GeminiAgentManager', () => ({ GeminiAgentManager: class GeminiAgentManager {} }));
 
@@ -90,9 +85,11 @@ function makeTaskManager(overrides?: Partial<IWorkerTaskManager>): IWorkerTaskMa
 describe('acpConversationBridge', () => {
   let taskManager: IWorkerTaskManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     taskManager = makeTaskManager();
+    const { acpDetector } = await import('../../src/process/agent/acp/AcpDetector');
+    vi.mocked(acpDetector.getDetectedAgents).mockReturnValue([]);
     initAcpConversationBridge(taskManager);
   });
 

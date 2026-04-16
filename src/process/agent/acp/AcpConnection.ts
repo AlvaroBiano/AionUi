@@ -5,8 +5,10 @@
  */
 
 import type {
+  AcpAgentCapabilities,
   AcpBackend,
   AcpIncomingMessage,
+  AcpInitializeResult,
   AcpMessage,
   AcpNotification,
   AcpPermissionRequest,
@@ -14,10 +16,11 @@ import type {
   AcpRequest,
   AcpResponse,
   AcpSessionConfigOption,
+  AcpSessionModes,
   AcpSessionModels,
   AcpSessionUpdate,
 } from '@/common/types/acpTypes';
-import { ACP_METHODS, JSONRPC_VERSION } from '@/common/types/acpTypes';
+import { ACP_METHODS, JSONRPC_VERSION, parseInitializeResult } from '@/common/types/acpTypes';
 import type { ChildProcess } from 'child_process';
 import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
@@ -25,7 +28,7 @@ import type { AcpSessionMcpServer } from './mcpSessionConfig';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { getNpxCacheDir, getWindowsShellExecutionOptions, resolveNpxPath } from '@process/utils/shellEnv';
+import { getWindowsShellExecutionOptions } from '@process/utils/shellEnv';
 import { connectClaude, connectCodebuddy, connectCodex, prepareCleanEnv, spawnGenericBackend } from './acpConnectors';
 import type { SpawnResult } from './acpConnectors';
 import { killChild, readTextFile, writeJsonRpcMessage, writeTextFile } from './utils';
@@ -95,15 +98,6 @@ interface PendingRequest<T = unknown> {
   timeoutDuration: number;
 }
 
-type AcpInitializeAgentCapabilities = {
-  loadSession?: boolean;
-  _meta?: {
-    claudeCode?: unknown;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-};
-
 export class AcpConnection {
   private child: ChildProcess | null = null;
   private pendingRequests = new Map<number, PendingRequest<unknown>>();
@@ -111,12 +105,13 @@ export class AcpConnection {
   private sessionId: string | null = null;
   private isInitialized = false;
   private backend: AcpBackend | null = null;
-  private initializeResponse: AcpResponse | null = null;
+  private initializeResult: AcpInitializeResult | null = null;
   private workingDir: string = process.cwd();
 
-  // Cached model information from session/new response
+  // Cached session capabilities from session/new response
   private configOptions: AcpSessionConfigOption[] | null = null;
   private models: AcpSessionModels | null = null;
+  private modes: AcpSessionModes | null = null;
 
   // Configurable prompt timeout in milliseconds (default: 300000 = 5 minutes)
   private promptTimeoutMs: number = 300000;
@@ -189,9 +184,6 @@ export class AcpConnection {
     await this.spawnAndSetup(result, backend);
   }
 
-  /** Npx-based backends that may need npm cache recovery on version mismatch */
-  private static readonly NPX_BACKENDS: ReadonlySet<string> = new Set(['claude', 'codex', 'codebuddy']);
-
   async connect(
     backend: AcpBackend,
     cliPath?: string,
@@ -202,55 +194,7 @@ export class AcpConnection {
     const connectStart = Date.now();
     console.log(`[ACP-PERF] connect: start backend=${backend}`);
 
-    try {
-      await this.doConnect(backend, cliPath, workingDir, acpArgs, customEnv);
-    } catch (error) {
-      // For npx-based backends, detect stale npm cache errors and auto-recover.
-      // When we upgrade a bridge package version (e.g., claude-agent-acp 0.17→0.18),
-      // users with the old version cached hit "notarget" because --prefer-offline
-      // serves stale metadata. Cleaning the cache and retrying fixes this.
-      const errMsg = error instanceof Error ? error.message : String(error);
-      if (AcpConnection.NPX_BACKENDS.has(backend) && /notarget|no matching version/i.test(errMsg)) {
-        console.warn(`[ACP] Detected stale npm cache for ${backend}, cleaning and retrying...`);
-        try {
-          const cleanEnv = await prepareCleanEnv();
-          const npmPath = resolveNpxPath(cleanEnv)
-            .replace(/npx$/, 'npm')
-            .replace(/npx\.cmd$/, 'npm.cmd');
-          await execFile(npmPath, ['cache', 'clean', '--force'], {
-            env: cleanEnv,
-            timeout: 30000,
-            ...getWindowsShellExecutionOptions(),
-          });
-          console.warn('[ACP] npm cache cleaned, retrying connection...');
-        } catch (cleanError) {
-          console.warn('[ACP] Failed to clean npm cache:', cleanError);
-          throw error; // Throw original error if cache clean fails
-        }
-        await this.doConnect(backend, cliPath, workingDir, acpArgs, customEnv);
-      } else if (
-        AcpConnection.NPX_BACKENDS.has(backend) &&
-        errMsg.includes('_npx') &&
-        /ENOENT|ERR_MODULE_NOT_FOUND|Cannot find package/i.test(errMsg)
-      ) {
-        // Corrupted npx cache: the _npx/<hash> directory exists but has missing
-        // or incomplete files (e.g. package.json deleted, transitive deps like zod
-        // not installed). Phase 1/2 retries don't help because npx reuses the
-        // existing directory. Fix: delete the _npx cache and retry from scratch.
-        console.warn(`[ACP] Detected corrupted npx cache for ${backend}, cleaning _npx and retrying...`);
-        try {
-          const npxCacheDir = getNpxCacheDir();
-          await fs.rm(npxCacheDir, { recursive: true, force: true });
-          console.warn(`[ACP] Cleaned corrupted npx cache: ${npxCacheDir}`);
-        } catch (cleanError) {
-          console.warn('[ACP] Failed to clean npx cache:', cleanError);
-          throw error;
-        }
-        await this.doConnect(backend, cliPath, workingDir, acpArgs, customEnv);
-      } else {
-        throw error;
-      }
-    }
+    await this.doConnect(backend, cliPath, workingDir, acpArgs, customEnv);
 
     console.log(`[ACP-PERF] connect: total ${Date.now() - connectStart}ms`);
   }
@@ -309,6 +253,7 @@ export class AcpConnection {
       case 'cursor':
       case 'kiro':
       case 'hermes':
+      case 'snow':
         if (!cliPath) {
           throw new Error(`CLI path is required for ${backend} backend`);
         }
@@ -441,7 +386,9 @@ export class AcpConnection {
             const handleDuration = Date.now() - handleStart;
             if (handleDuration > 5) {
               console.log(
-                `[ACP-PERF] stream: handleMessage ${handleDuration}ms method=${'method' in message ? (message as AcpIncomingMessage).method : 'response'}`
+                `[ACP-PERF] stream: handleMessage ${handleDuration}ms method=${
+                  'method' in message ? (message as AcpIncomingMessage).method : 'response'
+                }`
               );
             }
           } catch (error) {
@@ -493,9 +440,10 @@ export class AcpConnection {
     this.isSetupComplete = false;
     this.isDetached = false;
     this.backend = null;
-    this.initializeResponse = null;
+    this.initializeResult = null;
     this.configOptions = null;
     this.models = null;
+    this.modes = null;
     this.child = null;
 
     // 3. Notify AcpAgent about disconnect
@@ -804,7 +752,7 @@ export class AcpConnection {
 
     const response = await this.sendRequest<AcpResponse>('initialize', initializeParams);
     this.isInitialized = true;
-    this.initializeResponse = response;
+    this.initializeResult = parseInitializeResult(response);
     return response;
   }
 
@@ -834,8 +782,8 @@ export class AcpConnection {
     const normalizedCwd = this.normalizeCwdForAgent(cwd);
 
     // Build _meta resume payload only when backend/capabilities indicate Claude-style resume.
-    const capabilities = this.getInitializeAgentCapabilities();
-    const useClaudeMetaResume = this.backend === 'claude' || !!capabilities?._meta?.claudeCode;
+    const caps = this.initializeResult?.capabilities;
+    const useClaudeMetaResume = this.backend === 'claude' || !!caps?._meta?.claudeCode;
     const useMetaResume = useClaudeMetaResume && options?.resumeSessionId;
     const meta = useMetaResume
       ? {
@@ -866,16 +814,20 @@ export class AcpConnection {
     return response;
   }
 
-  private getInitializeAgentCapabilities(): AcpInitializeAgentCapabilities | undefined {
-    const result = this.initializeResponse;
-    if (!result || typeof result !== 'object') {
-      return undefined;
-    }
-    const capabilities = (result as unknown as Record<string, unknown>).agentCapabilities;
-    if (!capabilities || typeof capabilities !== 'object') {
-      return undefined;
-    }
-    return capabilities as AcpInitializeAgentCapabilities;
+  /**
+   * Get the fully parsed initialize result.
+   * Returns null before initialize() completes.
+   */
+  getInitializeResult(): AcpInitializeResult | null {
+    return this.initializeResult;
+  }
+
+  /**
+   * Get parsed agent capabilities from the initialize response.
+   * Returns null before initialize() completes.
+   */
+  getAgentCapabilities(): AcpAgentCapabilities | null {
+    return this.initializeResult?.capabilities ?? null;
   }
 
   async resumeSession(
@@ -883,9 +835,9 @@ export class AcpConnection {
     cwd: string = process.cwd(),
     options?: { forkSession?: boolean; mcpServers?: AcpSessionMcpServer[] }
   ): Promise<AcpResponse & { sessionId?: string }> {
-    const capabilities = this.getInitializeAgentCapabilities();
-    const useClaudeMetaResume = this.backend === 'claude' || !!capabilities?._meta?.claudeCode;
-    const supportsLoadSession = capabilities?.loadSession === true;
+    const caps = this.initializeResult?.capabilities;
+    const useClaudeMetaResume = this.backend === 'claude' || !!caps?._meta?.claudeCode;
+    const supportsLoadSession = caps?.loadSession === true;
     const shouldTryLoadSession = !useClaudeMetaResume && supportsLoadSession;
 
     if (shouldTryLoadSession) {
@@ -934,14 +886,20 @@ export class AcpConnection {
   }
 
   /**
-   * Parse configOptions and models from a session response (session/new or session/load).
-   * Logs model info for Codex backend.
+   * Parse configOptions, models, and modes from a session response (session/new or session/load).
    */
   private parseSessionCapabilities(response: unknown): void {
     const result = response as Record<string, unknown>;
     if (Array.isArray(result.configOptions)) {
       this.configOptions = result.configOptions as AcpSessionConfigOption[];
     }
+
+    // Parse top-level modes (used by qoder, opencode, etc.)
+    const modesField = result.modes as AcpSessionModes | undefined;
+    if (modesField?.availableModes && modesField.availableModes.length > 0) {
+      this.modes = modesField;
+    }
+
     // Check top-level models first, then fall back to _meta.models (used by iFlow)
     const modelsSource = result.models || (result._meta as Record<string, unknown> | undefined)?.models;
     if (modelsSource && typeof modelsSource === 'object') {
@@ -1028,10 +986,17 @@ export class AcpConnection {
       throw new Error('No active ACP session');
     }
 
-    return await this.sendRequest('session/set_mode', {
+    const response = await this.sendRequest<AcpResponse>('session/set_mode', {
       sessionId: this.sessionId,
       modeId,
     });
+
+    // Optimistically update the cached modes state
+    if (this.modes) {
+      this.modes = { ...this.modes, currentModeId: modeId };
+    }
+
+    return response;
   }
 
   async setModel(modelId: string): Promise<AcpResponse> {
@@ -1096,19 +1061,27 @@ export class AcpConnection {
     return this.models;
   }
 
+  getModes(): AcpSessionModes | null {
+    return this.modes;
+  }
+
   async disconnect(): Promise<void> {
-    // Try graceful session/close before killing the process.
-    // session/close is an ACP RFD (not yet required), so this is best-effort
-    // with a short timeout — if the agent supports it, it gets a chance to
-    // clean up its own child processes before we force-kill.
-    if (this.sessionId && this.child && !this.child.killed) {
+    // Try graceful session/close only when the agent declared support.
+    // session/close is an ACP RFD — sending it to unsupported agents wastes
+    // time and may trigger "method not found" errors in their logs.
+    if (
+      this.sessionId &&
+      this.child &&
+      !this.child.killed &&
+      this.initializeResult?.capabilities.sessionCapabilities.close
+    ) {
       try {
         await Promise.race([
           this.sendRequest('session/close', { sessionId: this.sessionId }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('session/close timeout')), 2000)),
         ]);
       } catch {
-        // Expected: most agents don't implement session/close yet
+        // Best-effort: agent may not respond in time
       }
     }
 
@@ -1127,9 +1100,10 @@ export class AcpConnection {
     this.sessionId = null;
     this.isInitialized = false;
     this.backend = null;
-    this.initializeResponse = null;
+    this.initializeResult = null;
     this.configOptions = null;
     this.models = null;
+    this.modes = null;
   }
 
   get isConnected(): boolean {
@@ -1154,8 +1128,13 @@ export class AcpConnection {
     return this.backend;
   }
 
+  /**
+   * @deprecated Use getInitializeResult() or getAgentCapabilities() instead.
+   * Returns the raw initialize response for backward compatibility.
+   */
   getInitializeResponse(): AcpResponse | null {
-    return this.initializeResponse;
+    // Return null — callers should migrate to getInitializeResult()
+    return null;
   }
 
   // Normalize read operations to the conversation workspace before touching the filesystem

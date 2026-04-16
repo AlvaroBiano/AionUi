@@ -126,5 +126,7 @@
     "connection": "Подключение",
     "llmProvider": "LLM-провайдер",
     "noProviderHint": "Сначала настройте провайдера LLM в Настройки > Модели."
-  }
+  },
+  "historyBack": "Назад",
+  "agentMode": "Режим агента"
 }

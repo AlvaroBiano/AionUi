@@ -464,6 +464,15 @@ export class ActionExecutor {
                 channelChatId: chatId,
                 extra: conversationExtra,
               });
+            } else if (backend === 'aionrs') {
+              sessionConversation = await conversationServiceSingleton.createConversation({
+                type: 'aionrs',
+                model,
+                name: conversationName,
+                source,
+                channelChatId: chatId,
+                extra: conversationExtra,
+              });
             } else if (backend === 'codex') {
               sessionConversation = await conversationServiceSingleton.createConversation({
                 type: 'acp',
@@ -766,6 +775,8 @@ export class ActionExecutor {
         // 使用最后一条消息的实际内容，添加操作按钮（根据平台）
         // Use actual content of last message, add action buttons (based on platform)
         const responseMarkup = getResponseActionsMarkup(context.platform as PluginType, finalVisibleText);
+        const finalReplyMarkup =
+          responseMarkup ?? (context.platform === 'wecom' ? ({ __aionuiFinal: true } as unknown) : undefined);
         const finalMessage: IUnifiedOutgoingMessage = lastMessageContent
           ? {
               ...lastMessageContent,
@@ -775,13 +786,13 @@ export class ActionExecutor {
                     mediaActions: finalizedMessage.mediaActions,
                   }
                 : {}),
-              replyMarkup: responseMarkup,
+              replyMarkup: finalReplyMarkup,
             }
           : {
               type: 'text',
               text: '✅ Done',
               parseMode: 'HTML',
-              replyMarkup: responseMarkup,
+              replyMarkup: finalReplyMarkup,
             };
         await context.editMessage(lastMsgId, finalMessage);
       } catch {

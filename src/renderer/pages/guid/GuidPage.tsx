@@ -9,7 +9,7 @@ import { useAssistantBackends } from '@/renderer/hooks/assistant';
 import { useInputFocusRing } from '@/renderer/hooks/chat/useInputFocusRing';
 import { openExternalUrl, resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 import { useConversationTabs } from '@/renderer/pages/conversation/hooks/ConversationTabsContext';
-import { CUSTOM_AVATAR_IMAGE_MAP } from './constants';
+import { BUILTIN_AGENT_OPTIONS, CUSTOM_AVATAR_IMAGE_MAP } from './constants';
 import AgentAvatar from '@/renderer/components/AgentAvatar';
 import AgentSelectorPopover from './components/AgentPillBar';
 import AssistantSelectionArea from './components/AssistantSelectionArea';
@@ -40,16 +40,6 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './index.module.css';
 
-// Agent switcher options — same list as AssistantEditDrawer
-const BUILTIN_AGENT_OPTIONS: { value: string; label: string }[] = [
-  { value: 'gemini', label: 'Gemini CLI' },
-  { value: 'claude', label: 'Claude Code' },
-  { value: 'qwen', label: 'Qwen Code' },
-  { value: 'codex', label: 'Codex' },
-  { value: 'codebuddy', label: 'CodeBuddy' },
-  { value: 'opencode', label: 'OpenCode' },
-];
-
 const GuidPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -73,13 +63,23 @@ const GuidPage: React.FC = () => {
   }, []);
 
   // --- Hooks ---
-  const modelSelection = useGuidModelSelection();
+  // Track which provider-based agent is selected so model selection persists per agent type
+  const [providerAgentKey, setProviderAgentKey] = useState<'gemini' | 'aionrs'>('aionrs');
+  const modelSelection = useGuidModelSelection(providerAgentKey);
 
   const agentSelection = useGuidAgentSelection({
     modelList: modelSelection.modelList,
     isGoogleAuth: modelSelection.isGoogleAuth,
     localeKey,
   });
+
+  // Sync providerAgentKey when selected agent changes
+  useEffect(() => {
+    const agent = agentSelection.selectedAgent;
+    if (agent === 'gemini' || agent === 'aionrs') {
+      setProviderAgentKey(agent);
+    }
+  }, [agentSelection.selectedAgent]);
 
   const guidInput = useGuidInput({
     locationState: location.state as { workspace?: string } | null,
@@ -316,6 +316,78 @@ const GuidPage: React.FC = () => {
     guidInput.setInput('');
   }, [location.key]);
 
+  // When sidebar "新对话" navigates with resetAssistant, exit any preset assistant
+  // and return to the default (non-preset) homepage view.
+  const resetAssistantRequested = (location.state as { resetAssistant?: boolean } | null)?.resetAssistant === true;
+  useEffect(() => {
+    if (!resetAssistantRequested) return;
+    if (!agentSelection.availableAgents || agentSelection.availableAgents.length === 0) return;
+    if (agentSelection.isPresetAgent) {
+      agentSelection.setSelectedAgentKey(agentSelection.defaultAgentKey);
+    }
+    // Clear via history API so we don't bump location.key and re-trigger other effects.
+    window.history.replaceState(null, '', `${location.pathname}${location.search}${location.hash}`);
+  }, [
+    resetAssistantRequested,
+    agentSelection.availableAgents,
+    agentSelection.isPresetAgent,
+    agentSelection.defaultAgentKey,
+    agentSelection.setSelectedAgentKey,
+    location.pathname,
+    location.search,
+    location.hash,
+  ]);
+
+  useEffect(() => {
+    const node = descriptionTextRef.current;
+    if (!node || !agentSelection.isPresetAgent || !selectedAssistantDescription) {
+      setCanExpandDescription(false);
+      return;
+    }
+
+    const checkExpandable = () => {
+      // In line-clamp mode, scrollWidth/scrollHeight can be unreliable in some engines.
+      // Measure the natural multi-line height via an off-screen clone.
+      const clone = node.cloneNode(true) as HTMLDivElement;
+      const computed = window.getComputedStyle(node);
+      clone.style.position = 'absolute';
+      clone.style.visibility = 'hidden';
+      clone.style.pointerEvents = 'none';
+      clone.style.zIndex = '-1';
+      clone.style.left = '-99999px';
+      clone.style.top = '0';
+      clone.style.width = `${node.clientWidth}px`;
+      clone.style.display = 'block';
+      clone.style.overflow = 'visible';
+      clone.style.whiteSpace = 'normal';
+      clone.style.webkitLineClamp = 'unset';
+      clone.style.webkitBoxOrient = 'unset';
+      clone.style.lineHeight = computed.lineHeight;
+      clone.style.fontSize = computed.fontSize;
+      clone.style.fontWeight = computed.fontWeight;
+      clone.style.letterSpacing = computed.letterSpacing;
+      clone.style.fontFamily = computed.fontFamily;
+      document.body.appendChild(clone);
+
+      const expandedHeight = clone.scrollHeight;
+      document.body.removeChild(clone);
+      const lineHeight = Number.parseFloat(computed.lineHeight) || 20;
+      const canExpand = expandedHeight > lineHeight + 1;
+      setCanExpandDescription(canExpand);
+      if (!canExpand) {
+        setIsDescriptionExpanded(false);
+      }
+    };
+
+    checkExpandable();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => checkExpandable());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [agentSelection.isPresetAgent, selectedAssistantDescription]);
+
+
   const currentPresetAgentType = (selectedAssistantRecord?.presetAgentType as PresetAgentType | undefined) || 'gemini';
   const agentSwitcherItems = useMemo(() => {
     const builtinItems = BUILTIN_AGENT_OPTIONS.filter((opt) => availableBackends.has(opt.value)).map((opt) => ({
@@ -395,14 +467,16 @@ const GuidPage: React.FC = () => {
     [agentSelection, currentPresetAgentType, t]
   );
 
-  // Determine if model selector should use provider-based mode (Gemini & Aion CLI)
-  // Both gemini and aionrs use configured model providers, not ACP probe-based models
+  // Resolve the effective agent type once — covers both direct selection and preset assistants
+  const effectiveAgentType = agentSelection.isPresetAgent
+    ? agentSelection.currentEffectiveAgentInfo.agentType
+    : agentSelection.selectedAgent;
+
+  // Agents that use configured model providers instead of ACP probe-based models
   const PROVIDER_BASED_AGENTS = new Set(['gemini', 'aionrs']);
   const isGeminiMode =
-    (PROVIDER_BASED_AGENTS.has(agentSelection.selectedAgent) && !agentSelection.isPresetAgent) ||
-    (agentSelection.isPresetAgent &&
-      agentSelection.currentEffectiveAgentInfo.agentType === 'gemini' &&
-      agentSelection.currentEffectiveAgentInfo.isAvailable);
+    PROVIDER_BASED_AGENTS.has(effectiveAgentType) &&
+    (!agentSelection.isPresetAgent || agentSelection.currentEffectiveAgentInfo.isAvailable);
 
   // Build the mention dropdown node
   const mentionDropdownNode = (
@@ -414,52 +488,8 @@ const GuidPage: React.FC = () => {
     />
   );
 
-  // Apply per-agent preferred model when switching agents (gemini / aionrs)
-  const prevPreferredAgentRef = useRef<string>('');
-  useEffect(() => {
-    const agent = agentSelection.selectedAgent as string;
-    if (agent === prevPreferredAgentRef.current) return;
-    prevPreferredAgentRef.current = agent;
-
-    if (agent === 'aionrs') {
-      // selectedAcpModel is already loaded from acp.config.aionrs.preferredModelId
-      const preferredModel = agentSelection.selectedAcpModel;
-      if (preferredModel && preferredModel.includes('::')) {
-        const sepIdx = preferredModel.indexOf('::');
-        const providerId = preferredModel.slice(0, sepIdx);
-        const modelName = preferredModel.slice(sepIdx + 2);
-        const nonGoogleList = modelSelection.modelList.filter(
-          (p) => !p.platform?.toLowerCase().includes('gemini-with-google-auth')
-        );
-        const provider = nonGoogleList.find((p) => p.id === providerId);
-        if (provider) {
-          modelSelection.setCurrentModelTransient({
-            ...provider,
-            useModel: modelName,
-          } as import('@/common/config/storage').TProviderWithModel);
-        }
-      }
-    } else if (agent === 'gemini') {
-      // gemini.defaultModel is kept in sync with gemini.config.preferredModelId by LocalAgentDetailPage
-      void ConfigStorage.get('gemini.defaultModel')
-        .then((saved) => {
-          if (saved && typeof saved === 'object' && 'id' in saved && 'useModel' in saved) {
-            const { id, useModel } = saved as { id: string; useModel: string };
-            const provider = modelSelection.modelList.find((p) => p.id === id);
-            if (provider && provider.model.includes(useModel)) {
-              modelSelection.setCurrentModelTransient({
-                ...provider,
-                useModel,
-              } as import('@/common/config/storage').TProviderWithModel);
-            }
-          }
-        })
-        .catch(console.error);
-    }
-  }, [agentSelection.selectedAgent, agentSelection.selectedAcpModel, modelSelection.modelList]);
-
-  // AionCLI does not support Google Auth — filter it out when aionrs is selected
-  const isAionrs = agentSelection.selectedAgent === 'aionrs';
+  // AionCLI does not support Google Auth — filter it out
+  const isAionrs = effectiveAgentType === 'aionrs';
   const filteredModelList = useMemo(
     () =>
       isAionrs

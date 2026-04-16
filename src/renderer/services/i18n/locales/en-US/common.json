@@ -128,5 +128,9 @@
     "connection": "Connection",
     "llmProvider": "LLM Provider",
     "noProviderHint": "Configure a model provider in Settings > Models first."
+  },
+  "unit": {
+    "minute_short": "m",
+    "second_short": "s"
   }
 }

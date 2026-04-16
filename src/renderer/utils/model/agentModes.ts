@@ -85,6 +85,10 @@ export const AGENT_MODES: Record<string, AgentModeOption[]> = {
     { value: 'plan', label: 'Plan', description: 'Read-only mode for planning and designing before implementation' },
     { value: 'ask', label: 'Ask', description: 'Q&A mode - no edits or command execution' },
   ],
+  snow: [
+    { value: 'default', label: 'Agent', description: 'Full agent mode with tool access' },
+    { value: 'yolo', label: 'YOLO', description: 'Auto-approve all operations without prompting' },
+  ],
 };
 
 /**
@@ -97,6 +101,39 @@ export const AGENT_MODES: Record<string, AgentModeOption[]> = {
 export function getAgentModes(backend: string | undefined): AgentModeOption[] {
   if (!backend) return [];
   return AGENT_MODES[backend] || [];
+}
+
+/**
+ * Convert a snake_case mode value to a title-cased label.
+ * e.g. 'auto_edit' -> 'Auto Edit', 'plan' -> 'Plan'
+ */
+function toTitleCase(value: string): string {
+  return value
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
+ * Merge static mode definitions with dynamic capabilities from the agent.
+ * - If capabilityModes is null/empty, return static modes (fallback).
+ * - Otherwise, return only modes reported by capabilities, preserving
+ *   static labels when available and title-casing unknown modes.
+ *
+ * @param backend - Agent backend type
+ * @param capabilityModes - Dynamic modes from capabilities.modes (null = not available)
+ */
+export function mergeWithCapabilities(
+  backend: string | undefined,
+  capabilityModes: string[] | null
+): AgentModeOption[] {
+  const staticModes = getAgentModes(backend);
+  if (!capabilityModes || capabilityModes.length === 0) {
+    return staticModes;
+  }
+
+  const staticMap = new Map(staticModes.map((m) => [m.value, m]));
+  return capabilityModes.map((value) => staticMap.get(value) ?? { value, label: toTitleCase(value) });
 }
 
 /**
@@ -123,6 +160,7 @@ const FULL_AUTO_MODE: Record<string, string> = {
   aionrs: 'yolo',
   codex: CODEX_MODE_FULL_AUTO,
   cursor: 'agent',
+  snow: 'yolo',
 };
 
 /**

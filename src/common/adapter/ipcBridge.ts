@@ -73,6 +73,13 @@ export const conversation = {
     'conversation.response.search.workspace'
   ),
   reloadContext: bridge.buildProvider<IBridgeResponse, { conversation_id: string }>('conversation.reload-context'),
+  setConfig: bridge.buildProvider<
+    IBridgeResponse,
+    {
+      conversation_id: string;
+      config: { model?: string; thinking?: string; thinking_budget?: number; effort?: string };
+    }
+  >('conversation.set-config'),
   confirmation: {
     add: bridge.buildEmitter<IConfirmation<any> & { conversation_id: string }>('confirmation.add'),
     update: bridge.buildEmitter<IConfirmation<any> & { conversation_id: string }>('confirmation.update'),
@@ -480,11 +487,6 @@ export const acpConversation = {
   // 获取 ACP 代理的模型信息（模型名称和可用模型）
   getModelInfo: bridge.buildProvider<IBridgeResponse<{ modelInfo: AcpModelInfo | null }>, { conversationId: string }>(
     'acp.get-model-info'
-  ),
-  // Probe model info for an ACP backend without creating a visible conversation
-  // 预探测 ACP 后端的模型信息，不创建可见会话
-  probeModelInfo: bridge.buildProvider<IBridgeResponse<{ modelInfo: AcpModelInfo | null }>, { backend: AcpBackend }>(
-    'acp.probe-model-info'
   ),
   // Set model for ACP agents
   // 设置 ACP 代理的模型
@@ -1293,8 +1295,8 @@ export const team = {
   remove: bridge.buildProvider<void, { id: string }>('team.remove'),
   addAgent: bridge.buildProvider<import('@process/team/types').TeamAgent, IAddTeamAgentParams>('team.add-agent'),
   removeAgent: bridge.buildProvider<void, { teamId: string; slotId: string }>('team.remove-agent'),
-  sendMessage: bridge.buildProvider<void, { teamId: string; content: string }>('team.send-message'),
-  sendMessageToAgent: bridge.buildProvider<void, { teamId: string; slotId: string; content: string }>(
+  sendMessage: bridge.buildProvider<void, { teamId: string; content: string; files?: string[] }>('team.send-message'),
+  sendMessageToAgent: bridge.buildProvider<void, { teamId: string; slotId: string; content: string; files?: string[] }>(
     'team.send-message-to-agent'
   ),
   stop: bridge.buildProvider<void, { teamId: string }>('team.stop'),
