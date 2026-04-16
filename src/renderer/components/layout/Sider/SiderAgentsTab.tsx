@@ -112,10 +112,10 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
   const { profile: userProfile } = useUserProfile();
   const locale = i18n.language || 'en-US';
 
-  const [localCollapsed, setLocalCollapsed] = useState(false);
-  const [remoteCollapsed, setRemoteCollapsed] = useState(false);
-  const [assistantsCollapsed, setAssistantsCollapsed] = useState(false);
-  const [peopleCollapsed, setPeopleCollapsed] = useState(false);
+  const [localCollapsed, setLocalCollapsed] = useState(true);
+  const [remoteCollapsed, setRemoteCollapsed] = useState(true);
+  const [assistantsCollapsed, setAssistantsCollapsed] = useState(true);
+  const [peopleCollapsed, setPeopleCollapsed] = useState(true);
   const [addAgentVisible, setAddAgentVisible] = useState(false);
   const [addRemoteAgentVisible, setAddRemoteAgentVisible] = useState(false);
   const [addAssistantVisible, setAddAssistantVisible] = useState(false);
