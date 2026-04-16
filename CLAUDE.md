@@ -15,3 +15,7 @@
 6. **Release notes**: When writing release notes or changelogs, only include changes from the specific version being released. Verify each item against the actual commits/PRs for that version — never carry forward content from previous releases.
 
 7. **Multi-file tasks**: When a task involves 3 or more files, always state the plan first (list of files to be changed and what will change in each) and wait for confirmation before executing.
+
+8. **Commit granularity**: After completing each feature or fix, commit immediately with a focused commit message. Never batch multiple unrelated features into one commit. One logical change = one commit.
+
+9. **No design assets in commits**: Never commit design drafts, mockup images, or other non-production files (e.g. `docs/design/`, `*.sketch`, temp images). Keep them local only.
