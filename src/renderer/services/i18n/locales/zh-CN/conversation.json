@@ -295,6 +295,16 @@
     "complete": "思考完成",
     "label": "思考中..."
   },
+  "cliSessions": {
+    "entry": "CLI 会话",
+    "title": "继续 CLI 会话",
+    "empty": "未找到 CLI 会话",
+    "loadFailed": "加载 CLI 会话失败",
+    "importFailed": "继续所选 CLI 会话失败",
+    "continue": "继续",
+    "openExisting": "在 AionUi 中打开",
+    "importedBadge": "已导入"
+  },
   "skills": {
     "loaded": "已加载技能"
   }

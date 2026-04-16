@@ -295,6 +295,16 @@
     "complete": "사고 완료",
     "label": "생각 중..."
   },
+  "cliSessions": {
+    "entry": "CLI Sessions",
+    "title": "Continue CLI sessions",
+    "empty": "No CLI sessions found",
+    "loadFailed": "Failed to load CLI sessions",
+    "importFailed": "Failed to continue the selected CLI session",
+    "continue": "Continue",
+    "openExisting": "Open in AionUi",
+    "importedBadge": "Imported"
+  },
   "skills": {
     "loaded": "로드된 스킬"
   }

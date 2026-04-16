@@ -44,6 +44,8 @@ vi.mock('../../src/common', () => ({
       },
       listChanged: { emit: vi.fn() },
       listByCronJob: makeChannel('listByCronJob'),
+      listExternalCliSessions: makeChannel('listExternalCliSessions'),
+      importExternalCliSession: makeChannel('importExternalCliSession'),
     },
     openclawConversation: {
       getRuntime: makeChannel('openclawConversation.getRuntime'),
@@ -54,7 +56,7 @@ vi.mock('../../src/common', () => ({
 vi.mock('../../src/process/utils/initStorage', () => ({
   ProcessChat: { get: vi.fn(async () => []) },
   getSkillsDir: vi.fn(() => '/skills'),
-  ProcessConfig: { get: vi.fn(async () => []) },
+  ProcessConfig: { get: vi.fn(async () => 'en-US') },
 }));
 
 vi.mock('../../src/process/bridge/migrationUtils', () => ({

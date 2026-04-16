@@ -32,6 +32,7 @@ import fs from 'fs';
 import path from 'path';
 import { migrateConversationToDatabase } from './migrationUtils';
 import { ConversationSideQuestionService } from './services/ConversationSideQuestionService';
+import { ExternalCliSessionService } from './services/ExternalCliSessionService';
 
 const refreshTrayMenuSafely = async (): Promise<void> => {
   try {
@@ -57,6 +58,7 @@ export function initConversationBridge(
   teamSessionService?: TeamSessionService
 ): void {
   const sideQuestionService = new ConversationSideQuestionService(conversationService);
+  const externalCliSessionService = new ExternalCliSessionService(conversationService);
 
   const emitConversationListChanged = (
     conversation: Pick<TChatConversation, 'id' | 'source'>,
@@ -170,6 +172,17 @@ export function initConversationBridge(
       console.error('[conversationBridge] Failed to create conversation:', error);
       throw error;
     }
+  });
+
+  ipcBridge.conversation.listExternalCliSessions.provider(async () => {
+    return externalCliSessionService.listSessions();
+  });
+
+  ipcBridge.conversation.importExternalCliSession.provider(async (params): Promise<TChatConversation> => {
+    const result = await externalCliSessionService.importSession(params);
+    emitConversationListChanged(result.conversation, result.created ? 'created' : 'updated');
+    await refreshTrayMenuSafely();
+    return result.conversation;
   });
 
   // Manually reload conversation context (Gemini): inject recent history into memory
@@ -406,10 +419,10 @@ export function initConversationBridge(
     };
   })();
 
-  ipcBridge.conversation.getWorkspace.provider(async ({ workspace, search, path }) => {
+  ipcBridge.conversation.getWorkspace.provider(async ({ workspace, search, path: requestedPath }) => {
     try {
       const fileService = GeminiAgent.buildFileServer(workspace);
-      return await readDirectoryRecursive(path, {
+      return await readDirectoryRecursive(requestedPath, {
         root: workspace,
         fileService,
         abortController: buildLastAbortController(),

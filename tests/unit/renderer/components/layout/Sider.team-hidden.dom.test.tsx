@@ -49,6 +49,10 @@ vi.mock('@/renderer/components/layout/Sider/SiderNav/SiderScheduledEntry', () =>
   default: () => <div data-testid='sider-scheduled-entry' />,
 }));
 
+vi.mock('@/renderer/components/layout/Sider/SiderNav/SiderCliSessionsEntry', () => ({
+  default: () => <div data-testid='sider-cli-sessions-entry' />,
+}));
+
 vi.mock('@/renderer/components/layout/Sider/SiderFooter', () => ({
   default: () => <div data-testid='sider-footer' />,
 }));
@@ -122,6 +126,7 @@ describe('Sider team entry visibility', () => {
     expect(screen.getByTestId('sider-toolbar')).toBeInTheDocument();
     expect(screen.getByTestId('sider-search-entry')).toBeInTheDocument();
     expect(screen.getByTestId('sider-scheduled-entry')).toBeInTheDocument();
+    expect(screen.getByTestId('sider-cli-sessions-entry')).toBeInTheDocument();
     expect(screen.getByTestId('cron-job-section')).toBeInTheDocument();
     expect(await screen.findByTestId('workspace-grouped-history')).toBeInTheDocument();
     expect(screen.getByTestId('sider-footer')).toBeInTheDocument();

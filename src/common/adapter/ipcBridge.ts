@@ -23,6 +23,30 @@ import type {
 import type { ProtocolDetectionRequest, ProtocolDetectionResponse } from '../utils/protocolDetector';
 import type { SpeechToTextRequest, SpeechToTextResult } from '../types/speech';
 
+export type IExternalCliSessionProvider = 'codex' | 'claude';
+
+export interface IExternalCliSession {
+  id: string;
+  provider: IExternalCliSessionProvider;
+  sessionId: string;
+  title: string;
+  workspace: string;
+  transcriptPath: string;
+  createdAt: number;
+  updatedAt: number;
+  importedConversationId?: string;
+}
+
+export interface IImportExternalCliSessionParams {
+  provider: IExternalCliSessionProvider;
+  sessionId: string;
+}
+
+export interface IExternalCliSessionImportResult {
+  conversation: TChatConversation;
+  created: boolean;
+}
+
 export const shell = {
   openFile: bridge.buildProvider<void, string>('open-file'), // 使用系统默认程序打开文件
   showItemInFolder: bridge.buildProvider<void, string>('show-item-in-folder'), // 打开文件夹
@@ -45,6 +69,10 @@ export const conversation = {
     'get-associated-conversation'
   ),
   listByCronJob: bridge.buildProvider<TChatConversation[], { cronJobId: string }>('conversation.list-by-cron-job'), // 获取关联对话
+  listExternalCliSessions: bridge.buildProvider<IExternalCliSession[], void>('conversation.list-external-cli-sessions'),
+  importExternalCliSession: bridge.buildProvider<TChatConversation, IImportExternalCliSessionParams>(
+    'conversation.import-external-cli-session'
+  ),
   remove: bridge.buildProvider<boolean, { id: string }>('remove-conversation'), // 删除对话
   update: bridge.buildProvider<boolean, { id: string; updates: Partial<TChatConversation>; mergeExtra?: boolean }>(
     'update-conversation'

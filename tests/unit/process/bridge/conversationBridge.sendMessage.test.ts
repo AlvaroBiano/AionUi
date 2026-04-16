@@ -37,6 +37,8 @@ vi.mock('@/common', () => ({
       confirmMessage: mockProvider('conversation.confirmMessage'),
       listChanged: { emit: vi.fn() },
       listByCronJob: mockProvider('conversation.listByCronJob'),
+      listExternalCliSessions: mockProvider('conversation.listExternalCliSessions'),
+      importExternalCliSession: mockProvider('conversation.importExternalCliSession'),
       responseStream: { emit: vi.fn() },
       confirmation: {
         confirm: mockProvider('conversation.confirmation.confirm'),
@@ -58,6 +60,7 @@ vi.mock('@process/utils/initStorage', () => ({
   getBuiltinSkillsCopyDir: vi.fn(() => '/mock/builtin-skills'),
   getSystemDir: vi.fn(() => ({ cacheDir: '/mock/cache' })),
   ProcessChat: { conversations: [] },
+  ProcessConfig: { get: vi.fn(async () => 'en-US') },
 }));
 
 vi.mock('@process/utils/tray', () => ({

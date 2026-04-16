@@ -297,6 +297,16 @@
     "complete": "Düşünme tamamlandı",
     "label": "Düşünüyor..."
   },
+  "cliSessions": {
+    "entry": "CLI Sessions",
+    "title": "Continue CLI sessions",
+    "empty": "No CLI sessions found",
+    "loadFailed": "Failed to load CLI sessions",
+    "importFailed": "Failed to continue the selected CLI session",
+    "continue": "Continue",
+    "openExisting": "Open in AionUi",
+    "importedBadge": "Imported"
+  },
   "skills": {
     "loaded": "Yüklenen Beceriler"
   }

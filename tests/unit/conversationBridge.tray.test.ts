@@ -96,6 +96,8 @@ vi.mock('@/common', () => ({
       responseStream: { emit: vi.fn() },
       listChanged: { emit: vi.fn() },
       listByCronJob: createCommand('conversation.listByCronJob'),
+      listExternalCliSessions: createCommand('conversation.listExternalCliSessions'),
+      importExternalCliSession: createCommand('conversation.importExternalCliSession'),
       confirmation: {
         confirm: createCommand('conversation.confirmation.confirm'),
         list: createCommand('conversation.confirmation.list'),
@@ -112,7 +114,7 @@ vi.mock('@process/utils/initStorage', () => ({
   getBuiltinSkillsCopyDir: vi.fn(() => '/mock/builtin-skills'),
   getSystemDir: vi.fn(() => ({ cacheDir: '/mock/cache' })),
   ProcessChat: { get: vi.fn(async () => []) },
-  ProcessConfig: { get: vi.fn(async () => []) },
+  ProcessConfig: { get: vi.fn(async () => 'en-US') },
 }));
 
 vi.mock('@/process/task/agentUtils', () => ({
