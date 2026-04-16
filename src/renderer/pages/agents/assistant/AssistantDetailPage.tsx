@@ -36,6 +36,7 @@ import AddCustomPathModal from '@/renderer/pages/settings/AgentSettings/Assistan
 import AddSkillsModal from '@/renderer/pages/settings/AgentSettings/AssistantManagement/AddSkillsModal';
 import DeleteAssistantModal from '@/renderer/pages/settings/AgentSettings/AssistantManagement/DeleteAssistantModal';
 import SkillConfirmModals from '@/renderer/pages/settings/AgentSettings/AssistantManagement/SkillConfirmModals';
+import AgentDetailLayout from '@/renderer/components/agent/AgentDetailLayout';
 import { Button, Checkbox, Collapse, Input, Message, Select, Tag, Typography } from '@arco-design/web-react';
 import { Delete, Plus, Robot } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -270,479 +271,8 @@ const AssistantDetailPage: React.FC = () => {
 
   if (!initialized) return <AppLoader />;
 
-  return (
-    <div className='size-full overflow-y-auto'>
-      {contextHolder}
-      <div className='px-12px md:px-40px py-32px mx-auto w-full md:max-w-800px'>
-        {/* ── Header ── */}
-        <div className='flex items-start gap-12px mb-28px'>
-          {/* Avatar (large, clickable if editable) */}
-          {canEditIdentity ? (
-            <EmojiPicker value={editor.editAvatar} onChange={editor.setEditAvatar} placement='br'>
-              <div className='cursor-pointer shrink-0'>
-                {editAvatarImage ? (
-                  <img
-                    src={editAvatarImage}
-                    alt=''
-                    className='w-56px h-56px rd-12px object-contain border border-border-2 bg-fill-2'
-                  />
-                ) : (
-                  <AgentAvatar size={56} avatarEmoji={editor.editAvatar || undefined} />
-                )}
-              </div>
-            </EmojiPicker>
-          ) : displayAvatarSrc ? (
-            <AgentAvatar size={56} avatarSrc={displayAvatarSrc} className='shrink-0' />
-          ) : (
-            <AgentAvatar size={56} avatarEmoji={editor.editAvatar || undefined} className='shrink-0' />
-          )}
-
-          <div className='flex-1 min-w-0'>
-            <div className='flex items-center gap-6px flex-wrap'>
-              <span className='text-18px font-semibold text-t-primary'>
-                {editor.editName || t('common.untitled', { defaultValue: 'Untitled' })}
-              </span>
-              {activeAssistant?.isBuiltin && (
-                <Tag size='small' color='orange'>
-                  Builtin
-                </Tag>
-              )}
-              {isExtensionAssistant(activeAssistant as AssistantListItem | null | undefined) && (
-                <Tag size='small' color='arcoblue'>
-                  Extension
-                </Tag>
-              )}
-            </div>
-            {editor.editDescription && <p className='text-13px text-t-secondary mt-4px'>{editor.editDescription}</p>}
-          </div>
-
-          {/* Actions */}
-          <div className='flex items-center gap-8px shrink-0'>
-            {!editor.isCreating && talkToAgentKey && (
-              <Button
-                type='primary'
-                size='small'
-                className='!rounded-[100px]'
-                onClick={() => navigateToAgent(talkToAgentKey)}
-              >
-                {t('common.agents.talkToAgent')}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* ── Form body ── */}
-        <div className='flex flex-col gap-20px'>
-          {/* Name & Avatar */}
-          <div className='flex flex-col gap-8px'>
-            <Typography.Text bold>
-              <span className='text-red-500'>* </span>
-              {t('settings.assistantNameAvatar', { defaultValue: 'Name & Avatar' })}
-            </Typography.Text>
-            <div className='flex items-center gap-12px'>
-              {canEditIdentity ? (
-                <EmojiPicker value={editor.editAvatar} onChange={editor.setEditAvatar} placement='br'>
-                  <div className='cursor-pointer w-40px h-40px rd-8px flex items-center justify-center bg-fill-2 hover:bg-fill-3 transition-colors border border-border-2'>
-                    {editAvatarImage ? (
-                      <img src={editAvatarImage} alt='' width={24} height={24} style={{ objectFit: 'contain' }} />
-                    ) : editor.editAvatar ? (
-                      <span className='text-20px'>{editor.editAvatar}</span>
-                    ) : (
-                      <Robot theme='outline' size={20} />
-                    )}
-                  </div>
-                </EmojiPicker>
-              ) : (
-                <div className='w-40px h-40px rd-8px overflow-hidden flex items-center justify-center bg-fill-2 border border-border-2'>
-                  {displayAvatarSrc ? (
-                    <AgentAvatar size={40} avatarSrc={displayAvatarSrc} />
-                  ) : editor.editAvatar ? (
-                    <span className='text-20px'>{editor.editAvatar}</span>
-                  ) : (
-                    <Robot theme='outline' size={20} />
-                  )}
-                </div>
-              )}
-              <Input
-                value={editor.editName}
-                onChange={editor.setEditName}
-                disabled={!canEditIdentity}
-                placeholder={t('settings.agentNamePlaceholder', { defaultValue: 'Enter a name for this agent' })}
-                className='flex-1 !rounded-8px'
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className='flex flex-col gap-8px'>
-            <Typography.Text bold>
-              {t('settings.assistantDescription', { defaultValue: 'Description' })}
-            </Typography.Text>
-            <Input
-              value={editor.editDescription}
-              onChange={editor.setEditDescription}
-              disabled={!canEditIdentity}
-              placeholder={t('settings.assistantDescriptionPlaceholder', {
-                defaultValue: 'What can this assistant help with?',
-              })}
-              className='!rounded-8px'
-            />
-          </div>
-
-          {/* Main Agent */}
-          <div className='flex flex-col gap-8px'>
-            <Typography.Text bold>{t('settings.assistantMainAgent', { defaultValue: 'Main Agent' })}</Typography.Text>
-            <Select
-              value={editor.editAgent}
-              onChange={(v) => editor.setEditAgent(v as string)}
-              disabled={isReadonlyAssistant}
-              className='w-full !rounded-8px'
-            >
-              {[
-                { value: 'gemini', label: 'Gemini CLI' },
-                { value: 'claude', label: 'Claude Code' },
-                { value: 'qwen', label: 'Qwen Code' },
-                { value: 'codex', label: 'Codex' },
-                { value: 'codebuddy', label: 'CodeBuddy' },
-                { value: 'opencode', label: 'OpenCode' },
-              ]
-                .filter((opt) => availableBackends.has(opt.value))
-                .map((opt) => (
-                  <Select.Option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </Select.Option>
-                ))}
-              {extensionAcpAdapters?.map((adapter) => {
-                const adId = adapter.id as string;
-                const adName = (adapter.name as string) || adId;
-                return (
-                  <Select.Option key={adId} value={adId}>
-                    <span className='flex items-center gap-6px'>
-                      {adName}
-                      <Tag size='small' color='arcoblue'>
-                        ext
-                      </Tag>
-                    </span>
-                  </Select.Option>
-                );
-              })}
-            </Select>
-          </div>
-
-          {/* Summary */}
-          <div className='flex flex-wrap items-center gap-8px p-10px rd-10px bg-fill-1'>
-            <span className='text-12px text-t-secondary'>
-              {t('settings.assistantMainAgent', { defaultValue: 'Main Agent' })}:
-            </span>
-            <Tag size='small' color='arcoblue'>
-              {editor.editAgent}
-            </Tag>
-            <span className='text-12px text-t-secondary ml-6px'>
-              {t('settings.assistantSkills', { defaultValue: 'Skills' })}:
-            </span>
-            <Tag size='small' color={totalActiveSkillsCount > 0 ? 'green' : 'gray'}>
-              {totalActiveSkillsCount > 0 ? `${totalActiveSkillsCount}/${totalSkillsCount}` : totalSkillsCount}
-            </Tag>
-          </div>
-
-          {/* Default Model */}
-          {id !== 'new' && (
-            <div className='flex flex-col gap-8px'>
-              <Typography.Text bold>{t('common.defaultModel', { defaultValue: 'Default Model' })}</Typography.Text>
-              {isGemini ? (
-                <GeminiModelSelector selection={geminiSelection} variant='settings' />
-              ) : isAionrs ? (
-                <AionrsModelSelector selection={aionrsSelection} variant='settings' />
-              ) : cachedModels && cachedModels.availableModels.length > 0 ? (
-                <Select
-                  value={agentConfig.preferredModelId ?? ''}
-                  placeholder={t('common.default', { defaultValue: 'Default' })}
-                  allowClear
-                  className='w-full !rounded-8px'
-                  onChange={(v: string) => void saveAgentConfig({ preferredModelId: v || undefined })}
-                >
-                  {cachedModels.availableModels.map((m) => (
-                    <Select.Option key={m.id} value={m.id}>
-                      {m.label}
-                    </Select.Option>
-                  ))}
-                </Select>
-              ) : (
-                <span className='text-12px text-t-secondary'>
-                  {t('common.agents.noModelCache', {
-                    defaultValue: 'Start a conversation to populate the model list.',
-                  })}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Permissions */}
-          {id !== 'new' && (
-            <div className='flex flex-col gap-8px'>
-              <Typography.Text bold>{t('common.agents.permissions', { defaultValue: 'Permissions' })}</Typography.Text>
-              {getAgentModes(editor.editAgent).length > 0 ? (
-                <Select
-                  value={isGemini ? (geminiPreferredMode ?? '') : (agentConfig.preferredMode ?? '')}
-                  placeholder={t('common.default', { defaultValue: 'Default' })}
-                  allowClear
-                  className='w-full !rounded-8px'
-                  onChange={(v: string) => {
-                    if (isGemini) {
-                      void handleSaveGeminiConfig({ preferredMode: v || undefined });
-                    } else {
-                      void saveAgentConfig({ preferredMode: v || undefined });
-                    }
-                  }}
-                >
-                  {getAgentModes(editor.editAgent).map((m) => (
-                    <Select.Option key={m.value} value={m.value}>
-                      {t(`agentMode.${m.value}`, { defaultValue: m.label })}
-                    </Select.Option>
-                  ))}
-                </Select>
-              ) : (
-                <span className='text-13px text-t-secondary'>
-                  {t('agentMode.default', { defaultValue: 'Default' })}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Rules / System Prompt */}
-          <div className='flex flex-col gap-8px'>
-            <Typography.Text bold>{t('settings.assistantRules', { defaultValue: 'Rules' })}</Typography.Text>
-            <div className='border border-border-2 overflow-hidden rd-8px'>
-              {isRuleEditable && (
-                <div className='flex items-center h-36px bg-fill-2 border-b border-border-2 shrink-0'>
-                  {(['edit', 'preview'] as const).map((mode) => (
-                    <div
-                      key={mode}
-                      className={`flex items-center h-full px-16px cursor-pointer transition-all text-13px font-medium ${
-                        editor.promptViewMode === mode
-                          ? 'text-primary border-b-2 border-primary bg-bg-1'
-                          : 'text-t-secondary hover:text-t-primary'
-                      }`}
-                      onClick={() => editor.setPromptViewMode(mode)}
-                    >
-                      {mode === 'edit'
-                        ? t('settings.promptEdit', { defaultValue: 'Edit' })
-                        : t('settings.promptPreview', { defaultValue: 'Preview' })}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className='bg-fill-2' style={{ minHeight: 160, overflow: 'auto' }}>
-                {editor.promptViewMode === 'edit' && isRuleEditable ? (
-                  <Input.TextArea
-                    value={editor.editContext}
-                    onChange={editor.setEditContext}
-                    placeholder={t('settings.assistantRulesPlaceholder', {
-                      defaultValue: 'Enter rules in Markdown format...',
-                    })}
-                    autoSize={{ minRows: 8, maxRows: 24 }}
-                    className='!border-none !rounded-none !bg-transparent resize-none'
-                  />
-                ) : (
-                  <div className='p-16px text-14px leading-7'>
-                    {editor.editContext ? (
-                      <MarkdownView hiddenCodeCopyButton>{editor.editContext}</MarkdownView>
-                    ) : (
-                      <div className='text-t-secondary text-center py-32px'>
-                        {t('settings.promptPreviewEmpty', { defaultValue: 'No content to preview' })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Skills */}
-          {showSkills && (
-            <div className='flex flex-col gap-8px'>
-              <div className='flex items-center justify-between'>
-                <Typography.Text bold>{t('settings.assistantSkills', { defaultValue: 'Skills' })}</Typography.Text>
-                <Button
-                  size='small'
-                  type='outline'
-                  icon={<Plus size={14} />}
-                  onClick={() => editor.setSkillsModalVisible(true)}
-                  className='!rounded-[100px]'
-                >
-                  {t('settings.addSkills', { defaultValue: 'Add Skills' })}
-                </Button>
-              </div>
-
-              <Collapse defaultActiveKey={['custom-skills']}>
-                <Collapse.Item
-                  header={
-                    <span className='text-13px font-medium'>
-                      {t('settings.customSkills', { defaultValue: 'Imported Skills (Library)' })}
-                    </span>
-                  }
-                  name='custom-skills'
-                >
-                  <div className='space-y-4px'>
-                    {editor.pendingSkills.map((skill) => (
-                      <div
-                        key={`pending-${skill.name}`}
-                        className='flex items-start gap-8px p-8px hover:bg-fill-1 rounded-4px group'
-                      >
-                        <Checkbox
-                          checked={editor.selectedSkills.includes(skill.name)}
-                          onChange={() => {
-                            if (editor.selectedSkills.includes(skill.name)) {
-                              editor.setSelectedSkills(editor.selectedSkills.filter((s) => s !== skill.name));
-                            } else {
-                              editor.setSelectedSkills([...editor.selectedSkills, skill.name]);
-                            }
-                          }}
-                        />
-                        <div className='flex-1 min-w-0'>
-                          <div className='flex items-center gap-6px'>
-                            <span className='text-13px font-medium'>{skill.name}</span>
-                            <span className='bg-[rgba(var(--primary-6),0.08)] text-primary-6 border border-[rgba(var(--primary-6),0.2)] text-10px px-4px py-1px rd-4px font-medium uppercase'>
-                              Pending
-                            </span>
-                          </div>
-                          {skill.description && (
-                            <p className='text-12px text-t-secondary mt-2px'>{skill.description}</p>
-                          )}
-                        </div>
-                        <button
-                          type='button'
-                          className='opacity-0 group-hover:opacity-100 transition-opacity p-4px hover:bg-fill-2 rounded-4px'
-                          onClick={() => editor.setDeletePendingSkillName(skill.name)}
-                        >
-                          <Delete size={16} fill='var(--color-text-3)' />
-                        </button>
-                      </div>
-                    ))}
-                    {customSkillItems.map((skill) => (
-                      <div
-                        key={`custom-${skill.name}`}
-                        className='flex items-start gap-8px p-8px hover:bg-fill-1 rounded-4px group'
-                      >
-                        <Checkbox
-                          checked={editor.selectedSkills.includes(skill.name)}
-                          onChange={() => {
-                            if (editor.selectedSkills.includes(skill.name)) {
-                              editor.setSelectedSkills(editor.selectedSkills.filter((s) => s !== skill.name));
-                            } else {
-                              editor.setSelectedSkills([...editor.selectedSkills, skill.name]);
-                            }
-                          }}
-                        />
-                        <div className='flex-1 min-w-0'>
-                          <span className='text-13px font-medium'>{skill.name}</span>
-                          {skill.description && (
-                            <p className='text-12px text-t-secondary mt-2px'>{skill.description}</p>
-                          )}
-                        </div>
-                        <button
-                          type='button'
-                          className='opacity-0 group-hover:opacity-100 transition-opacity p-4px hover:bg-fill-2 rounded-4px'
-                          onClick={() => editor.setDeleteCustomSkillName(skill.name)}
-                        >
-                          <Delete size={16} fill='var(--color-text-3)' />
-                        </button>
-                      </div>
-                    ))}
-                    {editor.pendingSkills.length === 0 && customSkillItems.length === 0 && (
-                      <div className='text-center text-t-secondary text-12px py-16px'>
-                        {t('settings.noCustomSkills', { defaultValue: 'No custom skills added' })}
-                      </div>
-                    )}
-                  </div>
-                </Collapse.Item>
-
-                <Collapse.Item
-                  header={
-                    <span className='text-13px font-medium'>
-                      {t('settings.builtinSkills', { defaultValue: 'Builtin Skills' })}
-                    </span>
-                  }
-                  name='builtin-skills'
-                >
-                  {builtinSkillItems.length > 0 ? (
-                    <div className='space-y-4px'>
-                      {builtinSkillItems.map((skill) => (
-                        <div key={skill.name} className='flex items-start gap-8px p-8px hover:bg-fill-1 rounded-4px'>
-                          <Checkbox
-                            checked={editor.selectedSkills.includes(skill.name)}
-                            onChange={() => {
-                              if (editor.selectedSkills.includes(skill.name)) {
-                                editor.setSelectedSkills(editor.selectedSkills.filter((s) => s !== skill.name));
-                              } else {
-                                editor.setSelectedSkills([...editor.selectedSkills, skill.name]);
-                              }
-                            }}
-                          />
-                          <div className='flex-1 min-w-0'>
-                            <span className='text-13px font-medium'>{skill.name}</span>
-                            {skill.description && (
-                              <p className='text-12px text-t-secondary mt-2px'>{skill.description}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className='text-center text-t-secondary text-12px py-16px'>
-                      {t('settings.noBuiltinSkills', { defaultValue: 'No builtin skills available' })}
-                    </div>
-                  )}
-                </Collapse.Item>
-              </Collapse>
-            </div>
-          )}
-
-          {/* Bottom action bar */}
-          <div className='flex items-center justify-between mt-8px pb-32px'>
-            <div className='flex items-center gap-8px'>
-              {!isReadonlyAssistant && (
-                <Button type='primary' onClick={() => void handleSave()} className='!rounded-[100px] w-[100px]'>
-                  {editor.isCreating
-                    ? t('common.create', { defaultValue: 'Create' })
-                    : t('common.save', { defaultValue: 'Save' })}
-                </Button>
-              )}
-              <Button onClick={() => navigate(-1)} className='!rounded-[100px] w-[100px] !bg-fill-2'>
-                {t('common.cancel', { defaultValue: 'Cancel' })}
-              </Button>
-            </div>
-            {!editor.isCreating && (
-              <div className='flex items-center gap-8px'>
-                {activeAssistant && (
-                  <Button
-                    size='small'
-                    className='!rounded-[100px]'
-                    onClick={() =>
-                      navigate('/agents/assistant/new', { state: { duplicateFromId: activeAssistant.id } })
-                    }
-                  >
-                    {t('settings.duplicate', { defaultValue: 'Duplicate' })}
-                  </Button>
-                )}
-                {!activeAssistant?.isBuiltin &&
-                  !isExtensionAssistant(activeAssistant as AssistantListItem | null | undefined) && (
-                    <Button
-                      status='danger'
-                      size='small'
-                      className='!rounded-[100px]'
-                      onClick={() => editor.handleDeleteClick()}
-                    >
-                      {t('common.delete', { defaultValue: 'Delete' })}
-                    </Button>
-                  )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Modals */}
+  const modals = (
+    <>
       <DeleteAssistantModal
         visible={editor.deleteConfirmVisible}
         onCancel={() => editor.setDeleteConfirmVisible(false)}
@@ -796,7 +326,468 @@ const AssistantDetailPage: React.FC = () => {
         customPathValue={skills.customPathValue}
         setCustomPathValue={skills.setCustomPathValue}
       />
-    </div>
+    </>
+  );
+
+  return (
+    <AgentDetailLayout prefix={contextHolder} suffix={modals}>
+      {/* ── Header ── */}
+      <div className='flex items-start gap-12px mb-28px'>
+        {/* Avatar (large, clickable if editable) */}
+        {canEditIdentity ? (
+          <EmojiPicker value={editor.editAvatar} onChange={editor.setEditAvatar} placement='br'>
+            <div className='cursor-pointer shrink-0'>
+              {editAvatarImage ? (
+                <img
+                  src={editAvatarImage}
+                  alt=''
+                  className='w-56px h-56px rd-12px object-contain border border-border-2 bg-fill-2'
+                />
+              ) : (
+                <AgentAvatar size={56} avatarEmoji={editor.editAvatar || undefined} />
+              )}
+            </div>
+          </EmojiPicker>
+        ) : displayAvatarSrc ? (
+          <AgentAvatar size={56} avatarSrc={displayAvatarSrc} className='shrink-0' />
+        ) : (
+          <AgentAvatar size={56} avatarEmoji={editor.editAvatar || undefined} className='shrink-0' />
+        )}
+
+        <div className='flex-1 min-w-0'>
+          <div className='flex items-center gap-6px flex-wrap'>
+            <span className='text-18px font-semibold text-t-primary'>
+              {editor.editName || t('common.untitled', { defaultValue: 'Untitled' })}
+            </span>
+            {activeAssistant?.isBuiltin && (
+              <Tag size='small' color='orange'>
+                Builtin
+              </Tag>
+            )}
+            {isExtensionAssistant(activeAssistant as AssistantListItem | null | undefined) && (
+              <Tag size='small' color='arcoblue'>
+                Extension
+              </Tag>
+            )}
+          </div>
+          {editor.editDescription && <p className='text-13px text-t-secondary mt-4px'>{editor.editDescription}</p>}
+        </div>
+
+        {/* Actions */}
+        <div className='flex items-center gap-8px shrink-0'>
+          {!editor.isCreating && talkToAgentKey && (
+            <Button
+              type='primary'
+              size='small'
+              className='!rounded-[100px]'
+              onClick={() => navigateToAgent(talkToAgentKey)}
+            >
+              {t('common.agents.talkToAgent')}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Form body ── */}
+      <div className='flex flex-col gap-20px'>
+        {/* Name & Avatar */}
+        <div className='flex flex-col gap-8px'>
+          <Typography.Text bold>
+            <span className='text-red-500'>* </span>
+            {t('settings.assistantNameAvatar', { defaultValue: 'Name & Avatar' })}
+          </Typography.Text>
+          <div className='flex items-center gap-12px'>
+            {canEditIdentity ? (
+              <EmojiPicker value={editor.editAvatar} onChange={editor.setEditAvatar} placement='br'>
+                <div className='cursor-pointer w-40px h-40px rd-8px flex items-center justify-center bg-fill-2 hover:bg-fill-3 transition-colors border border-border-2'>
+                  {editAvatarImage ? (
+                    <img src={editAvatarImage} alt='' width={24} height={24} style={{ objectFit: 'contain' }} />
+                  ) : editor.editAvatar ? (
+                    <span className='text-20px'>{editor.editAvatar}</span>
+                  ) : (
+                    <Robot theme='outline' size={20} />
+                  )}
+                </div>
+              </EmojiPicker>
+            ) : (
+              <div className='w-40px h-40px rd-8px overflow-hidden flex items-center justify-center bg-fill-2 border border-border-2'>
+                {displayAvatarSrc ? (
+                  <AgentAvatar size={40} avatarSrc={displayAvatarSrc} />
+                ) : editor.editAvatar ? (
+                  <span className='text-20px'>{editor.editAvatar}</span>
+                ) : (
+                  <Robot theme='outline' size={20} />
+                )}
+              </div>
+            )}
+            <Input
+              value={editor.editName}
+              onChange={editor.setEditName}
+              disabled={!canEditIdentity}
+              placeholder={t('settings.agentNamePlaceholder', { defaultValue: 'Enter a name for this agent' })}
+              className='flex-1 !rounded-8px'
+            />
+          </div>
+        </div>
+
+        {/* Description */}
+        <div className='flex flex-col gap-8px'>
+          <Typography.Text bold>{t('settings.assistantDescription', { defaultValue: 'Description' })}</Typography.Text>
+          <Input
+            value={editor.editDescription}
+            onChange={editor.setEditDescription}
+            disabled={!canEditIdentity}
+            placeholder={t('settings.assistantDescriptionPlaceholder', {
+              defaultValue: 'What can this assistant help with?',
+            })}
+            className='!rounded-8px'
+          />
+        </div>
+
+        {/* Main Agent */}
+        <div className='flex flex-col gap-8px'>
+          <Typography.Text bold>{t('settings.assistantMainAgent', { defaultValue: 'Main Agent' })}</Typography.Text>
+          <Select
+            value={editor.editAgent}
+            onChange={(v) => editor.setEditAgent(v as string)}
+            disabled={isReadonlyAssistant}
+            className='w-full !rounded-8px'
+          >
+            {[
+              { value: 'gemini', label: 'Gemini CLI' },
+              { value: 'claude', label: 'Claude Code' },
+              { value: 'qwen', label: 'Qwen Code' },
+              { value: 'codex', label: 'Codex' },
+              { value: 'codebuddy', label: 'CodeBuddy' },
+              { value: 'opencode', label: 'OpenCode' },
+            ]
+              .filter((opt) => availableBackends.has(opt.value))
+              .map((opt) => (
+                <Select.Option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </Select.Option>
+              ))}
+            {extensionAcpAdapters?.map((adapter) => {
+              const adId = adapter.id as string;
+              const adName = (adapter.name as string) || adId;
+              return (
+                <Select.Option key={adId} value={adId}>
+                  <span className='flex items-center gap-6px'>
+                    {adName}
+                    <Tag size='small' color='arcoblue'>
+                      ext
+                    </Tag>
+                  </span>
+                </Select.Option>
+              );
+            })}
+          </Select>
+        </div>
+
+        {/* Summary */}
+        <div className='flex flex-wrap items-center gap-8px p-10px rd-10px bg-fill-1'>
+          <span className='text-12px text-t-secondary'>
+            {t('settings.assistantMainAgent', { defaultValue: 'Main Agent' })}:
+          </span>
+          <Tag size='small' color='arcoblue'>
+            {editor.editAgent}
+          </Tag>
+          <span className='text-12px text-t-secondary ml-6px'>
+            {t('settings.assistantSkills', { defaultValue: 'Skills' })}:
+          </span>
+          <Tag size='small' color={totalActiveSkillsCount > 0 ? 'green' : 'gray'}>
+            {totalActiveSkillsCount > 0 ? `${totalActiveSkillsCount}/${totalSkillsCount}` : totalSkillsCount}
+          </Tag>
+        </div>
+
+        {/* Default Model */}
+        {id !== 'new' && (
+          <div className='flex flex-col gap-8px'>
+            <Typography.Text bold>{t('common.defaultModel', { defaultValue: 'Default Model' })}</Typography.Text>
+            {isGemini ? (
+              <GeminiModelSelector selection={geminiSelection} variant='settings' />
+            ) : isAionrs ? (
+              <AionrsModelSelector selection={aionrsSelection} variant='settings' />
+            ) : cachedModels && cachedModels.availableModels.length > 0 ? (
+              <Select
+                value={agentConfig.preferredModelId ?? ''}
+                placeholder={t('common.default', { defaultValue: 'Default' })}
+                allowClear
+                className='w-full !rounded-8px'
+                onChange={(v: string) => void saveAgentConfig({ preferredModelId: v || undefined })}
+              >
+                {cachedModels.availableModels.map((m) => (
+                  <Select.Option key={m.id} value={m.id}>
+                    {m.label}
+                  </Select.Option>
+                ))}
+              </Select>
+            ) : (
+              <span className='text-12px text-t-secondary'>
+                {t('common.agents.noModelCache', {
+                  defaultValue: 'Start a conversation to populate the model list.',
+                })}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Permissions */}
+        {id !== 'new' && (
+          <div className='flex flex-col gap-8px'>
+            <Typography.Text bold>{t('common.agents.permissions', { defaultValue: 'Permissions' })}</Typography.Text>
+            {getAgentModes(editor.editAgent).length > 0 ? (
+              <Select
+                value={isGemini ? (geminiPreferredMode ?? '') : (agentConfig.preferredMode ?? '')}
+                placeholder={t('common.default', { defaultValue: 'Default' })}
+                allowClear
+                className='w-full !rounded-8px'
+                onChange={(v: string) => {
+                  if (isGemini) {
+                    void handleSaveGeminiConfig({ preferredMode: v || undefined });
+                  } else {
+                    void saveAgentConfig({ preferredMode: v || undefined });
+                  }
+                }}
+              >
+                {getAgentModes(editor.editAgent).map((m) => (
+                  <Select.Option key={m.value} value={m.value}>
+                    {t(`agentMode.${m.value}`, { defaultValue: m.label })}
+                  </Select.Option>
+                ))}
+              </Select>
+            ) : (
+              <span className='text-13px text-t-secondary'>{t('agentMode.default', { defaultValue: 'Default' })}</span>
+            )}
+          </div>
+        )}
+
+        {/* Rules / System Prompt */}
+        <div className='flex flex-col gap-8px'>
+          <Typography.Text bold>{t('settings.assistantRules', { defaultValue: 'Rules' })}</Typography.Text>
+          <div className='border border-border-2 overflow-hidden rd-8px'>
+            {isRuleEditable && (
+              <div className='flex items-center h-36px bg-fill-2 border-b border-border-2 shrink-0'>
+                {(['edit', 'preview'] as const).map((mode) => (
+                  <div
+                    key={mode}
+                    className={`flex items-center h-full px-16px cursor-pointer transition-all text-13px font-medium ${
+                      editor.promptViewMode === mode
+                        ? 'text-primary border-b-2 border-primary bg-bg-1'
+                        : 'text-t-secondary hover:text-t-primary'
+                    }`}
+                    onClick={() => editor.setPromptViewMode(mode)}
+                  >
+                    {mode === 'edit'
+                      ? t('settings.promptEdit', { defaultValue: 'Edit' })
+                      : t('settings.promptPreview', { defaultValue: 'Preview' })}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className='bg-fill-2' style={{ minHeight: 160, overflow: 'auto' }}>
+              {editor.promptViewMode === 'edit' && isRuleEditable ? (
+                <Input.TextArea
+                  value={editor.editContext}
+                  onChange={editor.setEditContext}
+                  placeholder={t('settings.assistantRulesPlaceholder', {
+                    defaultValue: 'Enter rules in Markdown format...',
+                  })}
+                  autoSize={{ minRows: 8, maxRows: 24 }}
+                  className='!border-none !rounded-none !bg-transparent resize-none'
+                />
+              ) : (
+                <div className='p-16px text-14px leading-7'>
+                  {editor.editContext ? (
+                    <MarkdownView hiddenCodeCopyButton>{editor.editContext}</MarkdownView>
+                  ) : (
+                    <div className='text-t-secondary text-center py-32px'>
+                      {t('settings.promptPreviewEmpty', { defaultValue: 'No content to preview' })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Skills */}
+        {showSkills && (
+          <div className='flex flex-col gap-8px'>
+            <div className='flex items-center justify-between'>
+              <Typography.Text bold>{t('settings.assistantSkills', { defaultValue: 'Skills' })}</Typography.Text>
+              <Button
+                size='small'
+                type='outline'
+                icon={<Plus size={14} />}
+                onClick={() => editor.setSkillsModalVisible(true)}
+                className='!rounded-[100px]'
+              >
+                {t('settings.addSkills', { defaultValue: 'Add Skills' })}
+              </Button>
+            </div>
+
+            <Collapse defaultActiveKey={['custom-skills']}>
+              <Collapse.Item
+                header={
+                  <span className='text-13px font-medium'>
+                    {t('settings.customSkills', { defaultValue: 'Imported Skills (Library)' })}
+                  </span>
+                }
+                name='custom-skills'
+              >
+                <div className='space-y-4px'>
+                  {editor.pendingSkills.map((skill) => (
+                    <div
+                      key={`pending-${skill.name}`}
+                      className='flex items-start gap-8px p-8px hover:bg-fill-1 rounded-4px group'
+                    >
+                      <Checkbox
+                        checked={editor.selectedSkills.includes(skill.name)}
+                        onChange={() => {
+                          if (editor.selectedSkills.includes(skill.name)) {
+                            editor.setSelectedSkills(editor.selectedSkills.filter((s) => s !== skill.name));
+                          } else {
+                            editor.setSelectedSkills([...editor.selectedSkills, skill.name]);
+                          }
+                        }}
+                      />
+                      <div className='flex-1 min-w-0'>
+                        <div className='flex items-center gap-6px'>
+                          <span className='text-13px font-medium'>{skill.name}</span>
+                          <span className='bg-[rgba(var(--primary-6),0.08)] text-primary-6 border border-[rgba(var(--primary-6),0.2)] text-10px px-4px py-1px rd-4px font-medium uppercase'>
+                            Pending
+                          </span>
+                        </div>
+                        {skill.description && <p className='text-12px text-t-secondary mt-2px'>{skill.description}</p>}
+                      </div>
+                      <button
+                        type='button'
+                        className='opacity-0 group-hover:opacity-100 transition-opacity p-4px hover:bg-fill-2 rounded-4px'
+                        onClick={() => editor.setDeletePendingSkillName(skill.name)}
+                      >
+                        <Delete size={16} fill='var(--color-text-3)' />
+                      </button>
+                    </div>
+                  ))}
+                  {customSkillItems.map((skill) => (
+                    <div
+                      key={`custom-${skill.name}`}
+                      className='flex items-start gap-8px p-8px hover:bg-fill-1 rounded-4px group'
+                    >
+                      <Checkbox
+                        checked={editor.selectedSkills.includes(skill.name)}
+                        onChange={() => {
+                          if (editor.selectedSkills.includes(skill.name)) {
+                            editor.setSelectedSkills(editor.selectedSkills.filter((s) => s !== skill.name));
+                          } else {
+                            editor.setSelectedSkills([...editor.selectedSkills, skill.name]);
+                          }
+                        }}
+                      />
+                      <div className='flex-1 min-w-0'>
+                        <span className='text-13px font-medium'>{skill.name}</span>
+                        {skill.description && <p className='text-12px text-t-secondary mt-2px'>{skill.description}</p>}
+                      </div>
+                      <button
+                        type='button'
+                        className='opacity-0 group-hover:opacity-100 transition-opacity p-4px hover:bg-fill-2 rounded-4px'
+                        onClick={() => editor.setDeleteCustomSkillName(skill.name)}
+                      >
+                        <Delete size={16} fill='var(--color-text-3)' />
+                      </button>
+                    </div>
+                  ))}
+                  {editor.pendingSkills.length === 0 && customSkillItems.length === 0 && (
+                    <div className='text-center text-t-secondary text-12px py-16px'>
+                      {t('settings.noCustomSkills', { defaultValue: 'No custom skills added' })}
+                    </div>
+                  )}
+                </div>
+              </Collapse.Item>
+
+              <Collapse.Item
+                header={
+                  <span className='text-13px font-medium'>
+                    {t('settings.builtinSkills', { defaultValue: 'Builtin Skills' })}
+                  </span>
+                }
+                name='builtin-skills'
+              >
+                {builtinSkillItems.length > 0 ? (
+                  <div className='space-y-4px'>
+                    {builtinSkillItems.map((skill) => (
+                      <div key={skill.name} className='flex items-start gap-8px p-8px hover:bg-fill-1 rounded-4px'>
+                        <Checkbox
+                          checked={editor.selectedSkills.includes(skill.name)}
+                          onChange={() => {
+                            if (editor.selectedSkills.includes(skill.name)) {
+                              editor.setSelectedSkills(editor.selectedSkills.filter((s) => s !== skill.name));
+                            } else {
+                              editor.setSelectedSkills([...editor.selectedSkills, skill.name]);
+                            }
+                          }}
+                        />
+                        <div className='flex-1 min-w-0'>
+                          <span className='text-13px font-medium'>{skill.name}</span>
+                          {skill.description && (
+                            <p className='text-12px text-t-secondary mt-2px'>{skill.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className='text-center text-t-secondary text-12px py-16px'>
+                    {t('settings.noBuiltinSkills', { defaultValue: 'No builtin skills available' })}
+                  </div>
+                )}
+              </Collapse.Item>
+            </Collapse>
+          </div>
+        )}
+
+        {/* Bottom action bar */}
+        <div className='flex items-center justify-between mt-8px pb-32px'>
+          <div className='flex items-center gap-8px'>
+            {!isReadonlyAssistant && (
+              <Button type='primary' onClick={() => void handleSave()} className='!rounded-[100px] w-[100px]'>
+                {editor.isCreating
+                  ? t('common.create', { defaultValue: 'Create' })
+                  : t('common.save', { defaultValue: 'Save' })}
+              </Button>
+            )}
+            <Button onClick={() => navigate(-1)} className='!rounded-[100px] w-[100px] !bg-fill-2'>
+              {t('common.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+          </div>
+          {!editor.isCreating && (
+            <div className='flex items-center gap-8px'>
+              {activeAssistant && (
+                <Button
+                  size='small'
+                  className='!rounded-[100px]'
+                  onClick={() => navigate('/agents/assistant/new', { state: { duplicateFromId: activeAssistant.id } })}
+                >
+                  {t('settings.duplicate', { defaultValue: 'Duplicate' })}
+                </Button>
+              )}
+              {!activeAssistant?.isBuiltin &&
+                !isExtensionAssistant(activeAssistant as AssistantListItem | null | undefined) && (
+                  <Button
+                    status='danger'
+                    size='small'
+                    className='!rounded-[100px]'
+                    onClick={() => editor.handleDeleteClick()}
+                  >
+                    {t('common.delete', { defaultValue: 'Delete' })}
+                  </Button>
+                )}
+            </div>
+          )}
+        </div>
+      </div>
+    </AgentDetailLayout>
   );
 };
 

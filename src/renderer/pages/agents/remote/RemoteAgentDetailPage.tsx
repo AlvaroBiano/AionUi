@@ -8,6 +8,8 @@ import { ipcBridge } from '@/common';
 import AgentAvatar from '@/renderer/components/AgentAvatar';
 import { useNavigateToAgent } from '@/renderer/hooks/agent/useNavigateToAgent';
 import AppLoader from '@/renderer/components/layout/AppLoader';
+import AgentDetailLayout from '@/renderer/components/agent/AgentDetailLayout';
+import { AgentConfigSection as Section } from '@/renderer/components/agent/AgentConfigLayout';
 import type { RemoteAgentConfig, RemoteAgentInput } from '@process/agent/remote/types';
 import { Button, Form, Input, Message, Modal, Select, Switch, Tag } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -29,13 +31,6 @@ const statusColor = (status?: string): string => {
       return 'gray';
   }
 };
-
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className='mb-20px'>
-    <h3 className='text-13px font-semibold text-t-secondary uppercase tracking-wider mb-8px px-4px'>{title}</h3>
-    <div className='bg-fill-2 rd-12px px-16px py-4px'>{children}</div>
-  </div>
-);
 
 const RemoteAgentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -126,147 +121,145 @@ const RemoteAgentDetailPage: React.FC = () => {
   const authType = Form.useWatch('authType', form) ?? agent.authType;
 
   return (
-    <div className='size-full overflow-y-auto'>
-      <div className='px-12px md:px-40px py-32px mx-auto w-full md:max-w-800px'>
-        {/* ── Header ── */}
-        <div className='flex items-start gap-16px mb-32px'>
-          <AgentAvatar
-            size={56}
-            avatarEmoji={agent.avatar || initial}
-            avatarBgColor='var(--color-fill-3)'
-            className='shrink-0'
-          />
-          <div className='flex-1 min-w-0'>
-            <div className='flex items-center gap-8px flex-wrap'>
-              <span className='text-18px font-semibold text-t-primary'>{agent.name}</span>
-              <Tag size='small' color={statusColor(agent.status)}>
-                {agent.status ?? 'unknown'}
-              </Tag>
-            </div>
-            {agent.description && <p className='text-13px text-t-secondary mt-4px'>{agent.description}</p>}
+    <AgentDetailLayout>
+      {/* ── Header ── */}
+      <div className='flex items-start gap-16px mb-32px'>
+        <AgentAvatar
+          size={56}
+          avatarEmoji={agent.avatar || initial}
+          avatarBgColor='var(--color-fill-3)'
+          className='shrink-0'
+        />
+        <div className='flex-1 min-w-0'>
+          <div className='flex items-center gap-8px flex-wrap'>
+            <span className='text-18px font-semibold text-t-primary'>{agent.name}</span>
+            <Tag size='small' color={statusColor(agent.status)}>
+              {agent.status ?? 'unknown'}
+            </Tag>
           </div>
-          <div className='flex items-center gap-8px shrink-0'>
-            <Button
-              type='primary'
-              size='small'
-              className='!rounded-[100px]'
-              onClick={() => navigateToAgent(`remote:${agent.id}`)}
-            >
-              {t('common.agents.talkToAgent')}
-            </Button>
-            <Button status='danger' size='small' loading={deleting} className='!rounded-[100px]' onClick={handleDelete}>
-              {t('common.delete', { defaultValue: 'Delete' })}
-            </Button>
-          </div>
+          {agent.description && <p className='text-13px text-t-secondary mt-4px'>{agent.description}</p>}
         </div>
+        <div className='flex items-center gap-8px shrink-0'>
+          <Button
+            type='primary'
+            size='small'
+            className='!rounded-[100px]'
+            onClick={() => navigateToAgent(`remote:${agent.id}`)}
+          >
+            {t('common.agents.talkToAgent')}
+          </Button>
+          <Button status='danger' size='small' loading={deleting} className='!rounded-[100px]' onClick={handleDelete}>
+            {t('common.delete', { defaultValue: 'Delete' })}
+          </Button>
+        </div>
+      </div>
 
-        {/* ── Edit form ── */}
-        <Form form={form} layout='vertical' autoComplete='off' onChange={() => setDirty(true)}>
-          <Section title={t('common.agents.section.remote', { defaultValue: 'Connection' })}>
-            <div className='py-8px flex flex-col gap-12px'>
+      {/* ── Edit form ── */}
+      <Form form={form} layout='vertical' autoComplete='off' onChange={() => setDirty(true)}>
+        <Section title={t('common.agents.section.remote', { defaultValue: 'Connection' })}>
+          <div className='py-8px flex flex-col gap-12px'>
+            <FormItem
+              field='name'
+              label={t('settings.remoteAgent.name', { defaultValue: 'Name' })}
+              rules={[{ required: true, message: t('settings.remoteAgent.nameRequired') }]}
+            >
+              <Input placeholder={t('settings.remoteAgent.namePlaceholder')} />
+            </FormItem>
+            <FormItem
+              field='url'
+              label='URL'
+              rules={[{ required: true, message: t('settings.remoteAgent.urlRequired') }]}
+            >
+              <Input placeholder='https://' />
+            </FormItem>
+            <FormItem field='authType' label={t('settings.remoteAgent.authType', { defaultValue: 'Auth Type' })}>
+              <Select>
+                <Select.Option value='none'>
+                  {t('settings.remoteAgent.authNone', { defaultValue: 'None' })}
+                </Select.Option>
+                <Select.Option value='bearer'>
+                  {t('settings.remoteAgent.authBearer', { defaultValue: 'Bearer Token' })}
+                </Select.Option>
+              </Select>
+            </FormItem>
+            {authType === 'bearer' && (
               <FormItem
-                field='name'
-                label={t('settings.remoteAgent.name', { defaultValue: 'Name' })}
-                rules={[{ required: true, message: t('settings.remoteAgent.nameRequired') }]}
+                field='authToken'
+                label={t('settings.remoteAgent.authToken', { defaultValue: 'Token' })}
+                rules={[{ required: true, message: t('settings.remoteAgent.tokenRequired') }]}
               >
-                <Input placeholder={t('settings.remoteAgent.namePlaceholder')} />
+                <Input.Password placeholder={t('settings.remoteAgent.tokenPlaceholder')} />
               </FormItem>
-              <FormItem
-                field='url'
-                label='URL'
-                rules={[{ required: true, message: t('settings.remoteAgent.urlRequired') }]}
-              >
-                <Input placeholder='https://' />
-              </FormItem>
-              <FormItem field='authType' label={t('settings.remoteAgent.authType', { defaultValue: 'Auth Type' })}>
-                <Select>
-                  <Select.Option value='none'>
-                    {t('settings.remoteAgent.authNone', { defaultValue: 'None' })}
-                  </Select.Option>
-                  <Select.Option value='bearer'>
-                    {t('settings.remoteAgent.authBearer', { defaultValue: 'Bearer Token' })}
-                  </Select.Option>
-                </Select>
-              </FormItem>
-              {authType === 'bearer' && (
-                <FormItem
-                  field='authToken'
-                  label={t('settings.remoteAgent.authToken', { defaultValue: 'Token' })}
-                  rules={[{ required: true, message: t('settings.remoteAgent.tokenRequired') }]}
-                >
-                  <Input.Password placeholder={t('settings.remoteAgent.tokenPlaceholder')} />
-                </FormItem>
-              )}
-              <FormItem
-                field='description'
-                label={t('settings.remoteAgent.description', { defaultValue: 'Description' })}
-              >
-                <Input placeholder={t('settings.remoteAgent.descriptionPlaceholder')} />
-              </FormItem>
-              <FormItem
-                field='allowInsecure'
-                label={t('settings.remoteAgent.allowInsecure', { defaultValue: 'Allow Insecure' })}
-                triggerPropName='checked'
-              >
-                <Switch />
-              </FormItem>
-            </div>
-          </Section>
-        </Form>
-
-        {/* ── Connection metadata ── */}
-        <Section title={t('settings.remoteAgent.protocol', { defaultValue: 'Protocol' })}>
-          <div className='py-8px flex flex-col gap-4px'>
-            <div className='flex justify-between py-8px border-b border-border-2'>
-              <span className='text-13px text-t-secondary'>
-                {t('settings.remoteAgent.protocol', { defaultValue: 'Protocol' })}
-              </span>
-              <span className='text-13px text-t-primary font-mono'>{agent.protocol}</span>
-            </div>
-            {agent.lastConnectedAt && (
-              <div className='flex justify-between py-8px border-b border-border-2'>
-                <span className='text-13px text-t-secondary'>
-                  {t('settings.remoteAgent.lastConnected', { defaultValue: 'Last Connected' })}
-                </span>
-                <span className='text-13px text-t-primary'>{new Date(agent.lastConnectedAt).toLocaleString()}</span>
-              </div>
             )}
-            <div className='flex justify-between py-8px'>
-              <span className='text-13px text-t-secondary'>
-                {t('settings.remoteAgent.created', { defaultValue: 'Created' })}
-              </span>
-              <span className='text-13px text-t-primary'>{new Date(agent.createdAt).toLocaleDateString()}</span>
-            </div>
+            <FormItem
+              field='description'
+              label={t('settings.remoteAgent.description', { defaultValue: 'Description' })}
+            >
+              <Input placeholder={t('settings.remoteAgent.descriptionPlaceholder')} />
+            </FormItem>
+            <FormItem
+              field='allowInsecure'
+              label={t('settings.remoteAgent.allowInsecure', { defaultValue: 'Allow Insecure' })}
+              triggerPropName='checked'
+            >
+              <Switch />
+            </FormItem>
           </div>
         </Section>
+      </Form>
 
-        {/* ── Save / Delete ── */}
-        {dirty && (
-          <div className='flex gap-8px justify-end mt-8px'>
-            <Button
-              className='!rounded-[100px]'
-              onClick={() => {
-                form.setFieldsValue({
-                  name: agent.name,
-                  url: agent.url,
-                  protocol: agent.protocol,
-                  authType: agent.authType,
-                  authToken: agent.authToken,
-                  allowInsecure: agent.allowInsecure,
-                  description: agent.description,
-                });
-                setDirty(false);
-              }}
-            >
-              {t('common.cancel', { defaultValue: 'Cancel' })}
-            </Button>
-            <Button type='primary' loading={saving} className='!rounded-[100px]' onClick={handleSave}>
-              {t('common.save', { defaultValue: 'Save' })}
-            </Button>
+      {/* ── Connection metadata ── */}
+      <Section title={t('settings.remoteAgent.protocol', { defaultValue: 'Protocol' })}>
+        <div className='py-8px flex flex-col gap-4px'>
+          <div className='flex justify-between py-8px border-b border-border-2'>
+            <span className='text-13px text-t-secondary'>
+              {t('settings.remoteAgent.protocol', { defaultValue: 'Protocol' })}
+            </span>
+            <span className='text-13px text-t-primary font-mono'>{agent.protocol}</span>
           </div>
-        )}
-      </div>
-    </div>
+          {agent.lastConnectedAt && (
+            <div className='flex justify-between py-8px border-b border-border-2'>
+              <span className='text-13px text-t-secondary'>
+                {t('settings.remoteAgent.lastConnected', { defaultValue: 'Last Connected' })}
+              </span>
+              <span className='text-13px text-t-primary'>{new Date(agent.lastConnectedAt).toLocaleString()}</span>
+            </div>
+          )}
+          <div className='flex justify-between py-8px'>
+            <span className='text-13px text-t-secondary'>
+              {t('settings.remoteAgent.created', { defaultValue: 'Created' })}
+            </span>
+            <span className='text-13px text-t-primary'>{new Date(agent.createdAt).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Save / Delete ── */}
+      {dirty && (
+        <div className='flex gap-8px justify-end mt-8px'>
+          <Button
+            className='!rounded-[100px]'
+            onClick={() => {
+              form.setFieldsValue({
+                name: agent.name,
+                url: agent.url,
+                protocol: agent.protocol,
+                authType: agent.authType,
+                authToken: agent.authToken,
+                allowInsecure: agent.allowInsecure,
+                description: agent.description,
+              });
+              setDirty(false);
+            }}
+          >
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button type='primary' loading={saving} className='!rounded-[100px]' onClick={handleSave}>
+            {t('common.save', { defaultValue: 'Save' })}
+          </Button>
+        </div>
+      )}
+    </AgentDetailLayout>
   );
 };
 
