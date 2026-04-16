@@ -23,3 +23,5 @@
 10. **Never open a PR without explicit instruction**: Do NOT create a pull request unless the user explicitly asks for one (e.g. "open a PR", "create PR", "/oss-pr"). Completing a task or committing code is NOT a signal to open a PR.
 
 11. **Commit by feature, not by session**: Each commit must cover exactly one logical change (one feature, one fix, one refactor). Never batch unrelated changes — even if they were completed in the same session — into a single commit. Split them into separate, focused commits.
+
+12. **Test-driven development — maintain E2E coverage**: When a bug is reported, FIRST check whether the E2E tests cover it and whether existing tests have errors. Fix or add tests before (or alongside) fixing the bug. Every bug fix must be accompanied by a test that would have caught it. Keep `tests/e2e/` healthy and up-to-date as the primary quality gate.
