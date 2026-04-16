@@ -38,6 +38,29 @@ import { MessageAvatarProvider, type MessageAvatarInfo } from '../Messages/Messa
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 // import SkillRuleGenerator from './components/SkillRuleGenerator'; // Temporarily hidden
 
+/**
+ * Resolves avatar info for a chat panel, preferring preset assistant info
+ * when available and falling back to the backend logo.
+ */
+function buildAvatarInfo(
+  presetAssistantInfo: { logo: string; isEmoji: boolean; name: string } | null | undefined,
+  fallbackBackend: string,
+  fallbackName: string
+): { agentLogo: string; agentLogoIsEmoji: boolean; agentName: string } {
+  if (presetAssistantInfo) {
+    return {
+      agentLogo: presetAssistantInfo.logo,
+      agentLogoIsEmoji: presetAssistantInfo.isEmoji,
+      agentName: presetAssistantInfo.name,
+    };
+  }
+  return {
+    agentLogo: resolveAgentLogo({ backend: fallbackBackend }) ?? '',
+    agentLogoIsEmoji: false,
+    agentName: fallbackName,
+  };
+}
+
 const _AssociatedConversation: React.FC<{ conversation_id: string }> = ({ conversation_id }) => {
   const { data } = useSWR(['getAssociateConversation', conversation_id], () =>
     ipcBridge.conversation.getAssociateConversation.invoke({ conversation_id })
@@ -174,13 +197,7 @@ const GeminiConversationPanel: React.FC<{
     agentLogoIsEmoji: presetAssistantInfo?.isEmoji,
   };
 
-  const geminiAvatarInfo = presetAssistantInfo
-    ? {
-        agentLogo: presetAssistantInfo.logo,
-        agentLogoIsEmoji: presetAssistantInfo.isEmoji,
-        agentName: presetAssistantInfo.name,
-      }
-    : { agentLogo: resolveAgentLogo({ backend: 'gemini' }) ?? '', agentLogoIsEmoji: false, agentName: 'Gemini' };
+  const geminiAvatarInfo = buildAvatarInfo(presetAssistantInfo, 'gemini', 'Gemini');
 
   return (
     <MessageAvatarProvider value={geminiAvatarInfo}>
@@ -238,13 +255,7 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     agentLogoIsEmoji: presetAssistantInfo?.isEmoji,
   };
 
-  const aionrsAvatarInfo = presetAssistantInfo
-    ? {
-        agentLogo: presetAssistantInfo.logo,
-        agentLogoIsEmoji: presetAssistantInfo.isEmoji,
-        agentName: presetAssistantInfo.name,
-      }
-    : { agentLogo: resolveAgentLogo({ backend: 'aionrs' }) ?? '', agentLogoIsEmoji: false, agentName: 'Aion CLI' };
+  const aionrsAvatarInfo = buildAvatarInfo(presetAssistantInfo, 'aionrs', 'Aion CLI');
 
   return (
     <MessageAvatarProvider value={aionrsAvatarInfo}>
