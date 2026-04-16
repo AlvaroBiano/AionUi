@@ -11,6 +11,7 @@ import { channelItemById, webuiTabByKey } from './selectors';
 
 export const ROUTES = {
   guid: '#/guid',
+  assistants: '#/assistants',
   settings: {
     gemini: '#/settings/gemini',
     model: '#/settings/model',
@@ -20,6 +21,16 @@ export const ROUTES = {
     webui: '#/settings/webui',
     system: '#/settings/system',
     about: '#/settings/about',
+  },
+  agents: {
+    /** Local agent detail page by backend key (e.g. 'claude', 'gemini', 'aionrs'). */
+    local: (key: string) => `#/agents/local/${key}`,
+    /** Remote agent detail page by ID. */
+    remote: (id: string) => `#/agents/remote/${id}`,
+    /** Assistant detail page by ID. */
+    assistant: (id: string) => `#/agents/assistant/${id}`,
+    /** New assistant creation page. */
+    newAssistant: '#/agents/assistant/new',
   },
   /** Dynamic extension settings tab route */
   extensionSettings: (tabId: string) => `#/settings/ext/${tabId}`,

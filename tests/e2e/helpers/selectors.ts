@@ -1,10 +1,11 @@
 /**
  * Reusable selectors for E2E tests.
  *
- * Because the app currently has **no** `data-testid` attributes, we rely on
- * CSS class names, Arco-Design component classes, and text-content matching.
+ * Prefer `data-testid` attributes where available; fall back to stable CSS
+ * class names or Arco-Design component classes.
  *
- * When the app adds `data-testid` later, update these selectors in one place.
+ * Keep every selector in this one file so test specs stay DRY and updates
+ * only need to happen here.
  */
 
 // ── Generic ──────────────────────────────────────────────────────────────────
@@ -35,6 +36,10 @@ export const ARCO_COLLAPSE_ITEM = '.arco-collapse-item';
 export const ARCO_COLLAPSE_HEADER = '.arco-collapse-item-header';
 export const ARCO_TABS_HEADER_TITLE = '.arco-tabs-header-title';
 export const ARCO_MESSAGE_SUCCESS = '.arco-message-success';
+export const ARCO_MODAL = '.arco-modal';
+export const ARCO_MODAL_CONFIRM = '.arco-modal-confirm';
+export const ARCO_SELECT_DROPDOWN = '.arco-select-dropdown';
+export const ARCO_SELECT_OPTION = '.arco-select-option';
 
 // ── Guid page ───────────────────────────────────────────────────────────────
 
@@ -51,7 +56,51 @@ export const AGENT_STATUS_MESSAGE = '.agent-status-message';
 /** New chat trigger button in sidebar. */
 export const NEW_CHAT_TRIGGER = 'div.newChatTrigger';
 
-// ── Agent pill bar ───────────────────────────────────────────────────────────
+/** Sidebar tab: Messages (chat icon). */
+export const SIDER_TAB_MESSAGES = '[data-testid="sider-tab-messages"]';
+
+/** Sidebar tab: Agents (people icon). */
+export const SIDER_TAB_AGENTS = '[data-testid="sider-tab-agents"]';
+
+// ── Sidebar – Agent sections ──────────────────────────────────────────────────
+
+/** All collapsible agent section headers in the agents tab. */
+export const AGENT_SECTION_HEADER = '[data-agent-section]';
+
+/** Collapsible section header by section key ('local' | 'remote' | 'assistants' | 'people'). */
+export function agentSectionHeader(section: 'local' | 'remote' | 'assistants' | 'people'): string {
+  return `[data-agent-section="${section}"]`;
+}
+
+/** + button inside an agent section header (create new agent / assistant). */
+export const AGENT_SECTION_ADD_BTN = `${AGENT_SECTION_HEADER} .h-20px.w-20px`;
+
+// ── Sidebar – Conversation history ───────────────────────────────────────────
+
+/** Individual conversation row in the grouped history list. */
+export const CONVERSATION_ITEM = '.conversation-item';
+
+/**
+ * 3-dot menu container inside a conversation row.
+ * Becomes flex on parent hover (group-hover:flex).
+ */
+export const CONVERSATION_ITEM_MENU_WRAP = `${CONVERSATION_ITEM} .absolute.right-0px.top-0px`;
+
+// ── Conversation search ───────────────────────────────────────────────────────
+
+/** Full-width search trigger button in the sidebar. */
+export const CONVERSATION_SEARCH_TRIGGER = '.conversation-search-trigger-full';
+
+/** Search overlay modal panel. */
+export const CONVERSATION_SEARCH_MODAL = '.conversation-search-modal';
+
+/** Search input inside the modal. */
+export const CONVERSATION_SEARCH_INPUT = '.conversation-search-modal__search-input';
+
+/** Individual search result item. */
+export const CONVERSATION_SEARCH_RESULT = '.conversation-search-modal__result';
+
+// ── Agent pill bar (guid page) ───────────────────────────────────────────────
 
 /** Match an agent logo by its alt text (e.g. "claude logo"). */
 export function agentLogoByBackend(backend: string): string {
@@ -71,6 +120,29 @@ export const AGENT_PILL_SELECTED = `${AGENT_PILL}[data-agent-selected="true"]`;
 
 /** Model selector button on the guid page. */
 export const MODEL_SELECTOR_BTN = 'button.sendbox-model-btn.guid-config-btn';
+
+// ── SendBox ───────────────────────────────────────────────────────────────────
+
+/** Main sendbox container panel. */
+export const SENDBOX_PANEL = '.sendbox-panel';
+
+/** Send (arrow-up) button. Disabled when input is empty. */
+export const SENDBOX_SEND_BTN = '.send-button-custom';
+
+/** Stop (square) button — visible only while the agent is processing. */
+export const SENDBOX_STOP_BTN = '.sendbox-stop-button';
+
+/** Tools strip inside the sendbox (contains model selector, gear, etc.). */
+export const SENDBOX_TOOLS = '.sendbox-tools';
+
+/** Gear / settings button that opens the sendbox settings popup. */
+export const SENDBOX_SETTINGS_BTN = '[data-testid="sendbox-settings-btn"]';
+
+/**
+ * Settings popup opened by the gear button.
+ * Positioned absolute bottom-full — used to verify it isn't clipped by overflow.
+ */
+export const SENDBOX_SETTINGS_POPUP = '[data-testid="sendbox-settings-popup"]';
 
 // ── Channel list ─────────────────────────────────────────────────────────────
 
@@ -92,7 +164,7 @@ export function webuiTabByKey(key: 'webui' | 'channels'): string {
   return `[data-webui-tab="${key}"]`;
 }
 
-// ── Chat layout (digital-human-redesign) ─────────────────────────────────────
+// ── Chat layout ───────────────────────────────────────────────────────────────
 
 /**
  * Sidebar DM contact row (AgentContactRow → SiderRow level={2}).
@@ -114,11 +186,27 @@ export const ARCO_DROPDOWN_MENU_ITEM = '.arco-dropdown-menu-item';
 /** Conversation history panel dropdown (uses custom droplist, not Arco Menu). */
 export const HISTORY_PANEL_DROPDOWN = '[data-history-dropdown="true"]';
 
+// ── Workspace panel ───────────────────────────────────────────────────────────
+
+/** Right-side workspace panel in the chat layout. */
+export const WORKSPACE_RIGHT_PANEL = '.chat-layout-right-sider';
+
+/** Toggle button to show/hide the workspace panel (Windows only). */
+export const WORKSPACE_HEADER_TOGGLE = '.workspace-header__toggle';
+
+/** Workspace collapse/expand component inside the workspace panel. */
+export const WORKSPACE_COLLAPSE = '.workspace-collapse';
+
+// ── Messages ─────────────────────────────────────────────────────────────────
+
 /** Message item in the Virtuoso list. */
 export const MESSAGE_ITEM = '.message-item';
 
 /** Message avatar + name header row (shown on first message in a sequence). */
 export const MESSAGE_AUTHOR_HEADER = `${MESSAGE_ITEM} .flex.items-center.gap-6px:has(span.text-14px.font-medium)`;
+
+/** Avatar image inside a message author header. */
+export const MESSAGE_AVATAR_IMG = `${MESSAGE_ITEM} .w-24px.h-24px img`;
 
 /** Time divider label between messages. */
 export const TIME_DIVIDER = `${MESSAGE_ITEM} .text-t-tertiary.select-none, .text-13px.text-t-tertiary.select-none`;
@@ -131,3 +219,31 @@ export const THINKING_HEADER = `${THINKING_MESSAGE} [class*="header"]`;
 
 /** Thinking message body text (collapsible). */
 export const THINKING_BODY = `${THINKING_MESSAGE} [class*="body"]`;
+
+// ── Assistants page ───────────────────────────────────────────────────────────
+
+/** Agent card on the /assistants page. */
+export const AGENT_CARD = '.rounded-12px.border-border-1';
+
+/** "Chat" primary button on an agent card. */
+export const AGENT_CARD_CHAT_BTN = '[data-testid="agent-chat-btn"]';
+
+/** "Edit" secondary button on an agent card (only for editable agents). */
+export const AGENT_CARD_EDIT_BTN = '[data-testid="agent-edit-btn"]';
+
+// ── Agent detail pages ────────────────────────────────────────────────────────
+
+/** Local agent detail page model selector (size=small, width=200). */
+export const LOCAL_AGENT_MODEL_SELECT = '.arco-select';
+
+/** Remote agent edit form name input. */
+export const REMOTE_AGENT_NAME_INPUT = 'input[placeholder]';
+
+/** Remote agent URL input (placeholder 'https://'). */
+export const REMOTE_AGENT_URL_INPUT = 'input[placeholder="https://"]';
+
+/** Assistant detail page name input. */
+export const ASSISTANT_NAME_INPUT = 'input[placeholder]';
+
+/** Assistant detail page system prompt textarea. */
+export const ASSISTANT_SYSTEM_PROMPT = 'textarea[class*="resize-none"]';
