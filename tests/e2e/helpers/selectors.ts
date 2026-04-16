@@ -94,6 +94,13 @@ export function webuiTabByKey(key: 'webui' | 'channels'): string {
 
 // ── Chat layout (digital-human-redesign) ─────────────────────────────────────
 
+/**
+ * Sidebar DM contact row (AgentContactRow → SiderRow level={2}).
+ * Level-2 SiderRows have the unique UnoCSS class `pl-48px` for their left-indent.
+ * Used by goToFirstConversation to navigate to an existing conversation.
+ */
+export const SIDER_CONTACT_ROW = 'div[class*="pl-48px"][class*="cursor-pointer"]';
+
 /** Chat layout header bar. */
 export const CHAT_LAYOUT_HEADER = '.chat-layout-header';
 
@@ -103,6 +110,9 @@ export const HISTORY_PANEL_BTN = `${CHAT_LAYOUT_HEADER} button[title]`;
 /** Arco Design dropdown popup menu (rendered in portal). */
 export const ARCO_DROPDOWN_MENU = '.arco-dropdown-menu';
 export const ARCO_DROPDOWN_MENU_ITEM = '.arco-dropdown-menu-item';
+
+/** Conversation history panel dropdown (uses custom droplist, not Arco Menu). */
+export const HISTORY_PANEL_DROPDOWN = '[data-history-dropdown="true"]';
 
 /** Message item in the Virtuoso list. */
 export const MESSAGE_ITEM = '.message-item';

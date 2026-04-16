@@ -29,7 +29,6 @@ import AcpModelSelector from '@/renderer/components/agent/AcpModelSelector';
 import GeminiModelSelector from '../platforms/gemini/GeminiModelSelector';
 import { useGeminiModelSelection } from '../platforms/gemini/useGeminiModelSelection';
 import AionrsChat from '../platforms/aionrs/AionrsChat';
-import AionrsModelSelector from '../platforms/aionrs/AionrsModelSelector';
 import { useAionrsModelSelection } from '../platforms/aionrs/useAionrsModelSelection';
 import { usePreviewContext } from '../Preview';
 import StarOfficeMonitorCard from '../platforms/openclaw/StarOfficeMonitorCard.tsx';
@@ -184,10 +183,13 @@ const GeminiConversationPanel: React.FC<{
     siderTitle: sliderTitle,
     sider: <ChatSider conversation={conversation} />,
     headerExtra: (
-      <CronJobManager
-        conversationId={conversation.id}
-        cronJobId={conversation.extra?.cronJobId as string | undefined}
-      />
+      <div className='flex items-center gap-8px'>
+        <ConversationHistoryPanel conversation={conversation} />
+        <CronJobManager
+          conversationId={conversation.id}
+          cronJobId={conversation.extra?.cronJobId as string | undefined}
+        />
+      </div>
     ),
     workspaceEnabled,
     backend: 'gemini' as const,
@@ -243,10 +245,13 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     siderTitle: sliderTitle,
     sider: <ChatSider conversation={conversation} />,
     headerExtra: (
-      <CronJobManager
-        conversationId={conversation.id}
-        cronJobId={conversation.extra?.cronJobId as string | undefined}
-      />
+      <div className='flex items-center gap-8px'>
+        <ConversationHistoryPanel conversation={conversation} />
+        <CronJobManager
+          conversationId={conversation.id}
+          cronJobId={conversation.extra?.cronJobId as string | undefined}
+        />
+      </div>
     ),
     workspaceEnabled,
     backend: 'aionrs' as const,
@@ -368,7 +373,7 @@ const ChatConversation: React.FC<{
   // For ACP/Codex conversations, use AcpModelSelector that can show/switch models.
   // For other non-Gemini conversations, show disabled GeminiModelSelector.
   // NOTE: This must be placed before the Gemini early return to maintain consistent hook order.
-  const modelSelector = useMemo(() => {
+  const _modelSelector = useMemo(() => {
     if (!conversation || isGeminiConversation || isAionrsConversation) return undefined;
     if (conversation.type === 'acp') {
       const extra = conversation.extra as { backend?: string; currentModelId?: string };

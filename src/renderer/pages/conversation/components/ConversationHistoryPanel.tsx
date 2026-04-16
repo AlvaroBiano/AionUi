@@ -79,7 +79,7 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
   };
 
   const droplist = (
-    <div className='w-200px py-4px' style={{ backgroundColor: 'var(--color-bg-2)' }}>
+    <div className='w-200px py-4px' data-history-dropdown='true' style={{ backgroundColor: 'var(--color-bg-2)' }}>
       {/* 新会话 — 顶部固定按钮 */}
       <div
         className='flex items-center gap-8px px-12px py-7px cursor-pointer hover:bg-[var(--color-fill-2)] text-t-primary'
