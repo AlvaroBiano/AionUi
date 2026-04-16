@@ -268,6 +268,47 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     return set;
   }, [processedList]);
 
+  // Compute time dividers: show a timestamp label when the gap between consecutive
+  // messages exceeds 5 minutes, or at the very first message.
+  const timeDividerMap = useMemo(() => {
+    const map = new Map<number, string>();
+    let lastTs = 0;
+    const THRESHOLD_MS = 5 * 60 * 1000;
+
+    const formatDividerTime = (ts: number): string => {
+      const d = new Date(ts);
+      const now = new Date();
+      const hh = d.getHours().toString().padStart(2, '0');
+      const mm = d.getMinutes().toString().padStart(2, '0');
+      const time = `${hh}:${mm}`;
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const isToday =
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+      if (isToday) return time;
+      const prefix =
+        d.getFullYear() !== now.getFullYear()
+          ? `${d.getFullYear()} ${months[d.getMonth()]} ${d.getDate()}`
+          : `${months[d.getMonth()]} ${d.getDate()}`;
+      return `${prefix} ${time}`;
+    };
+
+    for (let i = 0; i < processedList.length; i++) {
+      const item = processedList[i];
+      const ts =
+        'createdAt' in item && typeof (item as TMessage).createdAt === 'number'
+          ? (item as TMessage).createdAt!
+          : 0;
+      if (!ts) continue;
+      if (lastTs === 0 || ts - lastTs > THRESHOLD_MS) {
+        map.set(i, formatDividerTime(ts));
+      }
+      lastTs = ts;
+    }
+    return map;
+  }, [processedList]);
+
   // Use auto-scroll hook
   const {
     virtuosoRef,
@@ -359,23 +400,42 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     scrollToBottom('smooth');
   };
 
-  const renderItem = (_index: number, item: (typeof processedList)[0]) => {
+  const renderItem = (index: number, item: (typeof processedList)[0]) => {
+    const dividerText = timeDividerMap.get(index);
+    const divider = dividerText ? (
+      <div className='flex items-center gap-12px px-16px py-6px'>
+        <div className='flex-1 h-px bg-fill-3' />
+        <span className='text-11px text-t-tertiary shrink-0 select-none'>{dividerText}</span>
+        <div className='flex-1 h-px bg-fill-3' />
+      </div>
+    ) : null;
+
     const highlighted = matchesTargetMessage(item, highlightedMessageId);
     if ('type' in item && ['file_summary', 'tool_summary'].includes(item.type)) {
       return (
-        <div
-          key={item.id}
-          id={`message-${getProcessedItemAnchorId(item)}`}
-          className={'min-w-0 message-item px-8px m-t-10px max-w-full md:max-w-780px mx-auto ' + item.type}
-          style={highlighted ? highlightStyle : undefined}
-        >
-          {item.type === 'file_summary' && <MessageFileChanges diffsChanges={item.diffs} />}
-          {item.type === 'tool_summary' && <MessageToolGroupSummary messages={item.messages}></MessageToolGroupSummary>}
-        </div>
+        <>
+          {divider}
+          <div
+            key={item.id}
+            id={`message-${getProcessedItemAnchorId(item)}`}
+            className={'min-w-0 message-item px-8px m-t-10px max-w-full md:max-w-780px mx-auto ' + item.type}
+            style={highlighted ? highlightStyle : undefined}
+          >
+            {item.type === 'file_summary' && <MessageFileChanges diffsChanges={item.diffs} />}
+            {item.type === 'tool_summary' && (
+              <MessageToolGroupSummary messages={item.messages}></MessageToolGroupSummary>
+            )}
+          </div>
+        </>
       );
     }
     const msg = item as TMessage;
-    return <MessageItem message={msg} key={msg.id} highlighted={highlighted} showAvatar={showAvatarSet.has(msg.id)} />;
+    return (
+      <>
+        {divider}
+        <MessageItem message={msg} key={msg.id} highlighted={highlighted} showAvatar={showAvatarSet.has(msg.id)} />
+      </>
+    );
   };
 
   if (processedList.length === 0 && emptySlot) {
