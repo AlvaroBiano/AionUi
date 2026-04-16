@@ -404,7 +404,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     const dividerText = timeDividerMap.get(index);
     const divider = dividerText ? (
       <div className='flex items-center justify-center px-16px py-6px'>
-        <span className='text-11px text-t-tertiary select-none'>{dividerText}</span>
+        <span className='text-13px text-t-tertiary select-none'>{dividerText}</span>
       </div>
     ) : null;
 
