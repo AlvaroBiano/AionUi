@@ -87,7 +87,7 @@ const MessageThinking: React.FC<{ message: IMessageThinking; showAvatar?: boolea
     <div className={styles.container}>
       {showAvatar && avatarInfo && (
         <div className='flex items-center gap-6px mb-4px'>
-          <div className='flex-shrink-0 w-28px h-28px rd-8px overflow-hidden bg-fill-3 flex items-center justify-center'>
+          <div className='flex-shrink-0 w-24px h-24px rd-7px overflow-hidden bg-fill-3 flex items-center justify-center'>
             {avatarInfo.agentLogoIsEmoji ? (
               <span className='text-16px leading-none'>{avatarInfo.agentLogo}</span>
             ) : avatarInfo.agentLogo ? (
