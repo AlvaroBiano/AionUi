@@ -5,7 +5,10 @@
  */
 
 import type { IMessageThinking } from '@/common/chat/chatLib';
+import { useMessageAvatar } from '@/renderer/pages/conversation/Messages/MessageAvatarContext';
+import { iconColors } from '@/renderer/styles/colors';
 import { Spin } from '@arco-design/web-react';
+import { User } from '@icon-park/react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './MessageThinking.module.css';
@@ -15,8 +18,12 @@ const getFirstLine = (content: string): string => {
   return firstLine.length > 80 ? firstLine.slice(0, 80) + '...' : firstLine;
 };
 
-const MessageThinking: React.FC<{ message: IMessageThinking }> = ({ message }) => {
+const MessageThinking: React.FC<{ message: IMessageThinking; showAvatar?: boolean }> = ({
+  message,
+  showAvatar,
+}) => {
   const { t } = useTranslation();
+  const avatarInfo = useMessageAvatar();
 
   const formatDuration = (ms: number): string => {
     const seconds = Math.floor(ms / 1000);
@@ -78,6 +85,20 @@ const MessageThinking: React.FC<{ message: IMessageThinking }> = ({ message }) =
 
   return (
     <div className={styles.container}>
+      {showAvatar && avatarInfo && (
+        <div className='flex items-center gap-6px mb-4px'>
+          <div className='flex-shrink-0 w-20px h-20px rd-full overflow-hidden bg-fill-3 flex items-center justify-center'>
+            {avatarInfo.agentLogoIsEmoji ? (
+              <span className='text-14px leading-none'>{avatarInfo.agentLogo}</span>
+            ) : avatarInfo.agentLogo ? (
+              <img src={avatarInfo.agentLogo} alt={avatarInfo.agentName} className='w-full h-full object-contain' />
+            ) : (
+              <User theme='outline' size='14' fill={iconColors.secondary} />
+            )}
+          </div>
+          {avatarInfo.agentName && <span className='text-12px text-t-secondary'>{avatarInfo.agentName}</span>}
+        </div>
+      )}
       <hr className={styles.divider} />
       <div className={styles.header} onClick={() => setExpanded((v) => !v)}>
         {!isDone && <Spin size={12} />}

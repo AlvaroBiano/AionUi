@@ -134,7 +134,7 @@ const MessageItem: React.FC<{ message: TMessage; highlighted?: boolean; showAvat
       case 'plan':
         return <MessagePlan message={message}></MessagePlan>;
       case 'thinking':
-        return <MessageThinking message={message}></MessageThinking>;
+        return <MessageThinking message={message} showAvatar={showAvatar}></MessageThinking>;
       case 'skill_suggest':
         return <MessageSkillSuggest message={message} />;
       case 'cron_trigger':
@@ -246,23 +246,23 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
   }, [list]);
 
   // Compute which messages should show an avatar.
-  // User (right) text messages: always show.
-  // Agent (left) text messages: show only on the first in a consecutive run (after a user message or at the start).
+  // User (right) messages: always show.
+  // Agent (left) messages: show only on the first in a consecutive run (after a user message or at the start).
+  // Considers all message types so that a leading 'thinking' message gets the header instead of the text that follows.
   const showAvatarSet = useMemo(() => {
     const set = new Set<string>();
-    let lastTextPosition: 'left' | 'right' | null = null;
+    let lastPosition: 'left' | 'right' | null = null;
     for (const item of processedList) {
       if ('type' in item && (item.type === 'file_summary' || item.type === 'tool_summary')) continue;
       const msg = item as TMessage;
-      if (msg.type !== 'text') continue;
       if (msg.position === 'right') {
         set.add(msg.id);
-        lastTextPosition = 'right';
+        lastPosition = 'right';
       } else if (msg.position === 'left') {
-        if (lastTextPosition === 'right' || lastTextPosition === null) {
+        if (lastPosition === 'right' || lastPosition === null) {
           set.add(msg.id);
         }
-        lastTextPosition = 'left';
+        lastPosition = 'left';
       }
     }
     return set;
