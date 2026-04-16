@@ -11,7 +11,7 @@ import { useConversationHistoryContext } from '@/renderer/hooks/context/Conversa
 import { iconColors } from '@/renderer/styles/colors';
 import { resolveAgentKey } from '../GroupedHistory/utils/groupingHelpers';
 import { emitter } from '../../../utils/emitter';
-import { Button, Dropdown, Menu } from '@arco-design/web-react';
+import { Button, Dropdown } from '@arco-design/web-react';
 import { History, Plus } from '@icon-park/react';
 import React, { useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -60,6 +60,7 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
         conversation: {
           ...source,
           id,
+          name: t('conversation.welcome.newConversation'),
           createTime: Date.now(),
           modifyTime: Date.now(),
           extra:
@@ -78,46 +79,39 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
   };
 
   const droplist = (
-    <Menu
-      onClickMenuItem={(key) => {
-        if (key === 'new') {
-          void handleCreateNew();
-          return;
-        }
-        void navigate(`/conversation/${key}`);
-      }}
-    >
-      <Menu.ItemGroup title={t('conversation.history.historyPanel')}>
-        <Menu.Item key='new'>
-          <div className='flex items-center gap-8px'>
-            <Plus theme='outline' size='14' />
-            <span>{t('conversation.welcome.newConversation')}</span>
+    <div className='w-200px py-4px' style={{ backgroundColor: 'var(--color-bg-2)' }}>
+      {/* 新会话 — 顶部固定按钮 */}
+      <div
+        className='flex items-center gap-8px px-12px py-7px cursor-pointer hover:bg-[var(--color-fill-2)] text-t-primary'
+        onClick={() => void handleCreateNew()}
+      >
+        <Plus theme='outline' size='13' />
+        <span className='text-13px'>{t('conversation.welcome.newConversation')}</span>
+      </div>
+
+      {/* 分隔线 */}
+      {sameAgentConversations.length > 0 && <div className='mx-8px my-4px border-t border-[var(--color-border-2)]' />}
+
+      {/* 历史会话列表 */}
+      {sameAgentConversations.map((conv) => {
+        const isActive = conv.id === conversation.id;
+        const ts = conv.modifyTime ?? conv.createTime ?? 0;
+        return (
+          <div
+            key={conv.id}
+            className={`flex items-center gap-8px px-12px py-6px cursor-pointer hover:bg-[var(--color-fill-2)] ${isActive ? 'bg-[var(--color-fill-2)]' : ''}`}
+            onClick={() => void navigate(`/conversation/${conv.id}`)}
+          >
+            <span
+              className={`flex-1 min-w-0 truncate text-13px ${isActive ? 'font-medium text-t-primary' : 'text-t-primary'}`}
+            >
+              {conv.name || t('conversation.welcome.newConversation')}
+            </span>
+            {ts > 0 && <span className='text-11px text-t-tertiary shrink-0 whitespace-nowrap'>{formatTime(ts)}</span>}
           </div>
-        </Menu.Item>
-      </Menu.ItemGroup>
-      {sameAgentConversations.length > 0 && (
-        <Menu.ItemGroup title={t('conversation.history.messagesSection')}>
-          {sameAgentConversations.map((conv) => {
-            const isActive = conv.id === conversation.id;
-            const ts = conv.modifyTime ?? conv.createTime ?? 0;
-            return (
-              <Menu.Item key={conv.id}>
-                <div className='flex items-center gap-8px min-w-0'>
-                  <span
-                    className={`flex-1 min-w-0 truncate text-13px ${isActive ? 'font-medium text-t-primary' : 'text-t-primary'}`}
-                  >
-                    {conv.name || t('conversation.welcome.newConversation')}
-                  </span>
-                  {ts > 0 && (
-                    <span className='text-11px text-t-secondary shrink-0 whitespace-nowrap'>{formatTime(ts)}</span>
-                  )}
-                </div>
-              </Menu.Item>
-            );
-          })}
-        </Menu.ItemGroup>
-      )}
-    </Menu>
+        );
+      })}
+    </div>
   );
 
   return (
