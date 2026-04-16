@@ -19,3 +19,7 @@
 8. **Commit granularity**: After completing each feature or fix, commit immediately with a focused commit message. Never batch multiple unrelated features into one commit. One logical change = one commit.
 
 9. **No design assets in commits**: Never commit design drafts, mockup images, or other non-production files (e.g. `docs/design/`, `*.sketch`, temp images). Keep them local only.
+
+10. **Never open a PR without explicit instruction**: Do NOT create a pull request unless the user explicitly asks for one (e.g. "open a PR", "create PR", "/oss-pr"). Completing a task or committing code is NOT a signal to open a PR.
+
+11. **Commit by feature, not by session**: Each commit must cover exactly one logical change (one feature, one fix, one refactor). Never batch unrelated changes — even if they were completed in the same session — into a single commit. Split them into separate, focused commits.
