@@ -403,10 +403,8 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
   const renderItem = (index: number, item: (typeof processedList)[0]) => {
     const dividerText = timeDividerMap.get(index);
     const divider = dividerText ? (
-      <div className='flex items-center gap-12px px-16px py-6px'>
-        <div className='flex-1 h-px bg-fill-3' />
-        <span className='text-11px text-t-tertiary shrink-0 select-none'>{dividerText}</span>
-        <div className='flex-1 h-px bg-fill-3' />
+      <div className='flex items-center justify-center px-16px py-6px'>
+        <span className='text-11px text-t-tertiary select-none'>{dividerText}</span>
       </div>
     ) : null;
 
