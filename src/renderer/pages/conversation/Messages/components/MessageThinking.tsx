@@ -96,7 +96,7 @@ const MessageThinking: React.FC<{ message: IMessageThinking; showAvatar?: boolea
               <User theme='outline' size='14' fill={iconColors.secondary} />
             )}
           </div>
-          {avatarInfo.agentName && <span className='text-12px text-t-secondary'>{avatarInfo.agentName}</span>}
+          {avatarInfo.agentName && <span className='text-12px font-medium text-t-primary'>{avatarInfo.agentName}</span>}
         </div>
       )}
       <hr className={styles.divider} />

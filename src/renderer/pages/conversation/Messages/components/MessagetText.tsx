@@ -244,7 +244,7 @@ const MessageText: React.FC<{ message: IMessageText; showAvatar?: boolean }> = (
         <div className='flex flex-col items-end gap-4px'>
           {showAvatar && (
             <div className='flex items-center gap-6px'>
-              {userDisplayName && <span className='text-12px text-t-secondary'>{userDisplayName}</span>}
+              {userDisplayName && <span className='text-12px font-medium text-t-primary'>{userDisplayName}</span>}
               <div className='flex-shrink-0 w-20px h-20px rd-full bg-fill-3 flex items-center justify-center text-10px text-t-secondary font-medium select-none'>
                 {userDisplayName ? (
                   userDisplayName.charAt(0).toUpperCase()
@@ -287,7 +287,7 @@ const MessageText: React.FC<{ message: IMessageText; showAvatar?: boolean }> = (
                 )}
               </div>
               {avatarInfo.agentName && (
-                <span className='text-12px text-t-secondary'>{avatarInfo.agentName}</span>
+                <span className='text-12px font-medium text-t-primary'>{avatarInfo.agentName}</span>
               )}
             </div>
           )}
