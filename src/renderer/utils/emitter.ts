@@ -58,6 +58,8 @@ interface EventTypes {
   'sendbox.reply.clear': void; // clear reply quote
   'staroffice.install.request': [{ conversationId: string; text: string; detectedUrl?: string | null }];
   'staroffice.install.finished': [{ conversationId: string }];
+  /** Switch the sider to a specific tab */
+  'sider.tab.switch': ['messages' | 'agents'];
 }
 
 export const emitter = new EventEmitter<EventTypes>();

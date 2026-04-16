@@ -86,6 +86,8 @@ export type WorkspaceGroupedHistoryProps = {
   tooltipEnabled?: boolean;
   batchMode?: boolean;
   onBatchModeChange?: (value: boolean) => void;
+  pinnedAgentKeys?: string[];
+  onToggleAgentPin?: (agentKey: string) => void;
 };
 
 export type DragItemType = 'conversation' | 'workspace';

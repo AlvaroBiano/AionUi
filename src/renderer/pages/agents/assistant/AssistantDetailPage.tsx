@@ -6,6 +6,7 @@
 
 import coworkSvg from '@/renderer/assets/icons/cowork.svg';
 import AgentAvatar from '@/renderer/components/AgentAvatar';
+import { getPresetProfile } from '@/renderer/assets/profiles';
 import AppLoader from '@/renderer/components/layout/AppLoader';
 import EmojiPicker from '@/renderer/components/chat/EmojiPicker';
 import MarkdownView from '@/renderer/components/Markdown';
@@ -16,7 +17,14 @@ import {
   useAssistantSkills,
 } from '@/renderer/hooks/assistant';
 import { useAgentUserConfig } from '@/renderer/hooks/agent/useAgentUserConfig';
+import { useModelProviderList } from '@/renderer/hooks/agent/useModelProviderList';
+import { useNavigateToAgent } from '@/renderer/hooks/agent/useNavigateToAgent';
+import { useGeminiModelSelection } from '@/renderer/pages/conversation/platforms/gemini/useGeminiModelSelection';
+import { useAionrsModelSelection } from '@/renderer/pages/conversation/platforms/aionrs/useAionrsModelSelection';
+import GeminiModelSelector from '@/renderer/pages/conversation/platforms/gemini/GeminiModelSelector';
+import AionrsModelSelector from '@/renderer/pages/conversation/platforms/aionrs/AionrsModelSelector';
 import { ConfigStorage } from '@/common/config/storage';
+import type { TProviderWithModel } from '@/common/config/storage';
 import { getAgentModes } from '@/renderer/utils/model/agentModes';
 import type { AcpModelInfo } from '@/common/types/acpTypes';
 import {
@@ -30,7 +38,7 @@ import DeleteAssistantModal from '@/renderer/pages/settings/AgentSettings/Assist
 import SkillConfirmModals from '@/renderer/pages/settings/AgentSettings/AssistantManagement/SkillConfirmModals';
 import { Button, Checkbox, Collapse, Input, Message, Select, Tag, Typography } from '@arco-design/web-react';
 import { Delete, Plus, Robot } from '@icon-park/react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -39,6 +47,7 @@ type LocationState = { duplicateFromId?: string } | null;
 const AssistantDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const navigateToAgent = useNavigateToAgent();
   const location = useLocation();
   const { t } = useTranslation();
   const [messageApi, contextHolder] = Message.useMessage();
@@ -85,19 +94,99 @@ const AssistantDetailPage: React.FC = () => {
     message: messageApi,
   });
 
-  // Per-assistant config (preferredModelId, preferredMode) — only meaningful for saved assistants
-  const { config: agentConfig, save: saveAgentConfig } = useAgentUserConfig(id !== 'new' ? (id ?? '') : '');
+  // Use the backend key (e.g. 'gemini') so preferences sync with the agent's own config.
+  const { config: agentConfig, save: saveAgentConfig } = useAgentUserConfig(editor.editAgent ?? '');
   const [cachedModels, setCachedModels] = useState<AcpModelInfo | null>(null);
 
   // Reload model cache whenever the selected backend changes
   useEffect(() => {
     if (!editor.editAgent) return;
+    setCachedModels(null); // clear stale data from previous backend immediately
     void ConfigStorage.get('acp.cachedModels').then((all) => {
       const key = editor.editAgent as string;
-      if (all && key in all) setCachedModels((all as Record<string, AcpModelInfo>)[key] ?? null);
-      else setCachedModels(null);
+      setCachedModels(all && key in all ? ((all as Record<string, AcpModelInfo>)[key] ?? null) : null);
     });
   }, [editor.editAgent]);
+
+  const isGemini = editor.editAgent === 'gemini';
+  const isAionrs = editor.editAgent === 'aionrs';
+
+  const { providers: allProviders } = useModelProviderList();
+  const providers = isAionrs
+    ? allProviders.filter((p) => !p.platform?.toLowerCase().includes('gemini-with-google-auth'))
+    : allProviders;
+
+  const [geminiPreferredModel, setGeminiPreferredModel] = useState<string | undefined>();
+  const [geminiPreferredMode, setGeminiPreferredMode] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!isGemini) return;
+    void ConfigStorage.get('gemini.config').then((c) => {
+      setGeminiPreferredModel(c?.preferredModelId);
+      setGeminiPreferredMode(c?.preferredMode);
+    });
+  }, [isGemini]);
+
+  type GeminiConfig = Parameters<typeof ConfigStorage.set<'gemini.config'>>[1];
+
+  const handleSaveGeminiConfig = useCallback(async (patch: { preferredModelId?: string; preferredMode?: string }) => {
+    const existing = ((await ConfigStorage.get('gemini.config')) ?? {}) as GeminiConfig;
+    await ConfigStorage.set('gemini.config', { ...existing, ...patch } as GeminiConfig);
+    if ('preferredModelId' in patch) {
+      setGeminiPreferredModel(patch.preferredModelId);
+      if (patch.preferredModelId) {
+        const sepIdx = patch.preferredModelId.indexOf('::');
+        if (sepIdx > 0) {
+          const modelId = patch.preferredModelId.slice(0, sepIdx);
+          const useModel = patch.preferredModelId.slice(sepIdx + 2);
+          await ConfigStorage.set('gemini.defaultModel', { id: modelId, useModel }).catch(console.error);
+        }
+      }
+    }
+    if ('preferredMode' in patch) setGeminiPreferredMode(patch.preferredMode);
+  }, []);
+
+  const geminiInitialModel = useMemo((): TProviderWithModel | undefined => {
+    if (!isGemini || !geminiPreferredModel) return undefined;
+    const [providerId, modelName] = geminiPreferredModel.split('::');
+    const provider = allProviders.find((p) => p.id === providerId);
+    return provider
+      ? ({ ...(provider as unknown as TProviderWithModel), useModel: modelName } as TProviderWithModel)
+      : undefined;
+  }, [isGemini, geminiPreferredModel, allProviders]);
+
+  const aionrsInitialModel = useMemo((): TProviderWithModel | undefined => {
+    if (!isAionrs || !agentConfig.preferredModelId) return undefined;
+    const [providerId, modelName] = agentConfig.preferredModelId.split('::');
+    const provider = providers.find((p) => p.id === providerId);
+    return provider
+      ? ({ ...(provider as unknown as TProviderWithModel), useModel: modelName } as TProviderWithModel)
+      : undefined;
+  }, [isAionrs, agentConfig.preferredModelId, providers]);
+
+  const geminiSelection = useGeminiModelSelection({
+    initialModel: geminiInitialModel,
+    onSelectModel: async (provider, modelName) => {
+      try {
+        await handleSaveGeminiConfig({ preferredModelId: `${provider.id}::${modelName}` });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  });
+
+  const aionrsSelection = useAionrsModelSelection({
+    initialModel: aionrsInitialModel,
+    onSelectModel: async (provider, modelName) => {
+      try {
+        await saveAgentConfig({ preferredModelId: `${provider.id}::${modelName}` });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  });
 
   const [initialized, setInitialized] = useState(false);
   const initIdRef = useRef<string | null>(null);
@@ -154,8 +243,18 @@ const AssistantDetailPage: React.FC = () => {
   };
 
   const editAvatarImage = resolveAvatarImageSrc(editor.editAvatar, avatarImageMap);
+  // Built-in presets have a dedicated profile image (same as shown in the sider)
+  const presetId = id?.startsWith('builtin-') ? id.slice(8) : null;
+  const presetProfileSrc = presetId ? (getPresetProfile(presetId) ?? null) : null;
+  // For display: preset profile > resolved image > null (falls back to emoji)
+  const displayAvatarSrc = presetProfileSrc ?? editAvatarImage ?? null;
+
   const canEditIdentity = !activeAssistant?.isBuiltin && !isReadonlyAssistant;
   const isRuleEditable = !activeAssistant?.isBuiltin && !isReadonlyAssistant;
+
+  // Always use 'custom:{id}' — GuidPage resolves custom agents by this key.
+  // useNavigateToAgent also handles gemini-based presets via secondary presetAssistantId lookup.
+  const talkToAgentKey = id ? `custom:${id}` : null;
 
   const showSkills =
     editor.isCreating ||
@@ -192,12 +291,8 @@ const AssistantDetailPage: React.FC = () => {
                 )}
               </div>
             </EmojiPicker>
-          ) : editAvatarImage ? (
-            <img
-              src={editAvatarImage}
-              alt=''
-              className='w-56px h-56px rd-12px object-contain border border-border-2 bg-fill-2 shrink-0'
-            />
+          ) : displayAvatarSrc ? (
+            <AgentAvatar size={56} avatarSrc={displayAvatarSrc} className='shrink-0' />
           ) : (
             <AgentAvatar size={56} avatarEmoji={editor.editAvatar || undefined} className='shrink-0' />
           )}
@@ -223,34 +318,16 @@ const AssistantDetailPage: React.FC = () => {
 
           {/* Actions */}
           <div className='flex items-center gap-8px shrink-0'>
-            {!isReadonlyAssistant && (
-              <Button type='primary' size='small' className='!rounded-[100px]' onClick={() => void handleSave()}>
-                {editor.isCreating
-                  ? t('common.create', { defaultValue: 'Create' })
-                  : t('common.save', { defaultValue: 'Save' })}
-              </Button>
-            )}
-            {!editor.isCreating && activeAssistant && (
+            {!editor.isCreating && talkToAgentKey && (
               <Button
+                type='primary'
                 size='small'
                 className='!rounded-[100px]'
-                onClick={() => navigate('/agents/assistant/new', { state: { duplicateFromId: activeAssistant.id } })}
+                onClick={() => navigateToAgent(talkToAgentKey)}
               >
-                {t('settings.duplicate', { defaultValue: 'Duplicate' })}
+                {t('common.agents.talkToAgent')}
               </Button>
             )}
-            {!editor.isCreating &&
-              !activeAssistant?.isBuiltin &&
-              !isExtensionAssistant(activeAssistant as AssistantListItem | null | undefined) && (
-                <Button
-                  status='danger'
-                  size='small'
-                  className='!rounded-[100px]'
-                  onClick={() => editor.handleDeleteClick()}
-                >
-                  {t('common.delete', { defaultValue: 'Delete' })}
-                </Button>
-              )}
           </div>
         </div>
 
@@ -276,9 +353,9 @@ const AssistantDetailPage: React.FC = () => {
                   </div>
                 </EmojiPicker>
               ) : (
-                <div className='w-40px h-40px rd-8px flex items-center justify-center bg-fill-2 border border-border-2'>
-                  {editAvatarImage ? (
-                    <img src={editAvatarImage} alt='' width={24} height={24} style={{ objectFit: 'contain' }} />
+                <div className='w-40px h-40px rd-8px overflow-hidden flex items-center justify-center bg-fill-2 border border-border-2'>
+                  {displayAvatarSrc ? (
+                    <AgentAvatar size={40} avatarSrc={displayAvatarSrc} />
                   ) : editor.editAvatar ? (
                     <span className='text-20px'>{editor.editAvatar}</span>
                   ) : (
@@ -372,7 +449,11 @@ const AssistantDetailPage: React.FC = () => {
           {id !== 'new' && (
             <div className='flex flex-col gap-8px'>
               <Typography.Text bold>{t('common.defaultModel', { defaultValue: 'Default Model' })}</Typography.Text>
-              {cachedModels && cachedModels.availableModels.length > 0 ? (
+              {isGemini ? (
+                <GeminiModelSelector selection={geminiSelection} variant='settings' />
+              ) : isAionrs ? (
+                <AionrsModelSelector selection={aionrsSelection} variant='settings' />
+              ) : cachedModels && cachedModels.availableModels.length > 0 ? (
                 <Select
                   value={agentConfig.preferredModelId ?? ''}
                   placeholder={t('common.default', { defaultValue: 'Default' })}
@@ -402,11 +483,17 @@ const AssistantDetailPage: React.FC = () => {
               <Typography.Text bold>{t('common.agents.permissions', { defaultValue: 'Permissions' })}</Typography.Text>
               {getAgentModes(editor.editAgent).length > 0 ? (
                 <Select
-                  value={agentConfig.preferredMode ?? ''}
+                  value={isGemini ? (geminiPreferredMode ?? '') : (agentConfig.preferredMode ?? '')}
                   placeholder={t('common.default', { defaultValue: 'Default' })}
                   allowClear
                   className='w-full !rounded-8px'
-                  onChange={(v: string) => void saveAgentConfig({ preferredMode: v || undefined })}
+                  onChange={(v: string) => {
+                    if (isGemini) {
+                      void handleSaveGeminiConfig({ preferredMode: v || undefined });
+                    } else {
+                      void saveAgentConfig({ preferredMode: v || undefined });
+                    }
+                  }}
                 >
                   {getAgentModes(editor.editAgent).map((m) => (
                     <Select.Option key={m.value} value={m.value}>
@@ -612,17 +699,45 @@ const AssistantDetailPage: React.FC = () => {
           )}
 
           {/* Bottom action bar */}
-          <div className='flex items-center gap-8px mt-8px pb-32px'>
-            {!isReadonlyAssistant && (
-              <Button type='primary' onClick={() => void handleSave()} className='!rounded-[100px] w-[100px]'>
-                {editor.isCreating
-                  ? t('common.create', { defaultValue: 'Create' })
-                  : t('common.save', { defaultValue: 'Save' })}
+          <div className='flex items-center justify-between mt-8px pb-32px'>
+            <div className='flex items-center gap-8px'>
+              {!isReadonlyAssistant && (
+                <Button type='primary' onClick={() => void handleSave()} className='!rounded-[100px] w-[100px]'>
+                  {editor.isCreating
+                    ? t('common.create', { defaultValue: 'Create' })
+                    : t('common.save', { defaultValue: 'Save' })}
+                </Button>
+              )}
+              <Button onClick={() => navigate(-1)} className='!rounded-[100px] w-[100px] !bg-fill-2'>
+                {t('common.cancel', { defaultValue: 'Cancel' })}
               </Button>
+            </div>
+            {!editor.isCreating && (
+              <div className='flex items-center gap-8px'>
+                {activeAssistant && (
+                  <Button
+                    size='small'
+                    className='!rounded-[100px]'
+                    onClick={() =>
+                      navigate('/agents/assistant/new', { state: { duplicateFromId: activeAssistant.id } })
+                    }
+                  >
+                    {t('settings.duplicate', { defaultValue: 'Duplicate' })}
+                  </Button>
+                )}
+                {!activeAssistant?.isBuiltin &&
+                  !isExtensionAssistant(activeAssistant as AssistantListItem | null | undefined) && (
+                    <Button
+                      status='danger'
+                      size='small'
+                      className='!rounded-[100px]'
+                      onClick={() => editor.handleDeleteClick()}
+                    >
+                      {t('common.delete', { defaultValue: 'Delete' })}
+                    </Button>
+                  )}
+              </div>
             )}
-            <Button onClick={() => navigate(-1)} className='!rounded-[100px] w-[100px] !bg-fill-2'>
-              {t('common.cancel', { defaultValue: 'Cancel' })}
-            </Button>
           </div>
         </div>
       </div>

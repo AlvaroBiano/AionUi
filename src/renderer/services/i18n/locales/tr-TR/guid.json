@@ -8,7 +8,7 @@
   "promptExamplesHint": "Try example prompts:",
   "agentSwitcherLabel": "Agent",
   "switchedToAgent": "{{agent}} olarak değiştirildi",
-  "selectAssistant": "Başlamak için bir asistan seçin",
+  "selectAssistant": "Başlamak için bir görev seçin",
   "viewAllAssistants": "Tüm asistanları görüntüle →",
   "addMoreAssistants": "Daha fazla asistan ekle +",
   "scanning": {

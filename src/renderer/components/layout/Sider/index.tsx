@@ -1,20 +1,37 @@
 import classNames from 'classnames';
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAddEventListener } from '@renderer/utils/emitter';
 import { usePreviewContext } from '@renderer/pages/conversation/Preview/context/PreviewContext';
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@renderer/utils/ui/siderTooltip';
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
+import { useTeamList } from '@renderer/pages/team/hooks/useTeamList';
 import { SiderToolbar, SiderScheduledEntry, SiderSearchEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
 import SiderAgentsTab from './SiderAgentsTab';
 import SiderRow from './SiderRow';
 import TeamSiderSection from './TeamSiderSection';
+import PinnedSiderSection from './PinnedSiderSection';
 import siderStyles from './Sider.module.css';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@arco-design/web-react';
-import { Comments, MessageOne, People, Peoples } from '@icon-park/react';
+import { Comments, MessageOne, Peoples } from '@icon-park/react';
+
+const DM_PINNED_KEY = 'dm-pinned-agent-keys';
+const TEAM_PINNED_KEY = 'team-pinned-ids';
+
+const readPinnedFromStorage = (key: string): string[] => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as string[]).filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
 
 const WorkspaceGroupedHistory = React.lazy(() => import('@renderer/pages/conversation/GroupedHistory'));
 const SettingsSider = React.lazy(() => import('@renderer/pages/settings/components/SettingsSider'));
@@ -38,6 +55,37 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
   const { theme, setTheme } = useThemeContext();
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [siderTab, setSiderTab] = useState<SiderTab>('messages');
+
+  useAddEventListener('sider.tab.switch', (tab) => setSiderTab(tab), []);
+
+  const { teams } = useTeamList();
+
+  const [pinnedAgentKeys, setPinnedAgentKeys] = useState<string[]>(() => readPinnedFromStorage(DM_PINNED_KEY));
+  const [pinnedTeamIds, setPinnedTeamIds] = useState<string[]>(() => readPinnedFromStorage(TEAM_PINNED_KEY));
+
+  const handleToggleAgentPin = useCallback((agentKey: string) => {
+    setPinnedAgentKeys((prev) => {
+      const next = prev.includes(agentKey) ? prev.filter((k) => k !== agentKey) : [...prev, agentKey];
+      try {
+        localStorage.setItem(DM_PINNED_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleTeamPin = useCallback((teamId: string) => {
+    setPinnedTeamIds((prev) => {
+      const next = prev.includes(teamId) ? prev.filter((k) => k !== teamId) : [...prev, teamId];
+      try {
+        localStorage.setItem(TEAM_PINNED_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
   const isSettings = pathname.startsWith('/settings');
   const lastNonSettingsPathRef = useRef('/guid');
 
@@ -98,6 +146,12 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     }
   };
 
+  const handleMessagesTabClick = () => {
+    setSiderTab('messages');
+    cleanupSiderTooltips();
+    void navigate('/guid');
+  };
+
   const handleQuickThemeToggle = () => {
     void setTheme(theme === 'dark' ? 'light' : 'dark');
   };
@@ -111,6 +165,8 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     onSessionClick,
     batchMode: isBatchMode,
     onBatchModeChange: setIsBatchMode,
+    pinnedAgentKeys,
+    onToggleAgentPin: handleToggleAgentPin,
   };
 
   const renderTabSwitcher = () => {
@@ -123,7 +179,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                 'h-28px flex items-center justify-center cursor-pointer rd-6px transition-colors',
                 siderTab === 'messages' ? 'text-primary' : 'text-t-secondary hover:text-t-primary hover:bg-fill-2'
               )}
-              onClick={() => setSiderTab('messages')}
+              onClick={handleMessagesTabClick}
             >
               <MessageOne theme='outline' size={14} fill='currentColor' style={{ lineHeight: 0 }} />
             </div>
@@ -152,7 +208,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
               ? 'bg-[var(--color-bg-1)] text-t-primary shadow-sm'
               : 'text-t-secondary hover:text-t-primary'
           )}
-          onClick={() => setSiderTab('messages')}
+          onClick={handleMessagesTabClick}
         >
           <MessageOne theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
         </div>
@@ -237,8 +293,18 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                   )}
                 />
 
-                {/* Scrollable: conversation history + teams */}
+                {/* Scrollable: pinned + conversation history + teams */}
                 <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
+                  <PinnedSiderSection
+                    pinnedAgentKeys={pinnedAgentKeys}
+                    pinnedTeamIds={pinnedTeamIds}
+                    teams={teams}
+                    collapsed={collapsed}
+                    tooltipEnabled={tooltipEnabled}
+                    onUnpinAgent={handleToggleAgentPin}
+                    onUnpinTeam={handleToggleTeamPin}
+                    onSessionClick={onSessionClick}
+                  />
                   <Suspense fallback={<div className='min-h-200px' />}>
                     <WorkspaceGroupedHistory {...workspaceHistoryProps} />
                   </Suspense>
@@ -248,6 +314,8 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                       pathname={pathname}
                       siderTooltipProps={siderTooltipProps}
                       onSessionClick={onSessionClick}
+                      pinnedTeamIds={pinnedTeamIds}
+                      onToggleTeamPin={handleToggleTeamPin}
                     />
                   </div>
                 </div>

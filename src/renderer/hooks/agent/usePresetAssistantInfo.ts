@@ -11,6 +11,7 @@ import type { TChatConversation } from '@/common/config/storage';
 import { ConfigStorage } from '@/common/config/storage';
 import { ipcBridge } from '@/common';
 import CoworkLogo from '@/renderer/assets/icons/cowork.svg';
+import { getPresetProfile } from '@/renderer/assets/profiles';
 import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
 import useSWR from 'swr';
 export interface PresetAssistantInfo {
@@ -170,6 +171,9 @@ function buildPresetInfo(presetId: string, locale: string): PresetAssistantInfo 
   if (!preset) return null;
 
   const name = preset.nameI18n[locale] || preset.nameI18n['en-US'] || preset.id;
+  const profileImage = getPresetProfile(presetId);
+  if (profileImage) return { name, logo: profileImage, isEmoji: false };
+
   const avatar = typeof preset.avatar === 'string' ? preset.avatar : '';
   const normalized = normalizeAvatar(avatar);
 

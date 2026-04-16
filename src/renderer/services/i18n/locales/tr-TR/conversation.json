@@ -72,7 +72,10 @@
     "historyPanel": "Konuşma Geçmişi",
     "deleteAgentGroup": "Tüm Sohbetleri Sil",
     "deleteAgentGroupConfirm": "Bu ajan altındaki {{count}} konuşmanın tamamını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
-    "deleteAgentGroupSuccess": "{{count}} konuşma silindi"
+    "deleteAgentGroupSuccess": "{{count}} konuşma silindi",
+    "removeContact": "Kaldır",
+    "removeContactConfirm": "Bu kişiyi kaldırdığınızda, bu ajanla olan {{count}} konuşmanın tamamı kalıcı olarak silinecektir. Bu işlem geri alınamaz.",
+    "messagesEmpty": "Henüz mesaj yok"
   },
   "historySearch": {
     "tooltip": "Mesajları ara",

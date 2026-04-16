@@ -72,7 +72,10 @@
     "historyPanel": "대화 기록",
     "deleteAgentGroup": "모든 대화 삭제",
     "deleteAgentGroupConfirm": "이 에이전트 아래의 {{count}}개 대화를 모두 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
-    "deleteAgentGroupSuccess": "{{count}}개 대화가 삭제되었습니다"
+    "deleteAgentGroupSuccess": "{{count}}개 대화가 삭제되었습니다",
+    "removeContact": "제거",
+    "removeContactConfirm": "연락처를 제거하면 이 에이전트와의 {{count}}개 대화가 모두 영구 삭제됩니다. 이 작업은 취소할 수 없습니다.",
+    "messagesEmpty": "메시지가 없습니다"
   },
   "historySearch": {
     "tooltip": "메시지 검색",

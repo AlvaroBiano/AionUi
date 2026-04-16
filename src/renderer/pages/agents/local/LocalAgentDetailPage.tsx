@@ -10,6 +10,7 @@ import { ConfigStorage } from '@/common/config/storage';
 import AgentAvatar from '@/renderer/components/AgentAvatar';
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { useAgentUserConfig } from '@/renderer/hooks/agent/useAgentUserConfig';
+import { useNavigateToAgent } from '@/renderer/hooks/agent/useNavigateToAgent';
 import { useMcpServers } from '@/renderer/hooks/mcp';
 import { getAgentModes } from '@/renderer/utils/model/agentModes';
 import { useModelProviderList } from '@/renderer/hooks/agent/useModelProviderList';
@@ -56,6 +57,7 @@ const REASONING_EFFORT_OPTIONS = ['minimal', 'low', 'medium', 'high'] as const;
 const LocalAgentDetailPage: React.FC = () => {
   const { key } = useParams<{ key: string }>();
   const navigate = useNavigate();
+  const navigateToAgent = useNavigateToAgent();
   const { t, i18n } = useTranslation();
   const locale = i18n.language || 'en-US';
 
@@ -84,8 +86,9 @@ const LocalAgentDetailPage: React.FC = () => {
   // Load cached model list for non-Gemini backends
   useEffect(() => {
     if (!key || key === 'gemini') return;
+    setCachedModels(null); // clear stale data from previous agent immediately
     void ConfigStorage.get('acp.cachedModels').then((all) => {
-      if (all && key in all) setCachedModels(all[key] ?? null);
+      setCachedModels(all && key in all ? (all[key] ?? null) : null);
     });
   }, [key]);
 
@@ -229,6 +232,14 @@ const LocalAgentDetailPage: React.FC = () => {
               </p>
             )}
           </div>
+          <Button
+            type='primary'
+            size='small'
+            className='!rounded-[100px] shrink-0'
+            onClick={() => navigateToAgent(key!)}
+          >
+            {t('common.agents.talkToAgent')}
+          </Button>
         </div>
 
         {/* ── Gemini Auth — shown first for Gemini (built-in, auth is the primary config) ── */}

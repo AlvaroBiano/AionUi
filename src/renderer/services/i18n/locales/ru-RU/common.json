@@ -116,7 +116,10 @@
       "local": "Локальные агенты",
       "remote": "Удалённые агенты",
       "assistants": "Ассистенты",
-      "people": "Люди"
+      "people": "Люди",
+      "localEmpty": "Нет локальных агентов",
+      "remoteEmpty": "Нет удалённых агентов",
+      "assistantsEmpty": "Нет ассистентов"
     },
     "user": {
       "defaultName": "Пользователь"
@@ -125,7 +128,9 @@
     "defaultPermissionHint": "Режим разрешений по умолчанию при начале новых разговоров.",
     "connection": "Подключение",
     "llmProvider": "LLM-провайдер",
-    "noProviderHint": "Сначала настройте провайдера LLM в Настройки > Модели."
+    "noProviderHint": "Сначала настройте провайдера LLM в Настройки > Модели.",
+    "talkToAgent": "Начать диалог",
+    "addAssistant": "Добавить ассистента"
   },
   "historyBack": "Назад",
   "agentMode": "Режим агента"

@@ -89,9 +89,9 @@ const getUnhandledMessageType = (_message: never): string => 'unknown';
 // Image preview context
 export const ImagePreviewContext = createContext<{ inPreviewGroup: boolean }>({ inPreviewGroup: false });
 
-const MessageItem: React.FC<{ message: TMessage; highlighted?: boolean }> = React.memo(
+const MessageItem: React.FC<{ message: TMessage; highlighted?: boolean; showAvatar?: boolean }> = React.memo(
   HOC((props) => {
-    const { message, highlighted } = props as { message: TMessage; highlighted?: boolean };
+    const { message, highlighted } = props as { message: TMessage; highlighted?: boolean; showAvatar?: boolean };
     return (
       <div
         id={`message-${message.id}`}
@@ -109,11 +109,11 @@ const MessageItem: React.FC<{ message: TMessage; highlighted?: boolean }> = Reac
         {props.children}
       </div>
     );
-  })(({ message }) => {
+  })(({ message, showAvatar }) => {
     const { t } = useTranslation();
     switch (message.type) {
       case 'text':
-        return <MessageText message={message}></MessageText>;
+        return <MessageText message={message} showAvatar={showAvatar}></MessageText>;
       case 'tips':
         return <MessageTips message={message}></MessageTips>;
       case 'tool_call':
@@ -150,7 +150,8 @@ const MessageItem: React.FC<{ message: TMessage; highlighted?: boolean }> = Reac
     prev.message.content === next.message.content &&
     prev.message.position === next.message.position &&
     prev.message.type === next.message.type &&
-    prev.highlighted === next.highlighted
+    prev.highlighted === next.highlighted &&
+    prev.showAvatar === next.showAvatar
 );
 
 const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }> = ({ emptySlot }) => {
@@ -243,6 +244,29 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     }
     return result;
   }, [list]);
+
+  // Compute which messages should show an avatar.
+  // User (right) text messages: always show.
+  // Agent (left) text messages: show only on the first in a consecutive run (after a user message or at the start).
+  const showAvatarSet = useMemo(() => {
+    const set = new Set<string>();
+    let lastTextPosition: 'left' | 'right' | null = null;
+    for (const item of processedList) {
+      if ('type' in item && (item.type === 'file_summary' || item.type === 'tool_summary')) continue;
+      const msg = item as TMessage;
+      if (msg.type !== 'text') continue;
+      if (msg.position === 'right') {
+        set.add(msg.id);
+        lastTextPosition = 'right';
+      } else if (msg.position === 'left') {
+        if (lastTextPosition === 'right' || lastTextPosition === null) {
+          set.add(msg.id);
+        }
+        lastTextPosition = 'left';
+      }
+    }
+    return set;
+  }, [processedList]);
 
   // Use auto-scroll hook
   const {
@@ -350,7 +374,8 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
         </div>
       );
     }
-    return <MessageItem message={item as TMessage} key={(item as TMessage).id} highlighted={highlighted}></MessageItem>;
+    const msg = item as TMessage;
+    return <MessageItem message={msg} key={msg.id} highlighted={highlighted} showAvatar={showAvatarSet.has(msg.id)} />;
   };
 
   if (processedList.length === 0 && emptySlot) {

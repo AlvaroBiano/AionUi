@@ -471,7 +471,7 @@ const ConversationSearchPopover: React.FC<ConversationSearchPopoverProps> = ({
             />
           )}
           {fullWidth && label ? (
-            <span className='collapsed-hidden text-t-primary text-13px font-medium leading-24px'>{label}</span>
+            <span className='collapsed-hidden text-t-primary text-14px font-medium leading-24px'>{label}</span>
           ) : null}
         </button>
       )}

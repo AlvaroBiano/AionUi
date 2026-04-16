@@ -118,7 +118,10 @@
       "local": "로컬 에이전트",
       "remote": "원격 에이전트",
       "assistants": "어시스턴트",
-      "people": "사람"
+      "people": "사람",
+      "localEmpty": "로컬 에이전트 없음",
+      "remoteEmpty": "원격 에이전트 없음",
+      "assistantsEmpty": "어시스턴트 없음"
     },
     "user": {
       "defaultName": "사용자"
@@ -127,6 +130,8 @@
     "defaultPermissionHint": "새 대화를 시작할 때 적용할 기본 권한 모드입니다.",
     "connection": "연결",
     "llmProvider": "LLM 제공자",
-    "noProviderHint": "설정 > 모델에서 LLM 제공자를 먼저 구성하세요."
+    "noProviderHint": "설정 > 모델에서 LLM 제공자를 먼저 구성하세요.",
+    "talkToAgent": "대화 시작",
+    "addAssistant": "어시스턴트 추가"
   }
 }

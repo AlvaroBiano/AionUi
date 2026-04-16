@@ -10,10 +10,12 @@ import { ACP_BACKENDS_ALL, ACP_ENABLED_BACKENDS } from '@/common/types/acpTypes'
 import { getPresetProfile } from '@/renderer/assets/profiles';
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { cleanupSiderTooltips } from '@/renderer/utils/ui/siderTooltip';
-import { useAuth } from '@/renderer/hooks/context/AuthContext';
+import { useUserProfile } from '@/renderer/hooks/user/useUserProfile';
 import { useAssistantList } from '@/renderer/hooks/assistant';
 import AionModal from '@/renderer/components/base/AionModal';
 import InlineAgentEditor from '@/renderer/pages/settings/AgentSettings/InlineAgentEditor';
+import { RemoteAgentFormModal } from '@/renderer/pages/settings/AgentSettings/RemoteAgentManagement';
+import AddAssistantModal from '@/renderer/pages/agents/assistant/AddAssistantModal';
 import { ConfigStorage } from '@/common/config/storage';
 import { ipcBridge } from '@/common';
 import type { AcpBackendConfig } from '@/common/types/acpTypes';
@@ -26,12 +28,6 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import useSWR from 'swr';
-
-/** Maps local agent backend key → its dedicated settings route */
-const LOCAL_SETTINGS_ROUTE: Record<string, string> = {
-  aionrs: '/settings/aionrs',
-  gemini: '/settings/gemini',
-};
 
 type SiderAgentsTabProps = {
   collapsed: boolean;
@@ -66,10 +62,10 @@ const SectionHeader: React.FC<{
         <Down theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
       )}
     </span>
-    <span className='text-13px font-medium text-t-primary flex-1 min-w-0'>{label}</span>
+    <span className='text-14px font-medium text-t-primary flex-1 min-w-0'>{label}</span>
     {onAdd && (
       <div
-        className='opacity-0 group-hover:opacity-100 transition-opacity h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
+        className='h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
         onClick={(e) => {
           e.stopPropagation();
           onAdd();
@@ -113,7 +109,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
   const { i18n, t } = useTranslation();
   const navigate = useNavigate();
   const { id: activeConvId } = useParams();
-  const { user } = useAuth();
+  const { profile: userProfile } = useUserProfile();
   const locale = i18n.language || 'en-US';
 
   const [localCollapsed, setLocalCollapsed] = useState(false);
@@ -121,6 +117,8 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
   const [assistantsCollapsed, setAssistantsCollapsed] = useState(false);
   const [peopleCollapsed, setPeopleCollapsed] = useState(false);
   const [addAgentVisible, setAddAgentVisible] = useState(false);
+  const [addRemoteAgentVisible, setAddRemoteAgentVisible] = useState(false);
+  const [addAssistantVisible, setAddAssistantVisible] = useState(false);
 
   const { data: remoteAgentList, mutate: mutateRemote } = useSWR<RemoteAgentConfig[]>('remote-agents.list', () =>
     ipcBridge.remoteAgent.list.invoke()
@@ -211,22 +209,21 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
     [mutateRemote, t]
   );
 
-  // Preset assistants
-  const presetAgents = useMemo(
-    () =>
-      ASSISTANT_PRESETS.map((preset) => {
-        const displayName = preset.nameI18n?.[locale] ?? preset.nameI18n?.['en-US'] ?? preset.id;
-        const profileImage = getPresetProfile(preset.id);
-        return {
-          key: preset.id,
-          displayName,
-          avatarSrc: profileImage ?? null,
-          avatarEmoji: profileImage ? undefined : (preset.avatar ?? undefined),
-          avatarBgColor: preset.avatarBgColor,
-        };
-      }),
-    [locale]
-  );
+  // Assistant rows — derived from the live assistants list so IDs always match
+  const assistantRows = useMemo(() => {
+    return assistants.map((a) => {
+      const presetId = a.id.startsWith('builtin-') ? a.id.slice(8) : null;
+      const profileImage = presetId ? getPresetProfile(presetId) : null;
+      const preset = presetId ? ASSISTANT_PRESETS.find((p) => p.id === presetId) : null;
+      return {
+        key: a.id,
+        displayName: (a.nameI18n as Record<string, string> | undefined)?.[locale] ?? a.name,
+        avatarSrc: profileImage ?? null,
+        avatarEmoji: profileImage ? undefined : (a.avatar ?? undefined),
+        avatarBgColor: preset?.avatarBgColor ?? a.avatarBgColor,
+      };
+    });
+  }, [assistants, locale]);
 
   // Local ACP backends — only show detected (installed) agents.
   // Gemini and Aion CLI are built-in agents — always shown first regardless of detection.
@@ -276,16 +273,6 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
   }) => {
     const isActive = isLocalActive(agent.key);
     const icon = <AgentAvatar size={20} avatarSrc={agent.avatarSrc} avatarBgColor={agent.avatarBgColor} />;
-    const droplist = (
-      <Menu>
-        <Menu.Item key='detail' onClick={() => navigate_(`/agents/local/${agent.key}`)}>
-          {t('common.viewDetails', { defaultValue: 'View Details' })}
-        </Menu.Item>
-        <Menu.Item key='settings' onClick={() => navigate_(LOCAL_SETTINGS_ROUTE[agent.key] ?? '/settings/agent')}>
-          {t('settings.configure', { defaultValue: 'Settings' })}
-        </Menu.Item>
-      </Menu>
-    );
 
     if (collapsed) {
       return (
@@ -309,9 +296,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
         label={agent.displayName}
         isActive={isActive}
         onClick={() => navigate_(`/agents/local/${agent.key}`)}
-      >
-        <RowMenu isActive={isActive} droplist={droplist} />
-      </SiderRow>
+      />
     );
   };
 
@@ -326,9 +311,6 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
     );
     const droplist = (
       <Menu>
-        <Menu.Item key='detail' onClick={() => navigate_(`/agents/remote/${agent.id}`)}>
-          {t('common.viewDetails', { defaultValue: 'View Details' })}
-        </Menu.Item>
         <Menu.Item key='delete' onClick={() => void handleDeleteRemote(agent.id, agent.name)}>
           <span className='text-[rgb(var(--warning-6))]'>{t('common.delete', { defaultValue: 'Delete' })}</span>
         </Menu.Item>
@@ -386,9 +368,6 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
 
     const droplist = (
       <Menu>
-        <Menu.Item key='detail' onClick={() => navigate_(`/agents/assistant/${agent.key}`)}>
-          {t('common.viewDetails', { defaultValue: 'View Details' })}
-        </Menu.Item>
         <Menu.Item
           key='duplicate'
           onClick={() => {
@@ -435,7 +414,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
     );
   };
 
-  const userName = user?.username ?? t('common.agents.user.defaultName');
+  const userName = userProfile.displayName ?? t('common.agents.user.defaultName');
   const userInitial = userName.charAt(0).toUpperCase();
 
   const userRow = collapsed ? (
@@ -465,7 +444,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
       <div className='flex flex-col gap-1px'>
         {localAgents.map(renderLocalRow)}
         {remoteAgents.map(renderRemoteRow)}
-        {presetAgents.map(renderAssistantRow)}
+        {assistantRows.map(renderAssistantRow)}
         {userRow}
       </div>
     );
@@ -482,7 +461,10 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
           onToggle={() => setLocalCollapsed((v) => !v)}
           onAdd={() => setAddAgentVisible(true)}
         />
-        {!localCollapsed && (
+        {!localCollapsed && localAgents.length === 0 && (
+          <p className='px-10px py-4px text-13px text-[var(--color-text-3)]'>{t('common.agents.section.localEmpty')}</p>
+        )}
+        {!localCollapsed && localAgents.length > 0 && (
           <div className={classNames('flex flex-col gap-1px')}>{localAgents.map(renderLocalRow)}</div>
         )}
 
@@ -491,18 +473,32 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
           label={t('common.agents.section.remote')}
           collapsed={remoteCollapsed}
           onToggle={() => setRemoteCollapsed((v) => !v)}
-          onAdd={() => void navigate('/settings/agent')}
+          onAdd={() => setAddRemoteAgentVisible(true)}
         />
-        {!remoteCollapsed && <div className='flex flex-col gap-1px'>{remoteAgents.map(renderRemoteRow)}</div>}
+        {!remoteCollapsed && remoteAgents.length === 0 && (
+          <p className='px-10px py-4px text-13px text-[var(--color-text-3)]'>
+            {t('common.agents.section.remoteEmpty')}
+          </p>
+        )}
+        {!remoteCollapsed && remoteAgents.length > 0 && (
+          <div className='flex flex-col gap-1px'>{remoteAgents.map(renderRemoteRow)}</div>
+        )}
 
         {/* ── 助手 ── */}
         <SectionHeader
           label={t('common.agents.section.assistants')}
           collapsed={assistantsCollapsed}
           onToggle={() => setAssistantsCollapsed((v) => !v)}
-          onAdd={() => void navigate('/agents/assistant/new')}
+          onAdd={() => setAddAssistantVisible(true)}
         />
-        {!assistantsCollapsed && <div className='flex flex-col gap-1px'>{presetAgents.map(renderAssistantRow)}</div>}
+        {!assistantsCollapsed && assistantRows.length === 0 && (
+          <p className='px-10px py-4px text-13px text-[var(--color-text-3)]'>
+            {t('common.agents.section.assistantsEmpty')}
+          </p>
+        )}
+        {!assistantsCollapsed && assistantRows.length > 0 && (
+          <div className='flex flex-col gap-1px'>{assistantRows.map(renderAssistantRow)}</div>
+        )}
 
         {/* ── 人类 ── */}
         <SectionHeader
@@ -529,6 +525,20 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
       >
         <InlineAgentEditor onSave={(agent) => void handleSaveAgent(agent)} onCancel={() => setAddAgentVisible(false)} />
       </AionModal>
+
+      {/* Add remote agent modal */}
+      <RemoteAgentFormModal
+        visible={addRemoteAgentVisible}
+        onClose={() => setAddRemoteAgentVisible(false)}
+        onSaved={() => void mutateRemote()}
+      />
+
+      {/* Add assistant modal */}
+      <AddAssistantModal
+        visible={addAssistantVisible}
+        onClose={() => setAddAssistantVisible(false)}
+        onCreated={() => void loadAssistants()}
+      />
     </>
   );
 };

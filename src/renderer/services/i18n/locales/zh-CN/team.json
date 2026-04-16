@@ -15,7 +15,8 @@
     "renameOk": "保存",
     "renameCancel": "取消",
     "renameSuccess": "群聊已重命名",
-    "deleteSuccess": "群聊已删除"
+    "deleteSuccess": "群聊已删除",
+    "empty": "暂无群聊"
   },
   "addAgent": {
     "title": "添加 Agent",

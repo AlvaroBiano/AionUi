@@ -15,7 +15,8 @@
     "renameOk": "保存",
     "renameCancel": "キャンセル",
     "renameSuccess": "チャンネル名を変更しました",
-    "deleteSuccess": "チャンネルを削除しました"
+    "deleteSuccess": "チャンネルを削除しました",
+    "empty": "チャンネルはまだありません"
   },
   "addAgent": {
     "title": "Add Agent",

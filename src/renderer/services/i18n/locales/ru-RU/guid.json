@@ -8,7 +8,7 @@
   "promptExamplesHint": "Попробуйте примеры промптов:",
   "agentSwitcherLabel": "Агент",
   "switchedToAgent": "Переключено на {{agent}}",
-  "selectAssistant": "Выберите ассистента для начала",
+  "selectAssistant": "Выберите задачу для начала",
   "viewAllAssistants": "Посмотреть всех ассистентов →",
   "addMoreAssistants": "Добавить ассистентов +",
   "scanning": {

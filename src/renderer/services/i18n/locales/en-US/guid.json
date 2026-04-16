@@ -8,7 +8,7 @@
   "promptExamplesHint": "Try example prompts:",
   "agentSwitcherLabel": "Agent",
   "switchedToAgent": "Switched to {{agent}}",
-  "selectAssistant": "Pick an assistant to get started",
+  "selectAssistant": "Pick a task to get started",
   "viewAllAssistants": "View all assistants →",
   "addMoreAssistants": "Add more assistants +",
   "scanning": {

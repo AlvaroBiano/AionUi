@@ -60,7 +60,7 @@ const openRemoteAgentGuide = (): void => {
   void openExternalUrl(REMOTE_AGENT_GUIDE_URL).catch(console.error);
 };
 
-const RemoteAgentFormModal: React.FC<{
+export const RemoteAgentFormModal: React.FC<{
   visible: boolean;
   editAgent?: RemoteAgentConfig;
   onClose: () => void;

@@ -15,7 +15,8 @@
     "renameOk": "저장",
     "renameCancel": "취소",
     "renameSuccess": "채널 이름이 변경되었습니다",
-    "deleteSuccess": "채널이 삭제되었습니다"
+    "deleteSuccess": "채널이 삭제되었습니다",
+    "empty": "채널이 없습니다"
   },
   "addAgent": {
     "title": "Add Agent",

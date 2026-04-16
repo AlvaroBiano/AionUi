@@ -22,7 +22,9 @@ import { Message, Tag } from '@arco-design/web-react';
 import { Shield } from '@icon-park/react';
 import { iconColors } from '@/renderer/styles/colors';
 import FileAttachButton from '@/renderer/components/media/FileAttachButton';
+import AcpModelSelector from '@/renderer/components/agent/AcpModelSelector';
 import AcpConfigSelector from '@/renderer/components/agent/AcpConfigSelector';
+import SendBoxSettingsPopover from '@/renderer/components/chat/SendBoxSettingsPopover';
 import React, { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import FilePreview from '@/renderer/components/media/FilePreview';
@@ -375,24 +377,32 @@ Please check your local CLI tool authentication status`,
         tools={
           <div className='flex items-center gap-4px'>
             <FileAttachButton openFileSelector={openFileSelector} onLocalFilesAdded={handleFilesAdded} />
-            {showModeSelector && (
-              <AgentModeSelector
-                backend={backend}
-                conversationId={conversation_id}
-                compact
-                initialMode={sessionMode}
-                compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-                modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
-                compactLabelPrefix={t('agentMode.permission')}
-                hideCompactLabelPrefixOnMobile
-                onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
-              />
-            )}
-            <AcpConfigSelector
-              conversationId={conversation_id}
-              backend={backend}
-              compact={!!teamId}
-              initialConfigOptions={cachedConfigOptions}
+            <SendBoxSettingsPopover
+              modelNode={<AcpModelSelector conversationId={conversation_id} backend={backend} />}
+              permissionNode={
+                showModeSelector ? (
+                  <AgentModeSelector
+                    backend={backend}
+                    conversationId={conversation_id}
+                    compact
+                    initialMode={sessionMode}
+                    compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+                    modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
+                    compactLabelPrefix={t('agentMode.permission')}
+                    hideCompactLabelPrefixOnMobile
+                    onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
+                  />
+                ) : undefined
+              }
+              configNode={
+                backend === 'codex' ? (
+                  <AcpConfigSelector
+                    conversationId={conversation_id}
+                    backend={backend}
+                    initialConfigOptions={cachedConfigOptions}
+                  />
+                ) : undefined
+              }
             />
           </div>
         }

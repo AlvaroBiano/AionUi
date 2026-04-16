@@ -15,7 +15,8 @@
     "renameOk": "Save",
     "renameCancel": "Cancel",
     "renameSuccess": "Channel renamed",
-    "deleteSuccess": "Channel deleted"
+    "deleteSuccess": "Channel deleted",
+    "empty": "No channels yet"
   },
   "addAgent": {
     "title": "Add Agent",

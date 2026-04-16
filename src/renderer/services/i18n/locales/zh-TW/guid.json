@@ -8,7 +8,7 @@
   "promptExamplesHint": "試試這些可點擊的案例提示詞：",
   "agentSwitcherLabel": "Agent",
   "switchedToAgent": "已切換到 {{agent}}",
-  "selectAssistant": "選一個助手，快速開始",
+  "selectAssistant": "選擇一個任務，快速開始",
   "viewAllAssistants": "查看全部助手 →",
   "addMoreAssistants": "新增更多助手 +",
   "scanning": {

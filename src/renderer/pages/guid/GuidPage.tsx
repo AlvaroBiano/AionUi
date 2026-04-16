@@ -15,7 +15,6 @@ import AgentSelectorPopover from './components/AgentPillBar';
 import AssistantSelectionArea from './components/AssistantSelectionArea';
 import GuidActionRow from './components/GuidActionRow';
 import GuidInputCard from './components/GuidInputCard';
-import GuidModelSelector from './components/GuidModelSelector';
 import MentionDropdown, { MentionSelectorBadge } from './components/MentionDropdown';
 import QuickActionButtons from './components/QuickActionButtons';
 import SkillsMarketBanner from './components/SkillsMarketBanner';
@@ -28,13 +27,12 @@ import { useGuidSend } from './hooks/useGuidSend';
 import { useTypewriterPlaceholder } from './hooks/useTypewriterPlaceholder';
 import { ConfigStorage } from '@/common/config/storage';
 import { ACP_BACKENDS_ALL, type PresetAgentType } from '@/common/types/acpTypes';
-import { getAgentLogo, resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
+import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
 import { getAcpBackendConfig } from '@/common/types/acpTypes';
 import { getPresetAvatarBgColor } from '@/common/config/presets/assistantPresets';
 import { getPresetProfile } from '@/renderer/assets/profiles';
 import type { AcpBackend, AcpBackendConfig } from './types';
-import { ConfigProvider, Dropdown, Menu, Message } from '@arco-design/web-react';
-import { Down } from '@icon-park/react';
+import { ConfigProvider, Message } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -437,11 +435,6 @@ const GuidPage: React.FC = () => {
     [agentSelection.availableAgents]
   );
 
-  const presetAssistants = useMemo(
-    () => agentSelection.customAgents.filter((a) => a.isPreset && a.enabled !== false),
-    [agentSelection.customAgents]
-  );
-
   const handlePresetAgentTypeSwitch = useCallback(
     async (nextType: string) => {
       const customAgentId = agentSelection.selectedAgentInfo?.customAgentId;
@@ -477,6 +470,7 @@ const GuidPage: React.FC = () => {
   const isGeminiMode =
     PROVIDER_BASED_AGENTS.has(effectiveAgentType) &&
     (!agentSelection.isPresetAgent || agentSelection.currentEffectiveAgentInfo.isAvailable);
+
 
   // Build the mention dropdown node
   const mentionDropdownNode = (
@@ -518,11 +512,6 @@ const GuidPage: React.FC = () => {
       files={guidInput.files}
       onFilesUploaded={guidInput.handleFilesUploaded}
       onSelectWorkspace={(dir) => guidInput.setDir(dir)}
-      modelSelectorNode={modelSelectorNode}
-      selectedAgent={agentSelection.selectedAgent}
-      effectiveModeAgent={agentSelection.currentEffectiveAgentInfo.agentType}
-      selectedMode={agentSelection.selectedMode}
-      onModeSelect={agentSelection.setSelectedMode}
       isPresetAgent={agentSelection.isPresetAgent}
       selectedAgentInfo={agentSelection.selectedAgentInfo}
       customAgents={agentSelection.customAgents}
@@ -533,11 +522,6 @@ const GuidPage: React.FC = () => {
       onAgentSwitch={(key) => {
         handlePresetAgentTypeSwitch(key).catch((err) => console.error('Failed to switch agent type:', err));
       }}
-      configOptionsBackend={
-        agentSelection.currentEffectiveAgentInfo.agentType as import('@/common/types/acpTypes').AcpBackend
-      }
-      cachedConfigOptions={agentSelection.cachedConfigOptions}
-      onConfigOptionSelect={agentSelection.setPendingConfigOption}
       hidePresetTag
       loading={guidInput.loading}
       isButtonDisabled={send.isButtonDisabled}

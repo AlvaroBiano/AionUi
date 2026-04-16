@@ -11,6 +11,8 @@ import FilePreview from '@/renderer/components/media/FilePreview';
 import HorizontalFileList from '@/renderer/components/media/HorizontalFileList';
 import SendBox from '@/renderer/components/chat/sendbox';
 import CommandQueuePanel from '@/renderer/components/chat/CommandQueuePanel';
+import SendBoxSettingsPopover from '@/renderer/components/chat/SendBoxSettingsPopover';
+import AionrsModelSelector from './AionrsModelSelector';
 import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
 import { useLatestRef } from '@/renderer/hooks/ui/useLatestRef';
 import { useOpenFileSelector } from '@/renderer/hooks/file/useOpenFileSelector';
@@ -363,15 +365,20 @@ const AionrsSendBox: React.FC<{
         tools={
           <div className='flex items-center gap-4px'>
             <FileAttachButton openFileSelector={openFileSelector} onLocalFilesAdded={handleFilesAdded} />
-            <AgentModeSelector
-              backend='aionrs'
-              conversationId={conversation_id}
-              compact
-              dynamicModes={dynamicModes}
-              compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-              modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
-              compactLabelPrefix={t('agentMode.permission')}
-              hideCompactLabelPrefixOnMobile
+            <SendBoxSettingsPopover
+              modelNode={<AionrsModelSelector selection={modelSelection} variant='settings' />}
+              permissionNode={
+                <AgentModeSelector
+                  backend='aionrs'
+                  conversationId={conversation_id}
+                  compact
+                  dynamicModes={dynamicModes}
+                  compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+                  modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
+                  compactLabelPrefix={t('agentMode.permission')}
+                  hideCompactLabelPrefixOnMobile
+                />
+              }
             />
           </div>
         }

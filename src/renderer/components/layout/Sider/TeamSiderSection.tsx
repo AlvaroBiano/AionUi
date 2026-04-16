@@ -6,7 +6,6 @@
 
 import { DeleteOne, Down, EditOne, Plus, Pushpin, Right } from '@icon-park/react';
 import { Dropdown, Input, Menu, Message, Modal, Tooltip } from '@arco-design/web-react';
-import classNames from 'classnames';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -29,8 +28,6 @@ const TeamHashIcon: React.FC = () => (
   </span>
 );
 
-const TEAM_PINNED_KEY = 'team-pinned-ids';
-
 type SiderTooltipProps = React.ComponentProps<typeof Tooltip>;
 
 interface TeamSiderSectionProps {
@@ -38,6 +35,8 @@ interface TeamSiderSectionProps {
   pathname: string;
   siderTooltipProps: Partial<SiderTooltipProps>;
   onSessionClick?: () => void;
+  pinnedTeamIds: string[];
+  onToggleTeamPin: (teamId: string) => void;
 }
 
 const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
@@ -45,6 +44,8 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
   pathname,
   siderTooltipProps,
   onSessionClick,
+  pinnedTeamIds,
+  onToggleTeamPin,
 }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -53,25 +54,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
   const { mutate: globalMutate } = useSWRConfig();
 
   const [createTeamVisible, setCreateTeamVisible] = useState(false);
-
   const [teamsCollapsed, setTeamsCollapsed] = useState(false);
-
-  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(TEAM_PINNED_KEY) ?? '[]') as string[];
-    } catch {
-      return [];
-    }
-  });
-
-  const togglePin = useCallback((id: string) => {
-    setPinnedIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      localStorage.setItem(TEAM_PINNED_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameName, setRenameName] = useState('');
@@ -96,11 +79,11 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
     }
   }, [globalMutate, refreshTeams, renameId, renameName, t]);
 
+  // Only show unpinned teams — pinned ones appear in PinnedSiderSection above.
+  // Sort by most recently updated (last activity) descending.
   const sortedTeams = useMemo(() => {
-    const pinned = teams.filter((team) => pinnedIds.includes(team.id));
-    const unpinned = teams.filter((team) => !pinnedIds.includes(team.id));
-    return [...pinned, ...unpinned];
-  }, [teams, pinnedIds]);
+    return teams.filter((team) => !pinnedTeamIds.includes(team.id)).toSorted((a, b) => b.updatedAt - a.updatedAt);
+  }, [teams, pinnedTeamIds]);
 
   const handleTeamClick = useCallback(
     (teamId: string) => {
@@ -164,9 +147,9 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                 <Down theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
               )}
             </span>
-            <span className='text-13px font-medium text-t-primary flex-1 min-w-0'>{t('team.sider.title')}</span>
+            <span className='text-14px font-medium text-t-primary flex-1 min-w-0'>{t('team.sider.title')}</span>
             <div
-              className='opacity-0 group-hover:opacity-100 transition-opacity h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
+              className='h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
               onClick={(e) => {
                 e.stopPropagation();
                 setCreateTeamVisible(true);
@@ -176,11 +159,15 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
             </div>
           </div>
 
+          {/* Empty state */}
+          {!teamsCollapsed && sortedTeams.length === 0 && (
+            <p className='px-10px py-4px text-13px text-[var(--color-text-3)]'>{t('team.sider.empty')}</p>
+          )}
+
           {/* Team rows */}
           {!teamsCollapsed &&
             sortedTeams.length > 0 &&
             sortedTeams.map((team) => {
-              const isPinned = pinnedIds.includes(team.id);
               const isActive = pathname.startsWith(`/team/${team.id}`);
               const teamBadge = teamBadgeCounts.get(team.id) ?? 0;
 
@@ -188,7 +175,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                 <Menu
                   onClickMenuItem={(key) => {
                     if (key === 'pin') {
-                      togglePin(team.id);
+                      onToggleTeamPin(team.id);
                     } else if (key === 'rename') {
                       setRenameId(team.id);
                       setRenameName(team.name);
@@ -217,7 +204,7 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                   <Menu.Item key='pin'>
                     <div className='flex items-center gap-8px'>
                       <Pushpin theme='outline' size='14' />
-                      <span>{isPinned ? t('team.sider.unpin') : t('team.sider.pin')}</span>
+                      <span>{t('team.sider.pin')}</span>
                     </div>
                   </Menu.Item>
                   <Menu.Item key='rename'>
@@ -251,12 +238,6 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                       style={{ backgroundColor: '#F53F3F', color: '#fff', lineHeight: 1 }}
                     >
                       {teamBadge > 99 ? '99+' : teamBadge}
-                    </span>
-                  )}
-                  {/* Pin indicator (hidden on hover) */}
-                  {isPinned && (
-                    <span className='absolute right-8px top-1/2 -translate-y-1/2 text-t-secondary pointer-events-none group-hover:hidden'>
-                      <Pushpin theme='outline' size='14' />
                     </span>
                   )}
                   {/* Three-dot menu (shown on hover) */}

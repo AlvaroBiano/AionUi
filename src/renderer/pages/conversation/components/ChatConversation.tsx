@@ -34,6 +34,8 @@ import { useAionrsModelSelection } from '../platforms/aionrs/useAionrsModelSelec
 import { usePreviewContext } from '../Preview';
 import StarOfficeMonitorCard from '../platforms/openclaw/StarOfficeMonitorCard.tsx';
 import ConversationHistoryPanel from './ConversationHistoryPanel';
+import { MessageAvatarProvider, type MessageAvatarInfo } from '../Messages/MessageAvatarContext';
+import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 // import SkillRuleGenerator from './components/SkillRuleGenerator'; // Temporarily hidden
 
 const _AssociatedConversation: React.FC<{ conversation_id: string }> = ({ conversation_id }) => {
@@ -158,7 +160,6 @@ const GeminiConversationPanel: React.FC<{
     title: conversation.name,
     siderTitle: sliderTitle,
     sider: <ChatSider conversation={conversation} />,
-    headerLeft: <GeminiModelSelector selection={modelSelection} />,
     headerExtra: (
       <CronJobManager
         conversationId={conversation.id}
@@ -173,16 +174,26 @@ const GeminiConversationPanel: React.FC<{
     agentLogoIsEmoji: presetAssistantInfo?.isEmoji,
   };
 
+  const geminiAvatarInfo = presetAssistantInfo
+    ? {
+        agentLogo: presetAssistantInfo.logo,
+        agentLogoIsEmoji: presetAssistantInfo.isEmoji,
+        agentName: presetAssistantInfo.name,
+      }
+    : { agentLogo: resolveAgentLogo({ backend: 'gemini' }) ?? '', agentLogoIsEmoji: false, agentName: 'Gemini' };
+
   return (
-    <ChatLayout {...chatLayoutProps} conversationId={conversation.id} workspacePath={conversation.extra.workspace}>
-      <GeminiChat
-        conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
-        modelSelection={modelSelection}
-        cronJobId={conversation.extra?.cronJobId as string | undefined}
-        hideSendBox={hideSendBox}
-      />
-    </ChatLayout>
+    <MessageAvatarProvider value={geminiAvatarInfo}>
+      <ChatLayout {...chatLayoutProps} conversationId={conversation.id} workspacePath={conversation.extra.workspace}>
+        <GeminiChat
+          conversation_id={conversation.id}
+          workspace={conversation.extra.workspace}
+          modelSelection={modelSelection}
+          cronJobId={conversation.extra?.cronJobId as string | undefined}
+          hideSendBox={hideSendBox}
+        />
+      </ChatLayout>
+    </MessageAvatarProvider>
   );
 };
 
@@ -214,7 +225,6 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     title: conversation.name,
     siderTitle: sliderTitle,
     sider: <ChatSider conversation={conversation} />,
-    headerLeft: <AionrsModelSelector selection={modelSelection} />,
     headerExtra: (
       <CronJobManager
         conversationId={conversation.id}
@@ -228,14 +238,24 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     agentLogoIsEmoji: presetAssistantInfo?.isEmoji,
   };
 
+  const aionrsAvatarInfo = presetAssistantInfo
+    ? {
+        agentLogo: presetAssistantInfo.logo,
+        agentLogoIsEmoji: presetAssistantInfo.isEmoji,
+        agentName: presetAssistantInfo.name,
+      }
+    : { agentLogo: resolveAgentLogo({ backend: 'aionrs' }) ?? '', agentLogoIsEmoji: false, agentName: 'Aion CLI' };
+
   return (
-    <ChatLayout {...chatLayoutProps} conversationId={conversation.id}>
-      <AionrsChat
-        conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
-        modelSelection={modelSelection}
-      />
-    </ChatLayout>
+    <MessageAvatarProvider value={aionrsAvatarInfo}>
+      <ChatLayout {...chatLayoutProps} conversationId={conversation.id}>
+        <AionrsChat
+          conversation_id={conversation.id}
+          workspace={conversation.extra.workspace}
+          modelSelection={modelSelection}
+        />
+      </ChatLayout>
+    </MessageAvatarProvider>
   );
 };
 
@@ -400,6 +420,22 @@ const ChatConversation: React.FC<{
           agentName: conversationAgentName,
         };
 
+  const acpAvatarInfo: MessageAvatarInfo = useMemo(() => {
+    if (presetAssistantInfo) {
+      return {
+        agentLogo: presetAssistantInfo.logo,
+        agentLogoIsEmoji: presetAssistantInfo.isEmoji,
+        agentName: presetAssistantInfo.name,
+      };
+    }
+    if (isLoadingPreset) return null;
+    const backend =
+      conversation?.type === 'acp' ? (conversation.extra as { backend?: string })?.backend : conversation?.type;
+    const logo = resolveAgentLogo({ backend }) ?? '';
+    const name = conversationAgentName || backend || '';
+    return { agentLogo: logo, agentLogoIsEmoji: false, agentName: name };
+  }, [presetAssistantInfo, isLoadingPreset, conversation, conversationAgentName]);
+
   const headerExtraNode = (
     <div className='flex items-center gap-8px'>
       {conversation?.type === 'openclaw-gateway' && (
@@ -429,19 +465,20 @@ const ChatConversation: React.FC<{
   );
 
   return (
-    <ChatLayout
-      title={conversation?.name}
-      {...chatLayoutProps}
-      headerLeft={modelSelector}
-      headerExtra={headerExtraNode}
-      siderTitle={sliderTitle}
-      sider={<ChatSider conversation={conversation} />}
-      workspaceEnabled={workspaceEnabled}
-      workspacePath={conversation?.extra?.workspace}
-      conversationId={conversation?.id}
-    >
-      {conversationNode}
-    </ChatLayout>
+    <MessageAvatarProvider value={acpAvatarInfo}>
+      <ChatLayout
+        title={conversation?.name}
+        {...chatLayoutProps}
+        headerExtra={headerExtraNode}
+        siderTitle={sliderTitle}
+        sider={<ChatSider conversation={conversation} />}
+        workspaceEnabled={workspaceEnabled}
+        workspacePath={conversation?.extra?.workspace}
+        conversationId={conversation?.id}
+      >
+        {conversationNode}
+      </ChatLayout>
+    </MessageAvatarProvider>
   );
 };
 

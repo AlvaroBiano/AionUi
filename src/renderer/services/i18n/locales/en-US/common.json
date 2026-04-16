@@ -109,7 +109,10 @@
       "local": "Local Agents",
       "remote": "Remote Agents",
       "assistants": "Assistants",
-      "people": "People"
+      "people": "People",
+      "localEmpty": "No local agents",
+      "remoteEmpty": "No remote agents",
+      "assistantsEmpty": "No assistants"
     },
     "user": {
       "defaultName": "User"
@@ -127,7 +130,9 @@
     "defaultPermissionHint": "Default permission mode applied when starting new conversations.",
     "connection": "Connection",
     "llmProvider": "LLM Provider",
-    "noProviderHint": "Configure a model provider in Settings > Models first."
+    "noProviderHint": "Configure a model provider in Settings > Models first.",
+    "talkToAgent": "Talk to Agent",
+    "addAssistant": "Add Assistant"
   },
   "unit": {
     "minute_short": "m",

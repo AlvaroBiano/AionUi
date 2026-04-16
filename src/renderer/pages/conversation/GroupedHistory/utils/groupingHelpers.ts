@@ -109,10 +109,16 @@ export const resolveAgentKey = (conv: TChatConversation): string => {
     return (conv.extra as { presetAssistantId?: string } | undefined)?.presetAssistantId ?? 'gemini';
   }
   if (conv.type === 'acp') {
-    const extra = conv.extra as { customAgentId?: string; backend?: string } | undefined;
-    if (extra?.customAgentId) {
-      return `custom:${extra.customAgentId}`;
-    }
+    const extra = conv.extra as
+      | {
+          customAgentId?: string;
+          backend?: string;
+          presetAssistantId?: string;
+        }
+      | undefined;
+    // Preset assistants (e.g. codex-based) store their ID in presetAssistantId, not customAgentId
+    if (extra?.presetAssistantId) return extra.presetAssistantId;
+    if (extra?.customAgentId) return `custom:${extra.customAgentId}`;
     return extra?.backend ?? 'acp';
   }
   return conv.type;

@@ -6,6 +6,8 @@ import FilePreview from '@/renderer/components/media/FilePreview';
 import HorizontalFileList from '@/renderer/components/media/HorizontalFileList';
 import SendBox from '@/renderer/components/chat/sendbox';
 import CommandQueuePanel from '@/renderer/components/chat/CommandQueuePanel';
+import SendBoxSettingsPopover from '@/renderer/components/chat/SendBoxSettingsPopover';
+import GeminiModelSelector from './GeminiModelSelector';
 import { useAgentReadinessCheck } from '@/renderer/hooks/agent/useAgentReadinessCheck';
 import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
 import { useLatestRef } from '@/renderer/hooks/ui/useLatestRef';
@@ -460,18 +462,23 @@ const GeminiSendBox: React.FC<{
         tools={
           <div className='flex items-center gap-4px'>
             <FileAttachButton openFileSelector={openFileSelector} onLocalFilesAdded={handleFilesAdded} />
-            {showModeSelector && (
-              <AgentModeSelector
-                backend='gemini'
-                conversationId={conversation_id}
-                compact
-                compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-                modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
-                compactLabelPrefix={t('agentMode.permission')}
-                hideCompactLabelPrefixOnMobile
-                onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
-              />
-            )}
+            <SendBoxSettingsPopover
+              modelNode={<GeminiModelSelector selection={modelSelection} variant='settings' />}
+              permissionNode={
+                showModeSelector ? (
+                  <AgentModeSelector
+                    backend='gemini'
+                    conversationId={conversation_id}
+                    compact
+                    compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+                    modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
+                    compactLabelPrefix={t('agentMode.permission')}
+                    hideCompactLabelPrefixOnMobile
+                    onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
+                  />
+                ) : undefined
+              }
+            />
           </div>
         }
         sendButtonPrefix={

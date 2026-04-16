@@ -72,7 +72,10 @@
     "historyPanel": "History",
     "deleteAgentGroup": "Delete All Chats",
     "deleteAgentGroupConfirm": "Delete all {{count}} conversations under this agent? This cannot be undone.",
-    "deleteAgentGroupSuccess": "{{count}} conversations deleted"
+    "deleteAgentGroupSuccess": "{{count}} conversations deleted",
+    "removeContact": "Remove",
+    "removeContactConfirm": "Removing this contact will permanently delete all {{count}} conversations. This cannot be undone.",
+    "messagesEmpty": "No messages yet"
   },
   "historySearch": {
     "tooltip": "Search messages",

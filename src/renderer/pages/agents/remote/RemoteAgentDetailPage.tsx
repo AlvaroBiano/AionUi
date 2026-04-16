@@ -6,6 +6,7 @@
 
 import { ipcBridge } from '@/common';
 import AgentAvatar from '@/renderer/components/AgentAvatar';
+import { useNavigateToAgent } from '@/renderer/hooks/agent/useNavigateToAgent';
 import AppLoader from '@/renderer/components/layout/AppLoader';
 import type { RemoteAgentConfig, RemoteAgentInput } from '@process/agent/remote/types';
 import { Button, Form, Input, Message, Modal, Select, Switch, Tag } from '@arco-design/web-react';
@@ -39,6 +40,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
 const RemoteAgentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const navigateToAgent = useNavigateToAgent();
   const { t } = useTranslation();
   const [form] = Form.useForm<RemoteAgentInput>();
   const [saving, setSaving] = useState(false);
@@ -143,15 +145,19 @@ const RemoteAgentDetailPage: React.FC = () => {
             </div>
             {agent.description && <p className='text-13px text-t-secondary mt-4px'>{agent.description}</p>}
           </div>
-          <Button
-            status='danger'
-            size='small'
-            loading={deleting}
-            className='!rounded-[100px] shrink-0'
-            onClick={handleDelete}
-          >
-            {t('common.delete', { defaultValue: 'Delete' })}
-          </Button>
+          <div className='flex items-center gap-8px shrink-0'>
+            <Button
+              type='primary'
+              size='small'
+              className='!rounded-[100px]'
+              onClick={() => navigateToAgent(`remote:${agent.id}`)}
+            >
+              {t('common.agents.talkToAgent')}
+            </Button>
+            <Button status='danger' size='small' loading={deleting} className='!rounded-[100px]' onClick={handleDelete}>
+              {t('common.delete', { defaultValue: 'Delete' })}
+            </Button>
+          </div>
         </div>
 
         {/* ── Edit form ── */}

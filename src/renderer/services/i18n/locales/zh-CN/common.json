@@ -109,7 +109,10 @@
       "local": "本地 Agent",
       "remote": "远端 Agent",
       "assistants": "助手",
-      "people": "人类"
+      "people": "人类",
+      "localEmpty": "暂无本地 Agent",
+      "remoteEmpty": "暂无远端 Agent",
+      "assistantsEmpty": "暂无助手"
     },
     "user": {
       "defaultName": "用户"
@@ -127,6 +130,8 @@
     "defaultPermissionHint": "新建对话时使用的默认权限模式。",
     "connection": "连接",
     "llmProvider": "LLM 提供商",
-    "noProviderHint": "请先在设置 > 模型中配置 LLM 提供商。"
+    "noProviderHint": "请先在设置 > 模型中配置 LLM 提供商。",
+    "talkToAgent": "发起对话",
+    "addAssistant": "添加助手"
   }
 }

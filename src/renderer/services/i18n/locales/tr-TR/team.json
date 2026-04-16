@@ -15,7 +15,8 @@
     "renameOk": "Kaydet",
     "renameCancel": "İptal",
     "renameSuccess": "Kanal yeniden adlandırıldı",
-    "deleteSuccess": "Kanal silindi"
+    "deleteSuccess": "Kanal silindi",
+    "empty": "Henüz kanal yok"
   },
   "addAgent": {
     "title": "Add Agent",

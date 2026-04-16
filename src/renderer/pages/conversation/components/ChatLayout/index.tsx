@@ -181,7 +181,20 @@ const ChatLayout: React.FC<{
           layout?.isMobile && 'chat-layout-header--mobile-unified'
         )}
       >
-        <div className='shrink-0'>{props.headerLeft}</div>
+        <div className='flex items-center gap-8px shrink-0'>
+          {props.headerLeft && <div className='shrink-0'>{props.headerLeft}</div>}
+          {(backend || agentLogo) && (
+            <AgentModeSelector
+              backend={backend}
+              agentName={displayName}
+              agentLogo={agentLogo}
+              agentLogoIsEmoji={agentLogoIsEmoji}
+              compact={Boolean(layout?.isMobile)}
+              showLogoInCompact={Boolean(layout?.isMobile)}
+              compactLabelType={layout?.isMobile ? 'agent' : 'mode'}
+            />
+          )}
+        </div>
         <FlexFullContainer className='h-full min-w-0' containerClassName='flex items-center gap-16px'>
           {!layout?.isMobile && !hasTabs && (
             <ChatTitleEditor
@@ -201,17 +214,6 @@ const ChatLayout: React.FC<{
         </FlexFullContainer>
         <div className='flex items-center gap-12px shrink-0'>
           {props.headerExtra}
-          {(backend || agentLogo) && (
-            <AgentModeSelector
-              backend={backend}
-              agentName={displayName}
-              agentLogo={agentLogo}
-              agentLogoIsEmoji={agentLogoIsEmoji}
-              compact={Boolean(layout?.isMobile)}
-              showLogoInCompact={Boolean(layout?.isMobile)}
-              compactLabelType={layout?.isMobile ? 'agent' : 'mode'}
-            />
-          )}
           {isWindowsRuntime && workspaceEnabled && (
             <button
               type='button'

@@ -118,7 +118,10 @@
       "local": "Yerel Ajanlar",
       "remote": "Uzak Ajanlar",
       "assistants": "Asistanlar",
-      "people": "İnsanlar"
+      "people": "İnsanlar",
+      "localEmpty": "Yerel ajan yok",
+      "remoteEmpty": "Uzak ajan yok",
+      "assistantsEmpty": "Asistan yok"
     },
     "user": {
       "defaultName": "Kullanıcı"
@@ -127,6 +130,8 @@
     "defaultPermissionHint": "Yeni konuşmalar başlatılırken uygulanan varsayılan izin modu.",
     "connection": "Bağlantı",
     "llmProvider": "LLM Sağlayıcı",
-    "noProviderHint": "Önce Ayarlar > Modeller'den bir LLM sağlayıcısı yapılandırın."
+    "noProviderHint": "Önce Ayarlar > Modeller'den bir LLM sağlayıcısı yapılandırın.",
+    "talkToAgent": "Konuşmayı Başlat",
+    "addAssistant": "Asistan Ekle"
   }
 }

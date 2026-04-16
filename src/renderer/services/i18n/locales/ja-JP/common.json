@@ -118,7 +118,10 @@
       "local": "ローカルエージェント",
       "remote": "リモートエージェント",
       "assistants": "アシスタント",
-      "people": "ユーザー"
+      "people": "ユーザー",
+      "localEmpty": "ローカルエージェントなし",
+      "remoteEmpty": "リモートエージェントなし",
+      "assistantsEmpty": "アシスタントなし"
     },
     "user": {
       "defaultName": "ユーザー"
@@ -127,6 +130,8 @@
     "defaultPermissionHint": "新しい会話を開始する際のデフォルト権限モード。",
     "connection": "接続",
     "llmProvider": "LLMプロバイダー",
-    "noProviderHint": "設定 > モデルでLLMプロバイダーを設定してください。"
+    "noProviderHint": "設定 > モデルでLLMプロバイダーを設定してください。",
+    "talkToAgent": "会話を始める",
+    "addAssistant": "アシスタントを追加"
   }
 }

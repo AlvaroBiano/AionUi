@@ -45,6 +45,8 @@ export const formatMessageTime = (timestamp: number): string => {
 };
 import MessageCronBadge from './MessageCronBadge';
 import { getAgentLogo } from '@/renderer/utils/model/agentLogo';
+import { useMessageAvatar } from '@/renderer/pages/conversation/Messages/MessageAvatarContext';
+import { User } from '@icon-park/react';
 
 const parseFileMarker = (content: string) => {
   const markerIndex = content.indexOf(AIONUI_FILES_MARKER);
@@ -90,7 +92,7 @@ const useFormatContent = (content: string) => {
   }, [content]);
 };
 
-const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
+const MessageText: React.FC<{ message: IMessageText; showAvatar?: boolean }> = ({ message, showAvatar }) => {
   // Filter think tags from content before rendering
   // 在渲染前过滤 think 标签
   const contentToRender = useMemo(() => {
@@ -156,78 +158,148 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
   const senderName = message.content.senderName;
   const senderAgentType = message.content.senderAgentType;
   const agentLogo = senderAgentType ? getAgentLogo(senderAgentType) : null;
+  const avatarInfo = useMessageAvatar();
 
+  // Core message content (shared by all layout branches)
+  const messageContent = (
+    <div className={classNames('min-w-0 flex flex-col group', isUserMessage ? 'items-end' : 'items-start')}>
+      {cronMeta && <MessageCronBadge meta={cronMeta} />}
+      {isTeammateMessage && senderName && (
+        <div className='flex items-center gap-6px mb-4px'>
+          {agentLogo ? (
+            <img src={agentLogo} alt={senderName} className='w-20px h-20px rounded-full object-contain' />
+          ) : (
+            <div className='w-20px h-20px rounded-full bg-fill-3 flex items-center justify-center text-10px text-t-secondary font-medium'>
+              {senderName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className='text-12px text-t-secondary'>{senderName}</span>
+        </div>
+      )}
+      {!isTeammateMessage && !isUserMessage && showAvatar && avatarInfo?.agentName && (
+        <span className='text-12px text-t-secondary mb-4px leading-none'>{avatarInfo.agentName}</span>
+      )}
+      {files.length > 0 && (
+        <div className={classNames('mt-6px', { 'self-end': isUserMessage })}>
+          {resolvedFiles.length === 1 ? (
+            <div className='flex items-center'>
+              <FilePreview path={resolvedFiles[0]} onRemove={() => undefined} readonly />
+            </div>
+          ) : (
+            <HorizontalFileList>
+              {resolvedFiles.map((path) => (
+                <FilePreview key={path} path={path} onRemove={() => undefined} readonly />
+              ))}
+            </HorizontalFileList>
+          )}
+        </div>
+      )}
+      <div
+        className={classNames('min-w-0 [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px md:max-w-780px', {
+          'bg-aou-2 p-8px': isUserMessage || cronMeta,
+          'bg-3 p-8px': isTeammateMessage,
+          'w-full': !(isUserMessage || cronMeta || isTeammateMessage),
+        })}
+        style={{
+          ...(isUserMessage || cronMeta
+            ? { borderRadius: '8px 0 8px 8px', color: 'var(--text-primary)' }
+            : isTeammateMessage
+              ? { borderRadius: '0 8px 8px 8px' }
+              : undefined),
+        }}
+      >
+        {/* JSON 内容使用折叠组件 Use CollapsibleContent for JSON content */}
+        {shouldRenderPlainText ? (
+          <div className='whitespace-pre-wrap break-words'>{text}</div>
+        ) : json ? (
+          <CollapsibleContent maxHeight={200} defaultCollapsed={true}>
+            <MarkdownView
+              codeStyle={{ marginTop: 4, marginBlock: 4 }}
+            >{`\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``}</MarkdownView>
+          </CollapsibleContent>
+        ) : (
+          <MarkdownView codeStyle={{ marginTop: 4, marginBlock: 4 }}>{data}</MarkdownView>
+        )}
+      </div>
+      <div
+        className={classNames('h-32px flex items-center mt-4px gap-8px', {
+          'flex-row-reverse': isUserMessage,
+        })}
+      >
+        {copyButton}
+        {message.createdAt && (
+          <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
+            {formatMessageTime(message.createdAt)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+
+  // User message: content on the left of the row, user avatar circle on the right
+  if (isUserMessage) {
+    return (
+      <>
+        <div className='flex items-start gap-8px'>
+          {messageContent}
+          <div className='flex-shrink-0 self-start w-28px h-28px rd-full bg-fill-3 flex items-center justify-center'>
+            <User theme='outline' size='14' fill={iconColors.secondary} />
+          </div>
+        </div>
+        {showCopyAlert && (
+          <Alert
+            type='success'
+            content={t('messages.copySuccess')}
+            showIcon
+            className='fixed top-20px left-50% transform -translate-x-50% z-9999 w-max max-w-[80%]'
+            style={{ boxShadow: '0px 2px 12px rgba(0,0,0,0.12)' }}
+            closable={false}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Agent message with avatar context: show avatar or spacer for alignment
+  if (!isTeammateMessage && avatarInfo) {
+    const avatarNode = showAvatar ? (
+      <div className='flex-shrink-0 self-start w-28px h-28px rd-full overflow-hidden bg-fill-3 flex items-center justify-center'>
+        {avatarInfo.agentLogoIsEmoji ? (
+          <span className='text-14px leading-none'>{avatarInfo.agentLogo}</span>
+        ) : avatarInfo.agentLogo ? (
+          <img src={avatarInfo.agentLogo} alt={avatarInfo.agentName} className='w-full h-full object-contain' />
+        ) : (
+          <User theme='outline' size='14' fill={iconColors.secondary} />
+        )}
+      </div>
+    ) : (
+      <div className='flex-shrink-0 w-28px' aria-hidden />
+    );
+
+    return (
+      <>
+        <div className='flex items-start gap-8px'>
+          {avatarNode}
+          {messageContent}
+        </div>
+        {showCopyAlert && (
+          <Alert
+            type='success'
+            content={t('messages.copySuccess')}
+            showIcon
+            className='fixed top-20px left-50% transform -translate-x-50% z-9999 w-max max-w-[80%]'
+            style={{ boxShadow: '0px 2px 12px rgba(0,0,0,0.12)' }}
+            closable={false}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Default (teammate messages, or no avatar context): unchanged layout
   return (
     <>
-      <div className={classNames('min-w-0 flex flex-col group', isUserMessage ? 'items-end' : 'items-start')}>
-        {cronMeta && <MessageCronBadge meta={cronMeta} />}
-        {isTeammateMessage && senderName && (
-          <div className='flex items-center gap-6px mb-4px'>
-            {agentLogo ? (
-              <img src={agentLogo} alt={senderName} className='w-20px h-20px rounded-full object-contain' />
-            ) : (
-              <div className='w-20px h-20px rounded-full bg-fill-3 flex items-center justify-center text-10px text-t-secondary font-medium'>
-                {senderName.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className='text-12px text-t-secondary'>{senderName}</span>
-          </div>
-        )}
-        {files.length > 0 && (
-          <div className={classNames('mt-6px', { 'self-end': isUserMessage })}>
-            {resolvedFiles.length === 1 ? (
-              <div className='flex items-center'>
-                <FilePreview path={resolvedFiles[0]} onRemove={() => undefined} readonly />
-              </div>
-            ) : (
-              <HorizontalFileList>
-                {resolvedFiles.map((path) => (
-                  <FilePreview key={path} path={path} onRemove={() => undefined} readonly />
-                ))}
-              </HorizontalFileList>
-            )}
-          </div>
-        )}
-        <div
-          className={classNames('min-w-0 [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px md:max-w-780px', {
-            'bg-aou-2 p-8px': isUserMessage || cronMeta,
-            'bg-3 p-8px': isTeammateMessage,
-            'w-full': !(isUserMessage || cronMeta || isTeammateMessage),
-          })}
-          style={{
-            ...(isUserMessage || cronMeta
-              ? { borderRadius: '8px 0 8px 8px', color: 'var(--text-primary)' }
-              : isTeammateMessage
-                ? { borderRadius: '0 8px 8px 8px' }
-                : undefined),
-          }}
-        >
-          {/* JSON 内容使用折叠组件 Use CollapsibleContent for JSON content */}
-          {shouldRenderPlainText ? (
-            <div className='whitespace-pre-wrap break-words'>{text}</div>
-          ) : json ? (
-            <CollapsibleContent maxHeight={200} defaultCollapsed={true}>
-              <MarkdownView
-                codeStyle={{ marginTop: 4, marginBlock: 4 }}
-              >{`\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``}</MarkdownView>
-            </CollapsibleContent>
-          ) : (
-            <MarkdownView codeStyle={{ marginTop: 4, marginBlock: 4 }}>{data}</MarkdownView>
-          )}
-        </div>
-        <div
-          className={classNames('h-32px flex items-center mt-4px gap-8px', {
-            'flex-row-reverse': isUserMessage,
-          })}
-        >
-          {copyButton}
-          {message.createdAt && (
-            <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
-              {formatMessageTime(message.createdAt)}
-            </span>
-          )}
-        </div>
-      </div>
+      {messageContent}
       {showCopyAlert && (
         <Alert
           type='success'

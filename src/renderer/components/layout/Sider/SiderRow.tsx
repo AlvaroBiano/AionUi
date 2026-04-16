@@ -59,7 +59,7 @@ const SiderRow = React.forwardRef<HTMLDivElement, SiderRowProps>(
         <div
           ref={ref}
           className={classNames(
-            'relative h-30px w-full flex items-center justify-center rd-8px transition-colors text-t-primary',
+            'relative h-34px w-full flex items-center justify-center rd-8px transition-colors text-t-primary',
             cursorClass,
             interactiveClass,
             className
@@ -80,7 +80,7 @@ const SiderRow = React.forwardRef<HTMLDivElement, SiderRowProps>(
         <div
           ref={ref}
           className={classNames(
-            'relative h-30px rd-8px flex items-center pl-48px pr-10px shrink-0 min-w-0 transition-colors group text-t-primary',
+            'relative h-34px rd-8px flex items-center pl-48px pr-10px shrink-0 min-w-0 transition-colors group text-t-primary',
             cursorClass,
             interactiveClass,
             className
@@ -92,7 +92,7 @@ const SiderRow = React.forwardRef<HTMLDivElement, SiderRowProps>(
         >
           <span className='absolute left-20px top-1/2 -translate-y-1/2 flex items-center justify-center'>{icon}</span>
           {label !== undefined && (
-            <span className='text-13px font-medium truncate flex-1 min-w-0 select-none text-t-primary'>{label}</span>
+            <span className='text-14px font-medium truncate flex-1 min-w-0 select-none text-t-primary'>{label}</span>
           )}
           {children}
         </div>
@@ -104,7 +104,7 @@ const SiderRow = React.forwardRef<HTMLDivElement, SiderRowProps>(
       <div
         ref={ref}
         className={classNames(
-          'relative box-border h-30px w-full flex items-center justify-start gap-8px px-10px rd-8px shrink-0 transition-colors group text-t-primary',
+          'relative box-border h-34px w-full flex items-center justify-start gap-8px px-10px rd-8px shrink-0 transition-colors group text-t-primary',
           cursorClass,
           interactiveClass,
           className
@@ -116,7 +116,7 @@ const SiderRow = React.forwardRef<HTMLDivElement, SiderRowProps>(
       >
         <span className='size-18px flex items-center justify-center shrink-0'>{icon}</span>
         {label !== undefined && (
-          <span className='collapsed-hidden text-t-primary text-13px font-medium leading-24px flex-1 min-w-0 truncate'>
+          <span className='collapsed-hidden text-t-primary text-14px font-medium leading-24px flex-1 min-w-0 truncate'>
             {label}
           </span>
         )}

@@ -5,10 +5,6 @@
  */
 
 import { ipcBridge } from '@/common';
-import AgentModeSelector from '@/renderer/components/agent/AgentModeSelector';
-import AcpConfigSelector from '@/renderer/components/agent/AcpConfigSelector';
-import { getAgentModes, supportsModeSwitch, type AgentModeOption } from '@/renderer/utils/model/agentModes';
-import type { AcpSessionConfigOption } from '@/common/types/acpTypes';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { getCleanFileNames, FileService } from '@/renderer/services/FileService';
 import { iconColors } from '@/renderer/styles/colors';
@@ -16,7 +12,7 @@ import { isElectronDesktop } from '@/renderer/utils/platform';
 import type { AcpBackend, AcpBackendConfig, AvailableAgent } from '../types';
 import PresetAgentTag, { type AgentSwitcherItem } from './PresetAgentTag';
 import { Button, Dropdown, Menu, Message, Tooltip } from '@arco-design/web-react';
-import { ArrowUp, Brain, FolderOpen, Plus, Shield, UploadOne } from '@icon-park/react';
+import { ArrowUp, FolderOpen, Plus, UploadOne } from '@icon-park/react';
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from '../index.module.css';
@@ -26,15 +22,6 @@ type GuidActionRowProps = {
   files: string[];
   onFilesUploaded: (paths: string[]) => void;
   onSelectWorkspace: (dir: string) => void;
-
-  // Model selector node (rendered by parent)
-  modelSelectorNode: React.ReactNode;
-
-  // Agent mode
-  selectedAgent: AcpBackend | 'custom';
-  effectiveModeAgent?: string;
-  selectedMode: string;
-  onModeSelect: (mode: string) => void;
 
   // Preset agent tag
   isPresetAgent: boolean;
@@ -47,11 +34,6 @@ type GuidActionRowProps = {
   onAgentSwitch?: (key: string) => void;
   hidePresetTag?: boolean;
 
-  // Config options (ACP)
-  configOptionsBackend?: AcpBackend;
-  cachedConfigOptions?: AcpSessionConfigOption[];
-  onConfigOptionSelect?: (configId: string, value: string) => void;
-
   // Send button
   loading: boolean;
   isButtonDisabled: boolean;
@@ -63,11 +45,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
   files,
   onFilesUploaded,
   onSelectWorkspace,
-  modelSelectorNode,
-  selectedAgent,
-  effectiveModeAgent,
-  selectedMode,
-  onModeSelect,
   isPresetAgent,
   selectedAgentInfo,
   customAgents,
@@ -76,9 +53,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
   agentLogo,
   agentSwitcherItems,
   onAgentSwitch,
-  configOptionsBackend,
-  cachedConfigOptions,
-  onConfigOptionSelect,
   hidePresetTag = false,
   loading,
   isButtonDisabled,
@@ -89,11 +63,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
   const layout = useLayoutContext();
   const isMobile = Boolean(layout?.isMobile);
   const [isPlusDropdownOpen, setIsPlusDropdownOpen] = useState(false);
-  const modeBackend = effectiveModeAgent || selectedAgent;
-  const modeOptions = getAgentModes(modeBackend);
-  const currentModeOption = modeOptions.find((mode) => mode.value === selectedMode);
-  const showModeSwitch = supportsModeSwitch(modeBackend);
-  const configOptionCount = (modelSelectorNode ? 1 : 0) + (showModeSwitch ? 1 : 0);
 
   // Browser file picker ref (WebUI only)
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,11 +88,6 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
     },
     [onFilesUploaded, t]
   );
-
-  const getModeDisplayLabel = (mode: AgentModeOption): string =>
-    t(`agentMode.${mode.value}`, { defaultValue: mode.label });
-
-  const permissionLabel = currentModeOption ? getModeDisplayLabel(currentModeOption) : t('agentMode.permission');
 
   const isWebUI = !isElectronDesktop();
 
@@ -225,30 +189,7 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
           )}
         </div>
 
-        <div
-          className={`${styles.actionConfigGroup} ${configOptionCount > 1 ? styles.actionConfigGroupWithDivider : ''}`}
-        >
-          {modelSelectorNode}
 
-          {showModeSwitch && (
-            <AgentModeSelector
-              backend={modeBackend}
-              compact
-              initialMode={selectedMode}
-              onModeSelect={onModeSelect}
-              compactLabelOverride={permissionLabel}
-              compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-              modeLabelFormatter={getModeDisplayLabel}
-            />
-          )}
-          <AcpConfigSelector
-            backend={configOptionsBackend}
-            buttonClassName='guid-config-btn'
-            initialConfigOptions={cachedConfigOptions}
-            leadingIcon={<Brain theme='outline' size='14' fill={iconColors.secondary} />}
-            onOptionSelect={onConfigOptionSelect}
-          />
-        </div>
 
         {!hidePresetTag && isPresetAgent && selectedAgentInfo && (
           <div className={styles.actionPresetAgent}>

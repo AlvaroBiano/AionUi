@@ -19,8 +19,8 @@ import { emitter } from '@/renderer/utils/emitter';
 import { cleanupSiderTooltips } from '@/renderer/utils/ui/siderTooltip';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Empty, Input, Menu, Message, Modal } from '@arco-design/web-react';
-import { DeleteOne, Down, FolderOpen, Plus, Right } from '@icon-park/react';
+import { Button, Empty, Input, Message, Modal } from '@arco-design/web-react';
+import { Down, FolderOpen, Plus, Right } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -44,6 +44,8 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   tooltipEnabled = false,
   batchMode = false,
   onBatchModeChange,
+  pinnedAgentKeys = [],
+  onToggleAgentPin,
 }) => {
   const { id } = useParams();
   const { t, i18n } = useTranslation();
@@ -165,6 +167,8 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       const entry = { displayName, avatarSrc, avatarEmoji };
       map.set(preset.id, entry);
       map.set(`builtin-${preset.id}`, entry);
+      map.set(`custom:${preset.id}`, entry);
+      map.set(`custom:builtin-${preset.id}`, entry);
     }
 
     // Custom agents (agentKey = `custom:${id}`)
@@ -196,9 +200,15 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     return map;
   }, [customAgents, i18n.language]);
 
-  const { agentGroups } = useMemo(
+  const { agentGroups: allAgentGroups } = useMemo(
     () => buildAgentGroupedHistory(conversations, agentDisplayMap),
     [conversations, agentDisplayMap]
+  );
+
+  // Filter out pinned agent groups — they appear in the PinnedSiderSection above
+  const agentGroups = useMemo(
+    () => allAgentGroups.filter((g) => !pinnedAgentKeys.includes(g.agentKey)),
+    [allAgentGroups, pinnedAgentKeys]
   );
 
   const {
@@ -321,11 +331,6 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       getJobStatus,
     ]
   );
-
-  const renderConversation = (conversation: TChatConversation) => {
-    const rowProps = getConversationRowProps(conversation);
-    return <ConversationRow key={conversation.id} {...rowProps} />;
-  };
 
   // Collect all sortable IDs for the pinned section
   const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
@@ -560,11 +565,11 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 <Down theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
               )}
             </span>
-            <span className='text-13px font-medium text-t-primary flex-1 min-w-0'>
+            <span className='text-14px font-medium text-t-primary flex-1 min-w-0'>
               {t('conversation.history.messagesSection')}
             </span>
             <div
-              className='opacity-0 group-hover:opacity-100 transition-opacity h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
+              className='h-20px w-20px rd-4px flex items-center justify-center cursor-pointer hover:bg-fill-3 shrink-0'
               onClick={(e) => {
                 e.stopPropagation();
                 void navigate('/guid');
@@ -575,6 +580,11 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </div>
         )}
 
+        {!messagesCollapsed && agentGroups.length === 0 && (
+          <p className='px-10px py-4px text-13px text-[var(--color-text-3)]'>
+            {t('conversation.history.messagesEmpty')}
+          </p>
+        )}
         {!messagesCollapsed && (
           <div className='flex flex-col gap-1px'>
             {agentGroups.map((agentGroup) => {
@@ -605,11 +615,13 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                   lastConversation={agentGroup.conversations[0]}
                   conversationIds={agentGroup.conversations.map((c) => c.id)}
                   isActive={agentGroup.conversations.some((c) => c.id === id)}
+                  isPinned={pinnedAgentKeys.includes(agentGroup.agentKey)}
                   collapsed={collapsed}
                   tooltipEnabled={tooltipEnabled}
                   onNavigate={handleNavigate}
                   onNewConversation={handleNewConversation}
-                  onDeleteGroup={(ids) => handleDeleteGroup(ids)}
+                  onTogglePin={(key) => onToggleAgentPin?.(key)}
+                  onRemove={(ids) => handleDeleteGroup(ids)}
                 />
               );
             })}

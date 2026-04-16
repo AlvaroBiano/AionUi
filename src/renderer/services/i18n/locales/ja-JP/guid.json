@@ -8,7 +8,7 @@
   "promptExamplesHint": "Try example prompts:",
   "agentSwitcherLabel": "Agent",
   "switchedToAgent": "{{agent}} に切り替えました",
-  "selectAssistant": "アシスタントを選んで始めましょう",
+  "selectAssistant": "タスクを選んで始めましょう",
   "viewAllAssistants": "すべてのアシスタントを見る →",
   "addMoreAssistants": "アシスタントを追加 +",
   "scanning": {

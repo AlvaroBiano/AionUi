@@ -15,7 +15,8 @@
     "renameOk": "Сохранить",
     "renameCancel": "Отмена",
     "renameSuccess": "Канал переименован",
-    "deleteSuccess": "Канал удалён"
+    "deleteSuccess": "Канал удалён",
+    "empty": "Каналов пока нет"
   },
   "addAgent": {
     "title": "Добавить агента",

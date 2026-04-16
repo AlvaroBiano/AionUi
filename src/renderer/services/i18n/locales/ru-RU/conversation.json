@@ -72,7 +72,10 @@
     "historyPanel": "История",
     "deleteAgentGroup": "Удалить все чаты",
     "deleteAgentGroupConfirm": "Удалить все {{count}} разговоров этого агента? Это действие нельзя отменить.",
-    "deleteAgentGroupSuccess": "Удалено {{count}} разговоров"
+    "deleteAgentGroupSuccess": "Удалено {{count}} разговоров",
+    "removeContact": "Удалить",
+    "removeContactConfirm": "При удалении контакта все {{count}} разговоров с этим агентом будут удалены безвозвратно. Это действие нельзя отменить.",
+    "messagesEmpty": "Сообщений пока нет"
   },
   "historySearch": {
     "tooltip": "Поиск сообщений",

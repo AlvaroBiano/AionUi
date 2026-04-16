@@ -15,7 +15,8 @@
     "renameOk": "儲存",
     "renameCancel": "取消",
     "renameSuccess": "群組已重新命名",
-    "deleteSuccess": "群組已刪除"
+    "deleteSuccess": "群組已刪除",
+    "empty": "暫無群組"
   },
   "addAgent": {
     "title": "新增 Agent",
