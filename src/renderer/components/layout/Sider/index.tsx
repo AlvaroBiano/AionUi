@@ -202,6 +202,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     return (
       <div className='shrink-0 flex gap-2px mx-4px mt-4px mb-8px bg-fill-3 rd-8px p-2px'>
         <div
+          data-testid='sider-tab-messages'
           className={classNames(
             'flex-1 h-30px flex items-center justify-center rd-6px cursor-pointer transition-all select-none',
             siderTab === 'messages'
@@ -213,6 +214,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
           <MessageOne theme='outline' size={18} fill='currentColor' style={{ lineHeight: 0 }} />
         </div>
         <div
+          data-testid='sider-tab-agents'
           className={classNames(
             'flex-1 h-30px flex items-center justify-center rd-6px cursor-pointer transition-all select-none',
             siderTab === 'agents'

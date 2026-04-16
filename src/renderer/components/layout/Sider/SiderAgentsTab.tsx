@@ -50,10 +50,12 @@ const SectionHeader: React.FC<{
   collapsed: boolean;
   onToggle: () => void;
   onAdd?: () => void;
-}> = ({ label, collapsed: sectionCollapsed, onToggle, onAdd }) => (
+  section?: string;
+}> = ({ label, collapsed: sectionCollapsed, onToggle, onAdd, section }) => (
   <div
     className='group h-30px flex items-center gap-8px px-10px mt-4px cursor-pointer select-none sticky top-0 z-20 bg-[var(--color-fill-2)]'
     onClick={onToggle}
+    data-agent-section={section}
   >
     <span className='w-18px h-18px flex items-center justify-center shrink-0 text-t-primary'>
       {sectionCollapsed ? (
@@ -457,6 +459,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
         {/* ── 本地 Agent ── */}
         <SectionHeader
           label={t('common.agents.section.local')}
+          section='local'
           collapsed={localCollapsed}
           onToggle={() => setLocalCollapsed((v) => !v)}
           onAdd={() => setAddAgentVisible(true)}
@@ -471,6 +474,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
         {/* ── 远端 Agent ── */}
         <SectionHeader
           label={t('common.agents.section.remote')}
+          section='remote'
           collapsed={remoteCollapsed}
           onToggle={() => setRemoteCollapsed((v) => !v)}
           onAdd={() => setAddRemoteAgentVisible(true)}
@@ -487,6 +491,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
         {/* ── 助手 ── */}
         <SectionHeader
           label={t('common.agents.section.assistants')}
+          section='assistants'
           collapsed={assistantsCollapsed}
           onToggle={() => setAssistantsCollapsed((v) => !v)}
           onAdd={() => setAddAssistantVisible(true)}
@@ -503,6 +508,7 @@ const SiderAgentsTab: React.FC<SiderAgentsTabProps> = ({ collapsed, tooltipEnabl
         {/* ── 人类 ── */}
         <SectionHeader
           label={t('common.agents.section.people')}
+          section='people'
           collapsed={peopleCollapsed}
           onToggle={() => setPeopleCollapsed((v) => !v)}
         />

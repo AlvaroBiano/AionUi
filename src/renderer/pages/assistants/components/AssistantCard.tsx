@@ -68,6 +68,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({ item }) => {
         <Button
           type='primary'
           size='small'
+          data-testid='agent-chat-btn'
           icon={<MessageSearch theme='outline' size='14' />}
           className='flex-1 !rounded-8px'
           onClick={handleChat}
@@ -78,6 +79,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({ item }) => {
           <Button
             type='secondary'
             size='small'
+            data-testid='agent-edit-btn'
             icon={<EditTwo theme='outline' size='14' />}
             className='!rounded-8px'
             onClick={handleEdit}

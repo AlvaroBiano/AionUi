@@ -64,12 +64,14 @@ const SendBoxSettingsPopover: React.FC<{
       <Button
         type='secondary'
         shape='circle'
+        data-testid='sendbox-settings-btn'
         icon={<Setting theme='outline' size='14' strokeWidth={2} />}
         onClick={() => setVisible((v) => !v)}
       />
 
       {visible && (
         <div
+          data-testid='sendbox-settings-popup'
           className='absolute bottom-full mb-4px right-0 min-w-220px rounded-8px overflow-hidden'
           style={{
             zIndex: 1,
