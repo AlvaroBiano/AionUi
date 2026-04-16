@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-text-3);
   font-style: italic;
   cursor: pointer;
