@@ -36,6 +36,17 @@ export {
   channelSwitchById,
   webuiTabByKey,
   type ChannelId,
+  // chat-layout-redesign
+  CHAT_LAYOUT_HEADER,
+  HISTORY_PANEL_BTN,
+  ARCO_DROPDOWN_MENU,
+  ARCO_DROPDOWN_MENU_ITEM,
+  MESSAGE_ITEM,
+  MESSAGE_AUTHOR_HEADER,
+  TIME_DIVIDER,
+  THINKING_MESSAGE,
+  THINKING_HEADER,
+  THINKING_BODY,
 } from './selectors';
 export { expectBodyContainsAny, expectUrlContains, createErrorCollector } from './assertions';
 export { takeScreenshot } from './screenshots';

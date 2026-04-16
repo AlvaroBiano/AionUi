@@ -91,3 +91,33 @@ export function channelSwitchById(id: string): string {
 export function webuiTabByKey(key: 'webui' | 'channels'): string {
   return `[data-webui-tab="${key}"]`;
 }
+
+// ── Chat layout (digital-human-redesign) ─────────────────────────────────────
+
+/** Chat layout header bar. */
+export const CHAT_LAYOUT_HEADER = '.chat-layout-header';
+
+/** Conversation history panel button (clock icon, top-right of chat header). */
+export const HISTORY_PANEL_BTN = `${CHAT_LAYOUT_HEADER} button[title]`;
+
+/** Arco Design dropdown popup menu (rendered in portal). */
+export const ARCO_DROPDOWN_MENU = '.arco-dropdown-menu';
+export const ARCO_DROPDOWN_MENU_ITEM = '.arco-dropdown-menu-item';
+
+/** Message item in the Virtuoso list. */
+export const MESSAGE_ITEM = '.message-item';
+
+/** Message avatar + name header row (shown on first message in a sequence). */
+export const MESSAGE_AUTHOR_HEADER = `${MESSAGE_ITEM} .flex.items-center.gap-6px:has(span.text-14px.font-medium)`;
+
+/** Time divider label between messages. */
+export const TIME_DIVIDER = `${MESSAGE_ITEM} .text-t-tertiary.select-none, .text-13px.text-t-tertiary.select-none`;
+
+/** Thinking message container. */
+export const THINKING_MESSAGE = `${MESSAGE_ITEM}.thinking`;
+
+/** Thinking message expand/collapse header. */
+export const THINKING_HEADER = `${THINKING_MESSAGE} [class*="header"]`;
+
+/** Thinking message body text (collapsible). */
+export const THINKING_BODY = `${THINKING_MESSAGE} [class*="body"]`;
