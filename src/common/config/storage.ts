@@ -193,6 +193,10 @@ export interface IConfigStorageRefer {
   // Desktop Pet: whether tool-call confirmations are routed to the pet's bubble
   // (true) or remain in the main chat window (false). Default true.
   'pet.confirmEnabled'?: boolean;
+  // Desktop Pet: whether the water reminder is enabled. Default true.
+  'pet.wellnessWaterEnabled'?: boolean;
+  // Desktop Pet: water reminder interval in milliseconds. Default 45 * 60_000.
+  'pet.wellnessWaterInterval'?: number;
 }
 
 export interface IEnvStorageRefer {

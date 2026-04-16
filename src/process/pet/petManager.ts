@@ -17,6 +17,7 @@ import {
   destroyPetConfirmManager,
   unhookPetConfirm,
 } from './petConfirmManager';
+import { ProcessConfig } from '@process/utils/initStorage';
 import type { PetSize, PetState } from './petTypes';
 
 /**
@@ -88,6 +89,148 @@ let confirmBubbleEnabled = true;
 // States that should be restored after drag ends (AI activity / notifications).
 // User-interaction states (attention/poke/happy) and idle/sleep states are NOT restored.
 const RESTORABLE_STATES: ReadonlySet<PetState> = new Set<PetState>(['thinking', 'working', 'error', 'notification']);
+
+// ---------------------------------------------------------------------------
+// Wellness reminder (drink water) — pet visually goes thirsty when the timer
+// fires, clicking the pet triggers drinking animation and resets timer.
+// ---------------------------------------------------------------------------
+
+const DEFAULT_WATER_INTERVAL_MS = 45 * 60_000;
+const MAX_WATER_INTERVAL_MS = 180 * 60_000;
+
+// States where the pet is busy and thirsty should be deferred
+const WELLNESS_BUSY_STATES: ReadonlySet<PetState> = new Set<PetState>([
+  'working',
+  'thinking',
+  'error',
+  'notification',
+  'dragging',
+  'juggling',
+  'building',
+  'carrying',
+  'done',
+  'happy',
+  'attention',
+  'sweeping',
+  'poke-left',
+  'poke-right',
+  'waking',
+  'drinking',
+]);
+
+let wellnessTimer: ReturnType<typeof setTimeout> | null = null;
+let wellnessIntervalMs = DEFAULT_WATER_INTERVAL_MS;
+let wellnessConsecutiveIgnores = 0;
+let wellnessActive = false;
+let wellnessPending = false;
+let wellnessStateListener: ((state: PetState, prev: PetState) => void) | null = null;
+
+function startWellnessTimer(): void {
+  stopWellnessTimer();
+  ProcessConfig.get('pet.wellnessWaterEnabled')
+    .then((enabled) => {
+      if (enabled === false) return;
+      wellnessActive = true;
+      ProcessConfig.get('pet.wellnessWaterInterval')
+        .then((interval) => {
+          wellnessIntervalMs = (interval as number) || DEFAULT_WATER_INTERVAL_MS;
+          scheduleNextWellnessReminder();
+        })
+        .catch(() => {
+          scheduleNextWellnessReminder();
+        });
+    })
+    .catch(() => {
+      // Default: enabled
+      wellnessActive = true;
+      scheduleNextWellnessReminder();
+    });
+
+  // Listen for state changes so a pending reminder fires once pet is idle
+  if (!wellnessStateListener && stateMachine) {
+    wellnessStateListener = (state: PetState) => {
+      if (wellnessPending && !WELLNESS_BUSY_STATES.has(state)) {
+        wellnessPending = false;
+        applyThirstyState();
+      }
+    };
+    stateMachine.onStateChange(wellnessStateListener);
+  }
+}
+
+function stopWellnessTimer(): void {
+  if (wellnessTimer) {
+    clearTimeout(wellnessTimer);
+    wellnessTimer = null;
+  }
+  if (wellnessStateListener && stateMachine) {
+    stateMachine.offStateChange(wellnessStateListener);
+    wellnessStateListener = null;
+  }
+  wellnessActive = false;
+  wellnessPending = false;
+}
+
+function scheduleNextWellnessReminder(): void {
+  if (!wellnessActive) return;
+  const backoffMs = Math.min(wellnessIntervalMs * Math.pow(2, wellnessConsecutiveIgnores), MAX_WATER_INTERVAL_MS);
+  wellnessTimer = setTimeout(() => {
+    fireWellnessReminder();
+  }, backoffMs);
+}
+
+function fireWellnessReminder(): void {
+  if (!wellnessActive || !stateMachine) return;
+
+  const current = stateMachine.getCurrentState();
+  if (WELLNESS_BUSY_STATES.has(current)) {
+    // AI / user interaction in progress — defer until pet returns to idle
+    wellnessPending = true;
+  } else {
+    applyThirstyState();
+  }
+
+  wellnessConsecutiveIgnores++;
+  scheduleNextWellnessReminder();
+}
+
+function applyThirstyState(): void {
+  if (!stateMachine || !idleTicker) return;
+  idleTicker.resetIdle();
+  stateMachine.requestState('thirsty');
+}
+
+function consumeWellnessReminder(): void {
+  wellnessConsecutiveIgnores = 0;
+  wellnessPending = false;
+  if (wellnessActive) {
+    if (wellnessTimer) {
+      clearTimeout(wellnessTimer);
+      wellnessTimer = null;
+    }
+    scheduleNextWellnessReminder();
+  }
+}
+
+export function setPetWellnessEnabled(enabled: boolean): void {
+  if (enabled) {
+    startWellnessTimer();
+  } else {
+    stopWellnessTimer();
+  }
+}
+
+export function setPetWellnessInterval(intervalMs: number): void {
+  wellnessIntervalMs = intervalMs;
+  if (wellnessActive) {
+    if (wellnessTimer) {
+      clearTimeout(wellnessTimer);
+      wellnessTimer = null;
+    }
+    wellnessConsecutiveIgnores = 0;
+    scheduleNextWellnessReminder();
+  }
+}
 
 /**
  * Create pet windows (rendering window + hit detection window).
@@ -174,6 +317,9 @@ export function createPetWindow(): void {
     if (petWindow && !petWindow.isDestroyed()) {
       petWindow.webContents.send('pet:state-changed', state);
     }
+    if (petHitWindow && !petHitWindow.isDestroyed()) {
+      petHitWindow.webContents.send('pet:state-changed', state);
+    }
   });
 
   idleTicker.onEyeMove((data) => {
@@ -206,6 +352,8 @@ export function createPetWindow(): void {
     destroyPetWindow();
   });
 
+  startWellnessTimer();
+
   console.log('[Pet] Pet windows created');
 }
 
@@ -215,6 +363,7 @@ export function createPetWindow(): void {
 export function destroyPetWindow(): void {
   clearDragTimer();
   stopHitIgnoreWatchdog();
+  stopWellnessTimer();
 
   // Destroy confirm manager
   destroyPetConfirmManager();
@@ -423,13 +572,18 @@ function registerIpcHandlers(): void {
 
     idleTicker.resetIdle();
 
+    // If pet is thirsty and user single-clicks → drink water
+    if (stateMachine.getCurrentState() === 'thirsty' && data.count === 1) {
+      stateMachine.requestState('drinking');
+      consumeWellnessReminder();
+      return;
+    }
+
     // Click reactions — keep `error` reserved for genuine AI errors so the user
     // can distinguish "I poked the pet a lot" from "the agent just failed".
     // 1 click  → attention (small surprise)
     // 2 clicks → poke left/right (directional wobble)
     // 4+       → juggling (overwhelmed / flustered)
-    // 3        → still poke — nothing interesting happens but we avoid the old
-    //            error misfire; the next click bumps into the 4+ bucket.
     if (data.count >= 4) {
       stateMachine.requestState('juggling');
     } else if (data.count >= 2) {
@@ -450,6 +604,19 @@ function registerIpcHandlers(): void {
           if (stateMachine && idleTicker) {
             idleTicker.resetIdle();
             stateMachine.requestState('happy');
+          }
+        },
+      },
+      // "Drink Water" only appears when pet is actually thirsty — acts as a
+      // shortcut to consume the reminder without having to click the pet body.
+      {
+        label: i18n.t('pet.drinkWater'),
+        visible: wellnessActive && stateMachine?.getCurrentState() === 'thirsty',
+        click: () => {
+          if (stateMachine && idleTicker) {
+            idleTicker.resetIdle();
+            stateMachine.requestState('drinking');
+            consumeWellnessReminder();
           }
         },
       },
