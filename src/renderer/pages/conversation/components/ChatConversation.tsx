@@ -375,6 +375,24 @@ const ChatConversation: React.FC<{
     return <GeminiModelSelector disabled={true} />;
   }, [conversation, isGeminiConversation, isAionrsConversation]);
 
+  // NOTE: Must be placed before early returns (aionrs/gemini) to maintain consistent hook order.
+  const acpAvatarInfo: MessageAvatarInfo = useMemo(() => {
+    if (isGeminiConversation || isAionrsConversation) return null;
+    if (presetAssistantInfo) {
+      return {
+        agentLogo: presetAssistantInfo.logo,
+        agentLogoIsEmoji: presetAssistantInfo.isEmoji,
+        agentName: presetAssistantInfo.name,
+      };
+    }
+    if (isLoadingPreset) return null;
+    const backend =
+      conversation?.type === 'acp' ? (conversation.extra as { backend?: string })?.backend : conversation?.type;
+    const logo = resolveAgentLogo({ backend }) ?? '';
+    const name = conversationAgentName || backend || '';
+    return { agentLogo: logo, agentLogoIsEmoji: false, agentName: name };
+  }, [isGeminiConversation, isAionrsConversation, presetAssistantInfo, isLoadingPreset, conversation, conversationAgentName]);
+
   if (conversation && conversation.type === 'aionrs') {
     return <AionrsConversationPanel key={conversation.id} conversation={conversation} sliderTitle={sliderTitle} />;
   }
@@ -419,22 +437,6 @@ const ChatConversation: React.FC<{
                         : undefined,
           agentName: conversationAgentName,
         };
-
-  const acpAvatarInfo: MessageAvatarInfo = useMemo(() => {
-    if (presetAssistantInfo) {
-      return {
-        agentLogo: presetAssistantInfo.logo,
-        agentLogoIsEmoji: presetAssistantInfo.isEmoji,
-        agentName: presetAssistantInfo.name,
-      };
-    }
-    if (isLoadingPreset) return null;
-    const backend =
-      conversation?.type === 'acp' ? (conversation.extra as { backend?: string })?.backend : conversation?.type;
-    const logo = resolveAgentLogo({ backend }) ?? '';
-    const name = conversationAgentName || backend || '';
-    return { agentLogo: logo, agentLogoIsEmoji: false, agentName: name };
-  }, [presetAssistantInfo, isLoadingPreset, conversation, conversationAgentName]);
 
   const headerExtraNode = (
     <div className='flex items-center gap-8px'>
