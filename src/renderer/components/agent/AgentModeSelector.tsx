@@ -358,8 +358,8 @@ const AgentModeSelector: React.FC<AgentModeSelectorProps> = ({
       style={{ opacity: isLoading ? 0.6 : 1, transition: 'opacity 0.2s' }}
     >
       <span
-        className='inline-flex w-28px h-28px items-center justify-center shrink-0 overflow-hidden'
-        style={{ borderRadius: 8, background: 'var(--color-fill-2)', border: '1px solid var(--color-border-2)' }}
+        className='inline-flex w-24px h-24px items-center justify-center shrink-0 overflow-hidden'
+        style={{ borderRadius: 7, background: 'var(--color-fill-2)', border: '1px solid var(--color-border-2)' }}
       >
         {fullLogo}
       </span>

@@ -87,13 +87,13 @@ const MessageThinking: React.FC<{ message: IMessageThinking; showAvatar?: boolea
     <div className={styles.container}>
       {showAvatar && avatarInfo && (
         <div className='flex items-center gap-6px mb-4px'>
-          <div className='flex-shrink-0 w-20px h-20px rd-full overflow-hidden bg-fill-3 flex items-center justify-center'>
+          <div className='flex-shrink-0 w-28px h-28px rd-full overflow-hidden bg-fill-3 flex items-center justify-center'>
             {avatarInfo.agentLogoIsEmoji ? (
-              <span className='text-14px leading-none'>{avatarInfo.agentLogo}</span>
+              <span className='text-16px leading-none'>{avatarInfo.agentLogo}</span>
             ) : avatarInfo.agentLogo ? (
               <img src={avatarInfo.agentLogo} alt={avatarInfo.agentName} className='w-full h-full object-contain' />
             ) : (
-              <User theme='outline' size='14' fill={iconColors.secondary} />
+              <User theme='outline' size='16' fill={iconColors.secondary} />
             )}
           </div>
           {avatarInfo.agentName && <span className='text-12px font-medium text-t-primary'>{avatarInfo.agentName}</span>}
