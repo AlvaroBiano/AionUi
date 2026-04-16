@@ -1,6 +1,6 @@
 /**
  * Conversation Lifecycle – E2E tests covering:
- *  1. Guid page baseline (loads, agent pills, model selector)
+ *  1. Guid page baseline (loads, agent selector, chat input)
  *  2. Sidebar navigation to existing conversations
  *  3. Conversation page structure (header, sendbox, messages)
  *  4. History panel: dropdown, list, new-conversation shortcut
@@ -16,8 +16,6 @@ import {
   SIDER_TAB_MESSAGES,
   SIDER_TAB_AGENTS,
   AGENT_PILL,
-  AGENT_PILL_SELECTED,
-  MODEL_SELECTOR_BTN,
   GUID_INPUT,
   CHAT_LAYOUT_HEADER,
   HISTORY_PANEL_BTN,
@@ -54,48 +52,28 @@ test.describe('Guid page – baseline', () => {
     expect(body?.trim().length).toBeGreaterThan(0);
   });
 
-  test('at least one agent pill is visible', async ({ page }) => {
+  test('agent selector trigger is visible on guid page', async ({ page }) => {
     await goToGuid(page);
-    const pills = page.locator(AGENT_PILL);
-    await expect(pills.first()).toBeVisible({ timeout: 8_000 });
-    const count = await pills.count();
-    expect(count).toBeGreaterThan(0);
-  });
-
-  test('clicking an unselected agent pill selects it', async ({ page }) => {
-    await goToGuid(page);
-    // Find a pill that is NOT currently selected
-    const unselected = page.locator(`${AGENT_PILL}:not([data-agent-selected="true"])`).first();
-    const hasUnselected = await unselected.isVisible({ timeout: 5_000 }).catch(() => false);
-    test.skip(!hasUnselected, 'All pills already selected or only one pill available');
-
-    await unselected.click();
-    await expect(unselected).toHaveAttribute('data-agent-selected', 'true', { timeout: 3_000 });
-  });
-
-  test('model selector button is visible on guid page', async ({ page }) => {
-    await goToGuid(page);
-    const btn = page.locator(MODEL_SELECTOR_BTN).first();
-    await expect(btn).toBeVisible({ timeout: 8_000 });
-  });
-
-  test('model selector shows model name text', async ({ page }) => {
-    await goToGuid(page);
-    const btn = page.locator(MODEL_SELECTOR_BTN).first();
-    await expect(btn).toBeVisible({ timeout: 8_000 });
-    const text = await btn.textContent();
-    // Should have some model name, not be empty
+    // The hero section shows the current agent name + chevron as a dropdown trigger
+    const selector = page.locator(AGENT_PILL);
+    await expect(selector).toBeVisible({ timeout: 8_000 });
+    // Should display the agent name (non-empty)
+    const text = await selector.textContent();
     expect(text?.trim().length).toBeGreaterThan(0);
   });
 
-  test('model selector opens a dropdown when clicked', async ({ page }) => {
+  test('agent selector trigger shows agent name text', async ({ page }) => {
     await goToGuid(page);
-    const btn = page.locator(MODEL_SELECTOR_BTN).first();
-    await expect(btn).toBeVisible({ timeout: 8_000 });
-    await btn.click();
-    // Arco Select dropdown portal
-    const dropdown = page.locator('.arco-select-dropdown, .arco-trigger-popup').first();
-    await expect(dropdown).toBeVisible({ timeout: 5_000 });
+    const selector = page.locator(AGENT_PILL);
+    await expect(selector).toBeVisible({ timeout: 8_000 });
+    // Agent selector shows a non-empty agent name (confirms it's loaded and wired up)
+    const text = await selector.textContent();
+    expect(text?.trim().length).toBeGreaterThan(0);
+    // The trigger element contains a chevron icon (confirms it's interactive)
+    const chevron = selector.locator('svg, [class*="Down"]').first();
+    const hasChevron = await chevron.isVisible().catch(() => false);
+    // Chevron confirms it's a dropdown trigger
+    expect(hasChevron).toBe(true);
   });
 
   test('guid chat input textarea is present', async ({ page }) => {

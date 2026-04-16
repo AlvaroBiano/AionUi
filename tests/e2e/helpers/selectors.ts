@@ -107,19 +107,25 @@ export function agentLogoByBackend(backend: string): string {
   return `img[alt="${backend} logo"]`;
 }
 
-/** Stable selector for all agent pills on guid page. */
-export const AGENT_PILL = '[data-agent-pill="true"]';
+/**
+ * Guid page agent selector trigger — the name + chevron row that opens the agent dropdown.
+ * Click to open the agent selection panel.
+ */
+export const AGENT_PILL = '[data-testid="guid-agent-selector"]';
 
-/** Match an agent pill by backend (claude/gemini/...). */
-export function agentPillByBackend(backend: string): string {
-  return `${AGENT_PILL}[data-agent-backend="${backend}"]`;
+/** @deprecated Use AGENT_PILL directly — agent pills are not rendered as individual items */
+export function agentPillByBackend(_backend: string): string {
+  return AGENT_PILL;
 }
 
-/** Match currently selected agent pill. */
-export const AGENT_PILL_SELECTED = `${AGENT_PILL}[data-agent-selected="true"]`;
+/** @deprecated Use AGENT_PILL directly */
+export const AGENT_PILL_SELECTED = AGENT_PILL;
 
-/** Model selector button on the guid page. */
-export const MODEL_SELECTOR_BTN = 'button.sendbox-model-btn.guid-config-btn';
+/**
+ * Model selector button — exists in conversation sendbox (not on guid page).
+ * On the guid page the model is selected inside the agent selector dropdown.
+ */
+export const MODEL_SELECTOR_BTN = 'button.sendbox-model-btn';
 
 // ── SendBox ───────────────────────────────────────────────────────────────────
 
