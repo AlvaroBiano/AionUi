@@ -341,14 +341,29 @@ const AgentModeSelector: React.FC<AgentModeSelectorProps> = ({
     );
   }
 
-  // Full mode: logo + name + optional mode label
+  // Full mode: chat contact style — avatar circle + bold name
+  const fullLogo = (() => {
+    if (agentLogo) {
+      if (agentLogoIsEmoji) return <span style={{ fontSize: 16, lineHeight: 1 }}>{agentLogo}</span>;
+      return <img src={agentLogo} alt={agentName || 'agent'} className='block w-full h-full object-contain' />;
+    }
+    const logo = getAgentLogo(backend);
+    if (logo) return <img src={logo} alt={backend} className='block w-full h-full object-contain' />;
+    return <Robot theme='outline' size={14} fill={iconColors.primary} />;
+  })();
+
   const content = (
     <div
-      className={`flex items-center gap-2 bg-2 w-fit rounded-full px-[8px] py-[2px] ${canSwitchMode ? 'cursor-pointer hover:bg-3' : ''}`}
+      className={`flex items-center gap-8px ${canSwitchMode ? 'cursor-pointer hover:opacity-80' : ''}`}
       style={{ opacity: isLoading ? 0.6 : 1, transition: 'opacity 0.2s' }}
     >
-      {renderLogo()}
-      <span className='text-sm text-t-primary'>{agentName || backend}</span>
+      <span
+        className='inline-flex w-28px h-28px items-center justify-center shrink-0 overflow-hidden'
+        style={{ borderRadius: 8, background: 'var(--color-fill-2)', border: '1px solid var(--color-border-2)' }}
+      >
+        {fullLogo}
+      </span>
+      <span className='text-15px font-semibold text-t-primary leading-none'>{agentName || backend}</span>
       {canSwitchMode && (
         <>
           {currentMode !== defaultMode && <span className='text-xs text-t-tertiary'>({getCurrentModeLabel()})</span>}
