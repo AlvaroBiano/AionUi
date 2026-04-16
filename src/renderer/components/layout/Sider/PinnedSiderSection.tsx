@@ -123,8 +123,9 @@ const PinnedSiderSection: React.FC<PinnedSiderSectionProps> = ({
         }
       }
 
-      // Check preset assistants
-      const preset = ASSISTANT_PRESETS.find((p) => p.id === agentKey);
+      // Check preset assistants — agentKey may carry a 'builtin-' prefix
+      const strippedKey = agentKey.replace(/^builtin-/, '');
+      const preset = ASSISTANT_PRESETS.find((p) => p.id === agentKey || p.id === strippedKey);
       if (preset) {
         const displayName = preset.nameI18n?.[locale] ?? preset.nameI18n?.['en-US'] ?? preset.id;
         const profileImage = getPresetProfile(preset.id);
