@@ -17,6 +17,13 @@ type SettingsSection = {
   node: React.ReactNode;
 };
 
+// Z-index layers for the settings popup.
+// Arco Design inner dropdowns render at z-1000; the popup wrapper must sit below
+// that to avoid capturing their portal clicks, while the click-outside overlay
+// must sit below the popup so its own children stay on top.
+const POPUP_ZINDEX = 999; // popup stacking context — above UI chrome, below Arco dropdowns
+const OVERLAY_ZINDEX = 998; // click-outside catcher — below popup, above rest of UI
+
 /**
  * A gear icon button that opens a settings popup for the send box.
  * Accepts optional model, permission, and config selector nodes.
@@ -44,13 +51,13 @@ const SendBoxSettingsPopover: React.FC<{
   if (sections.length === 0) return null;
 
   return (
-    // z-999 stacking context ensures button+popup sit above the z-998 overlay,
+    // POPUP_ZINDEX stacking context ensures button+popup sit above the OVERLAY_ZINDEX overlay,
     // while Arco inner dropdowns at z-1000 remain on top of everything.
-    <div className='relative' style={visible ? { zIndex: 999 } : undefined}>
-      {/* Portal overlay: captures click-outside at z-998 (below Arco z-1000 inner popups) */}
+    <div className='relative' style={visible ? { zIndex: POPUP_ZINDEX } : undefined}>
+      {/* Portal overlay: captures click-outside at OVERLAY_ZINDEX (below Arco z-1000 inner popups) */}
       {visible &&
         createPortal(
-          <div className='fixed inset-0' style={{ zIndex: 998 }} onClick={() => setVisible(false)} />,
+          <div className='fixed inset-0' style={{ zIndex: OVERLAY_ZINDEX }} onClick={() => setVisible(false)} />,
           document.body
         )}
 
