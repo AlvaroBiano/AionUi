@@ -18,10 +18,7 @@ const getFirstLine = (content: string): string => {
   return firstLine.length > 80 ? firstLine.slice(0, 80) + '...' : firstLine;
 };
 
-const MessageThinking: React.FC<{ message: IMessageThinking; showAvatar?: boolean }> = ({
-  message,
-  showAvatar,
-}) => {
+const MessageThinking: React.FC<{ message: IMessageThinking; showAvatar?: boolean }> = ({ message, showAvatar }) => {
   const { t } = useTranslation();
   const avatarInfo = useMessageAvatar();
 

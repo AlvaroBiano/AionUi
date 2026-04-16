@@ -391,7 +391,14 @@ const ChatConversation: React.FC<{
     const logo = resolveAgentLogo({ backend }) ?? '';
     const name = conversationAgentName || backend || '';
     return { agentLogo: logo, agentLogoIsEmoji: false, agentName: name };
-  }, [isGeminiConversation, isAionrsConversation, presetAssistantInfo, isLoadingPreset, conversation, conversationAgentName]);
+  }, [
+    isGeminiConversation,
+    isAionrsConversation,
+    presetAssistantInfo,
+    isLoadingPreset,
+    conversation,
+    conversationAgentName,
+  ]);
 
   if (conversation && conversation.type === 'aionrs') {
     return <AionrsConversationPanel key={conversation.id} conversation={conversation} sliderTitle={sliderTitle} />;

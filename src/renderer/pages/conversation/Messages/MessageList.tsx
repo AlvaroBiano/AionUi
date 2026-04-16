@@ -283,9 +283,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
       const time = `${hh}:${mm}`;
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const isToday =
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate();
+        d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
       if (isToday) return time;
       const prefix =
         d.getFullYear() !== now.getFullYear()
@@ -297,9 +295,7 @@ const MessageList: React.FC<{ className?: string; emptySlot?: React.ReactNode }>
     for (let i = 0; i < processedList.length; i++) {
       const item = processedList[i];
       const ts =
-        'createdAt' in item && typeof (item as TMessage).createdAt === 'number'
-          ? (item as TMessage).createdAt!
-          : 0;
+        'createdAt' in item && typeof (item as TMessage).createdAt === 'number' ? (item as TMessage).createdAt! : 0;
       if (!ts) continue;
       if (lastTs === 0 || ts - lastTs > THRESHOLD_MS) {
         map.set(i, formatDividerTime(ts));
