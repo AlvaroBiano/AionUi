@@ -11,7 +11,7 @@ import { useConversationHistoryContext } from '@/renderer/hooks/context/Conversa
 import { iconColors } from '@/renderer/styles/colors';
 import { resolveAgentKey } from '../GroupedHistory/utils/groupingHelpers';
 import { emitter } from '../../../utils/emitter';
-import { Button, Dropdown, Menu, Tooltip } from '@arco-design/web-react';
+import { Button, Dropdown, Menu } from '@arco-design/web-react';
 import { History, Plus } from '@icon-park/react';
 import React, { useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -121,23 +121,22 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
   );
 
   return (
-    <Tooltip content={t('conversation.history.historyPanel')}>
-      <Dropdown droplist={droplist} trigger='click' position='br' getPopupContainer={() => document.body}>
-        <Button
-          size='mini'
-          icon={
-            <History
-              theme='filled'
-              size='14'
-              fill={iconColors.primary}
-              strokeWidth={2}
-              strokeLinejoin='miter'
-              strokeLinecap='square'
-            />
-          }
-        />
-      </Dropdown>
-    </Tooltip>
+    <Dropdown droplist={droplist} trigger='click' position='br' getPopupContainer={() => document.body}>
+      <Button
+        size='mini'
+        title={t('conversation.history.historyPanel')}
+        icon={
+          <History
+            theme='filled'
+            size='14'
+            fill={iconColors.primary}
+            strokeWidth={2}
+            strokeLinejoin='miter'
+            strokeLinecap='square'
+          />
+        }
+      />
+    </Dropdown>
   );
 };
 
