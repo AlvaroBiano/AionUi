@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { isBunxCacheCorruption, clearBunxCache } from '../../src/process/agent/acp/acpConnectors';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { isBunxCacheCorruption, isBunEpermError, clearBunxCache } from '../../src/process/agent/acp/acpConnectors';
 
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
@@ -21,6 +21,50 @@ const rmSyncMock = vi.mocked(rmSync);
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('isBunEpermError', () => {
+  let originalPlatform: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+  });
+
+  afterEach(() => {
+    if (originalPlatform) {
+      Object.defineProperty(process, 'platform', originalPlatform);
+    }
+  });
+
+  it('detects bun EPERM with NtSetInformationFile on Windows', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    const msg =
+      'error: moving "@anthropic-ai/claude-agent-sdk" to cache dir failed\nEPERM: Operation not permitted (NtSetInformationFile())';
+    expect(isBunEpermError(msg)).toBe(true);
+  });
+
+  it('detects "to cache dir failed" followed by EPERM on Windows', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    const msg = 'moving "@zed-industries/codex-acp-win32-x64" to cache dir failed EPERM: Operation not permitted';
+    expect(isBunEpermError(msg)).toBe(true);
+  });
+
+  it('returns false on non-Windows platforms', () => {
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+    const msg = 'EPERM: Operation not permitted (NtSetInformationFile())';
+    expect(isBunEpermError(msg)).toBe(false);
+  });
+
+  it('returns false for unrelated errors on Windows', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    expect(isBunEpermError('ENOENT: no such file or directory')).toBe(false);
+    expect(isBunEpermError('EPERM: some other operation')).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    expect(isBunEpermError('')).toBe(false);
+  });
 });
 
 describe('isBunxCacheCorruption', () => {

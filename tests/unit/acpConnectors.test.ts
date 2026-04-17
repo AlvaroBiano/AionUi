@@ -69,6 +69,7 @@ import {
   createGenericSpawnConfig,
   spawnGenericBackend,
   spawnNpxBackend,
+  spawnNpxBackendWithNpm,
 } from '../../src/process/agent/acp/acpConnectors';
 
 const mockExecFile = vi.mocked(execFileCb);
@@ -632,5 +633,116 @@ describe('connectCodex - Darwin optional dependency fallback', () => {
 
     expect(firstCallArgs).toContain('@zed-industries/codex-acp@0.9.5');
     expect(secondCallArgs).toContain('@zed-industries/codex-acp-darwin-x64');
+  });
+});
+
+describe('connectClaude - Windows EPERM fallback to npx', () => {
+  let originalPlatform: PropertyDescriptor | undefined;
+  const mockChild = { unref: vi.fn() };
+
+  beforeEach(() => {
+    originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    mockSpawn.mockReturnValue(mockChild as unknown as ReturnType<typeof spawn>);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    if (originalPlatform) {
+      Object.defineProperty(process, 'platform', originalPlatform);
+    }
+  });
+
+  it('falls back to npx when bun hits EPERM from antivirus on Windows', async () => {
+    let callCount = 0;
+    const hooks = {
+      setup: vi.fn(async () => {
+        callCount++;
+        if (callCount === 1) {
+          throw new Error(
+            'claude ACP process exited during startup (code: 1):\n' +
+              'Resolving dependencies\n' +
+              'error: moving "@anthropic-ai/claude-agent-sdk" to cache dir failed\n' +
+              'EPERM: Operation not permitted (NtSetInformationFile())'
+          );
+        }
+      }),
+      cleanup: vi.fn(async () => {}),
+    };
+
+    await connectClaude('C:\\cwd', hooks);
+
+    expect(hooks.setup).toHaveBeenCalledTimes(2);
+    expect(hooks.cleanup).toHaveBeenCalledTimes(1);
+
+    const secondCall = mockSpawn.mock.calls[1];
+    const secondArgs = secondCall?.[1] as string[];
+    expect(secondArgs).toContain('-y');
+    expect(secondArgs).not.toContain('--bun');
+  });
+
+  it('does not fall back for non-EPERM errors on Windows', async () => {
+    const hooks = {
+      setup: vi.fn(async () => {
+        throw new Error('ENOENT: command not found');
+      }),
+      cleanup: vi.fn(async () => {}),
+    };
+
+    await expect(connectClaude('C:\\cwd', hooks)).rejects.toThrow('ENOENT');
+    expect(hooks.setup).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('spawnNpxBackendWithNpm', () => {
+  const mockChild = { unref: vi.fn() };
+
+  beforeEach(() => {
+    mockSpawn.mockReturnValue(mockChild as unknown as ReturnType<typeof spawn>);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('uses npx.cmd with -y flag and shell mode when resolveNpxDirect returns null', async () => {
+    const { resolveNpxDirect: mockResolveNpxDirect } = vi.mocked(await import('@process/utils/shellEnv'));
+    mockResolveNpxDirect.mockReturnValue(null);
+
+    spawnNpxBackendWithNpm('claude', '@pkg/cli@1.0.0', {}, 'C:\\cwd');
+
+    const [command, args, options] = mockSpawn.mock.calls[0];
+    expect(command).toContain('npx.cmd');
+    expect(args).toContain('-y');
+    expect(args).toContain('@pkg/cli@1.0.0');
+    expect((options as { shell?: boolean }).shell).toBe(true);
+  });
+
+  it('uses direct node + npx-cli.js invocation when resolveNpxDirect succeeds', async () => {
+    const { resolveNpxDirect: mockResolveNpxDirect } = vi.mocked(await import('@process/utils/shellEnv'));
+    mockResolveNpxDirect.mockReturnValue({
+      nodePath: 'C:\\nodejs\\node.exe',
+      npxScript: 'C:\\nodejs\\node_modules\\npm\\bin\\npx-cli.js',
+    });
+
+    spawnNpxBackendWithNpm('claude', '@pkg/cli@1.0.0', {}, 'C:\\cwd');
+
+    const [command, args] = mockSpawn.mock.calls[0];
+    expect(command).toBe('C:\\nodejs\\node.exe');
+    expect(args).toContain('C:\\nodejs\\node_modules\\npm\\bin\\npx-cli.js');
+    expect(args).toContain('-y');
+    expect(args).toContain('@pkg/cli@1.0.0');
+  });
+
+  it('passes extra args to spawned process', async () => {
+    const { resolveNpxDirect: mockResolveNpxDirect } = vi.mocked(await import('@process/utils/shellEnv'));
+    mockResolveNpxDirect.mockReturnValue(null);
+
+    spawnNpxBackendWithNpm('codex', '@pkg/cli@1.0.0', {}, 'C:\\cwd', {
+      extraArgs: ['--some-flag'],
+    });
+
+    const [, args] = mockSpawn.mock.calls[0];
+    expect(args).toContain('--some-flag');
   });
 });

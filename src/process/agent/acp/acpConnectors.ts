@@ -28,6 +28,7 @@ import {
   getWindowsShellExecutionOptions,
   loadFullShellEnvironment,
   normalizeNpxArgsForBundledBun,
+  resolveNpxDirect,
   resolveNpxPath,
 } from '@process/utils/shellEnv';
 import { readClaudeProviderEnvFromCcSwitch } from '@process/services/ccSwitchModelSource';
@@ -336,6 +337,19 @@ export type NpxPrepareResult = {
   extraArgs?: string[];
 };
 
+// ── Bun EPERM detection (Windows antivirus) ─────────────────────────
+
+/**
+ * Detect bun EPERM failures caused by Windows antivirus locking files.
+ * Windows Defender (and similar) scan newly created files in real time,
+ * holding a share-lock that blocks bun's NtSetInformationFile rename.
+ */
+export function isBunEpermError(errorMessage: string): boolean {
+  return (
+    process.platform === 'win32' && /EPERM.*NtSetInformationFile|to cache dir failed[\s\S]*EPERM/i.test(errorMessage)
+  );
+}
+
 // ── Bunx cache corruption detection & cleanup ──────────────────────
 
 /**
@@ -414,6 +428,52 @@ export function spawnNpxBackend(
     child.unref();
   }
   console.log(`[ACP-PERF] ${backend}: process spawned ${Date.now() - spawnStart}ms (bundled bun)`);
+
+  return { child, isDetached: detached };
+}
+
+/**
+ * Spawn an npx-based ACP backend using real npx (npm) instead of bun.
+ * Used as a Windows fallback when bun hits EPERM from antivirus file locking.
+ */
+export function spawnNpxBackendWithNpm(
+  backend: string,
+  npxPackage: string,
+  cleanEnv: Record<string, string | undefined>,
+  workingDir: string,
+  {
+    extraArgs = [],
+    detached = false,
+  }: {
+    extraArgs?: string[];
+    detached?: boolean;
+  } = {}
+): SpawnResult {
+  const direct = resolveNpxDirect(cleanEnv);
+  const spawnStart = Date.now();
+  let child: ChildProcess;
+
+  if (direct) {
+    child = spawn(direct.nodePath, [direct.npxScript, '-y', npxPackage, ...extraArgs], {
+      cwd: workingDir,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: cleanEnv,
+      windowsHide: true,
+    });
+  } else {
+    const npxCmd = 'npx.cmd';
+    child = spawn(`chcp 65001 >nul && ${npxCmd}`, ['-y', npxPackage, ...extraArgs], {
+      cwd: workingDir,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: cleanEnv,
+      shell: true,
+    });
+  }
+
+  if (detached) {
+    child.unref();
+  }
+  console.log(`[ACP-PERF] ${backend}: process spawned ${Date.now() - spawnStart}ms (npx fallback)`);
 
   return { child, isDetached: detached };
 }
@@ -582,11 +642,21 @@ async function connectNpxBackend(config: {
   } catch (error) {
     await cleanup();
 
+    const errMsg = error instanceof Error ? error.message : '';
+
+    // Windows antivirus EPERM: bun's rename is blocked by real-time scanning.
+    // Fall back to npx (npm) which uses a copy-based install that isn't
+    // affected by the same file-locking issue.
+    if (isBunEpermError(errMsg)) {
+      console.warn(`[ACP ${backend}] Bun hit EPERM (antivirus file lock), falling back to npx`);
+      await setup(spawnNpxBackendWithNpm(backend, npxPackage, cleanEnv, workingDir, opts));
+      return;
+    }
+
     // Detect bunx cache corruption (missing transitive dependencies).
     // bun x caches packages in a temp dir but sometimes fails to install all
     // transitive deps (known bun issue). Clearing the cache and retrying once
     // forces a fresh install with complete dependencies.
-    const errMsg = error instanceof Error ? error.message : '';
     if (isBunxCacheCorruption(errMsg)) {
       const cleared = clearBunxCache(errMsg);
       if (cleared) {
