@@ -230,10 +230,6 @@ test.describe('R2: 快速多会话切换后消息列表不串台 (useMessageLstC
   });
 
   test('来回切换 A↔B 5 次后，消息数量稳定（无累积/重复）', async ({ page }) => {
-    // P2 BUG: useMessageLstCache 缺少 cancelled flag，快速回访时 count 从 N 跳到 N+2。
-    // 根因：hooks.ts:362 的 update() 在 navigate-away 后仍执行，导致虚假消息累积。
-    // 标记为 test.fail() 以便 CI 追踪，待 dev 修复后移除此标记。
-    test.fail(true, 'P2 BUG: useMessageLstCache missing cancelled flag — message count jumps (e.g. 14→16) on fast revisit. Root cause: hooks.ts update() executes after navigate-away.');
     // 先进入 conv_a 并等待完全稳定，记录基准消息数
     await navTo(page, _convA);
     await page.waitForSelector(MESSAGE_ITEM, { timeout: 10_000 }).catch(() => {});
@@ -242,17 +238,19 @@ test.describe('R2: 快速多会话切换后消息列表不串台 (useMessageLstC
     const baseCount = await page.locator(MESSAGE_ITEM).count();
     expect(baseCount, 'R2: conv_a must have messages on first visit').toBeGreaterThan(0);
 
-    // 来回切换 4 次，每次回到 conv_a 后等待稳定再验证计数
+    // 来回切换 4 次，每次回到 conv_a 后只等 150ms（竞态窗口：DB query 返回但 cancelled 未检查）
+    // 验证标准：修复前（无 cancelled flag）→ FAIL (count 14→16)；修复后（有 cancelled flag）→ PASS
+    // 此时间窗口已通过"修复前 FAIL / 修复后 PASS"双向验证（2026-04-17）
     for (let i = 0; i < 4; i++) {
       await navTo(page, _convB);
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(150);
       await navTo(page, _convA);
       await page.waitForSelector(MESSAGE_ITEM, { timeout: 10_000 }).catch(() => {});
-      await page.waitForTimeout(3_000); // 足够等待 DB 合并完成
+      await page.waitForTimeout(150);
       const count = await page.locator(MESSAGE_ITEM).count();
       expect(
         count,
-        `R2: conv_a message count should be stable on round ${i + 1} (base=${baseCount}, now=${count}) — DB/stream merge produces different counts each visit`,
+        `R2: conv_a message count should be stable on round ${i + 1} (base=${baseCount}, now=${count}) — stale DB update() must not run after navigate-away`,
       ).toBe(baseCount);
     }
   });
