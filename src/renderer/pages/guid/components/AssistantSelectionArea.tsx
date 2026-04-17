@@ -311,7 +311,7 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
   if (cards.length === 0) return null;
 
   return (
-    <div className={`${styles.assistantGrid} mt-12px w-full`}>
+    <div data-testid='guid-quick-start' className={`${styles.assistantGrid} mt-12px w-full`}>
       <p className={styles.assistantGridLabel}>{t('guid.selectAssistant')}</p>
       <div className={styles.assistantGridCards}>
         {cards.map((card, idx) => {
@@ -331,7 +331,8 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
             const presetBgColor = getPresetAvatarBgColor(assistant.id) ?? assistant.avatarBgColor;
             return (
               <div
-                key={`a-${assistant.id}-${idx}`}
+                key={`a-${assistant.id}`}
+                data-testid='guid-quick-start-card'
                 className={styles.assistantCard}
                 onClick={() => {
                   onSelectAssistant(`custom:${assistant.id}`);
@@ -373,7 +374,8 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
               : undefined);
           return (
             <div
-              key={`g-${agentKey}-${idx}`}
+              key={`g-${agentKey}`}
+              data-testid='guid-quick-start-card'
               className={styles.assistantCard}
               onClick={() => {
                 onSelectAssistant(agentKey);
