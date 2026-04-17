@@ -33,7 +33,7 @@
 
 ### [BUG-005] AC12 快速连点不同卡片时 agent 选择竞态 — 最后一次点击的 agent 未生效
 - **严重级别**: P2
-- **状态**: Open
+- **状态**: Fixed ✅
 - **报告方**: QA-黑盒（攻击性 E2E M1-A2，2026-04-17）
 - **复现命令**: `E2E_DEV=1 bunx playwright test tests/e2e/specs/guid-page-attack.e2e.ts --grep "M1-A2"`
 - **描述**: `AssistantSelectionArea.tsx` 的卡片 `onClick` 触发 agent 选中时存在竞态。快速连点 card[0]→card[1]（间隔 ≤40ms），card[0] 的异步状态更新在 card[1] 的更新之后完成，导致最终 selector 显示 card[0] 的 agent，而非用户最后点击的 card[1]。
@@ -43,8 +43,9 @@
   Expected: "路演 PPT 助手"（card[1]，第二次点击）
   Received: "财务建模助手"（card[0]，第一次点击）
   ```
-- **修复建议**: 在 `onClick` handler 中加入防抖或用 ref 记录"最后一次点击的 agentId"，setState 前校验是否仍为最新点击，忽略已过期的异步结果。
-- **相关文件**: `src/renderer/pages/guid/components/AssistantSelectionArea.tsx`
+- **根因**: card 的 React key 含 `idx` 后缀（`a-${id}-${idx}` / `g-${agentKey}-${idx}`），第一次 click 触发 re-render 后 cards 数组重排，旧 DOM 节点被销毁重建，40ms 后第二次点击打到已卸载节点，其 handler 调用了旧 agent 的 `onSelectAssistant`，覆盖了 last-click 结果。
+- **修复**: 移除 key 中的 `-${idx}` 后缀，改为稳定 key `a-${id}` / `g-${agentKey}`，DOM 节点在 re-render 后保持稳定。commit `eba307349`
+- **验证**: `tests/e2e/specs/guid-page-attack.e2e.ts` M1-A2 `test.fail()` 已移除（commit `03535dfd2`）；12 passed / 0 failed
 
 ### [BUG-002] useWorkspaceEvents 跨会话误刷新 — workspace 在切换后继续闪烁
 - **严重级别**: P2

@@ -17,16 +17,16 @@
 | 指标                                    | 数值                                                                      |
 | --------------------------------------- | ------------------------------------------------------------------------- |
 | 模块总数                                | 20                                                                        |
-| E2E 文件已完成（无非法 skip）           | 2（Module 1、2）                                                          |
+| E2E 文件已完成（无非法 skip）           | 2（Module 1、2）；Module 1 含攻击测试 guid-page-attack.e2e.ts             |
 | E2E 文件部分覆盖                        | 1（Module 5，仅 3/16 AC）                                                 |
 | E2E 文件进行中                          | 1（Module 13）                                                            |
 | E2E 文件未开始                          | 16                                                                        |
 | conversation-core.e2e.ts 通过数         | 58 passed / 4 合法 skip；含攻击测试 Section 24-28；PM [TEST-APPROVED] ✅  |
 | 攻击性 E2E（Module 2）                  | ✅ 11 passed（AC7 双向 includes 修复、AC25 时间窗口修正）commit aa984e431 |
 | conversation-race-conditions.e2e.ts     | ✅ 8 passed / 2 skip；B3 150ms 竞态回归守护；PM [TEST-APPROVED] ✅        |
-| 攻击性 E2E（Module 1）                  | ✅ 11 passed / 1 expected-fail（BUG-005 M1-A2）；PM [TEST-APPROVED] ✅ commit 8eadb15ec |
+| 攻击性 E2E（Module 1）                  | ✅ 12 passed / 0 fail；BUG-005 已修复；PM [TEST-APPROVED] ✅ commit 03535dfd2          |
 | 单元测试新增                            | 64 个全绿（qa-whitebox 38 + R1/R5 26）                                    |
-| 已发现 bug                              | 5 个（B1/B3/B4 已修 ✅、B2 P2 已修 ✅、BUG-005 P2 Open 待 dev-2 修复）    |
+| 已发现 bug                              | 5 个（BUG-001 P3 Open、BUG-002～004 已修 ✅、BUG-005 P2 已修 ✅）          |
 | mcp-settings.e2e.ts TODO 选择器         | 待确认                                                                    |
 
 ---
@@ -35,7 +35,7 @@
 
 | #   | 模块                    | 对应 spec 文件                   | 状态        | 备注                                                                                     |
 | --- | ----------------------- | -------------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
-| 1   | 首页导航（Guid 页）     | `guid-page.e2e.ts` + `guid-page-attack.e2e.ts` | ✅ 完成 | 正规：29 passed / 2 合法 skip；攻击：11 passed / 1 expected-fail（BUG-005）；PM ✅ |
+| 1   | 首页导航（Guid 页）     | `guid-page.e2e.ts` + `guid-page-attack.e2e.ts` | ✅ 完成 | 正规：29 passed / 2 合法 skip；攻击：11 passed / 1 expected-fail（BUG-005 P2 open）；PM ✅；commit 8eadb15ec |
 | 2   | 对话核心流程            | `conversation-core.e2e.ts`       | ✅ 完成     | 47 passed / 4 合法 skip（AC3e/f cron、AC23 待实现、AC28 streaming）；2026-04-17 全量清理 |
 | 3   | 对话管理操作            | `conversation-operations.e2e.ts` | ⬜ 未评估   |                                                                                          |
 | 4   | 消息输入框（SendBox）   | `sendbox-ui.e2e.ts`              | ⬜ 未评估   |                                                                                          |
@@ -107,3 +107,4 @@
 | 2026-04-17 | bug-reports.md BUG-001～BUG-004 录入完成                                    |
 | 2026-04-17 | guid-page-attack.e2e.ts 新建（M1-A1～A5，10 用例）；PM [TEST-APPROVED] ✅       |
 | 2026-04-17 | BUG-005 P2 发现（AC12 快速连点竞态）；test.fail() 标记；已通知 dev-2           |
+| 2026-04-17 | **Module 1 攻击测试入库**：guid-page-attack.e2e.ts 11 passed / 1 expected-fail（BUG-005）；PM [TEST-APPROVED] ✅ commit 8eadb15ec |
