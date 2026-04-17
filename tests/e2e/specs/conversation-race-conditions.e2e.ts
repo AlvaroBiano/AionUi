@@ -230,11 +230,17 @@ test.describe('R2: 快速多会话切换后消息列表不串台 (useMessageLstC
   });
 
   test('来回切换 A↔B 5 次后，消息数量稳定（无累积/重复）', async ({ page }) => {
-    // 先进入 conv_a 并等待完全稳定，记录基准消息数
+    // 先进入 conv_a 并等待完全稳定，再切一次来稳定 DB 状态后记录基准消息数
     await navTo(page, _convA);
     await page.waitForSelector(MESSAGE_ITEM, { timeout: 10_000 }).catch(() => {});
     // 等待 3 秒让 DB 加载 + 合并完全稳定（DB 保存有 2s debounce）
     await page.waitForTimeout(3_000);
+    // 做一次预热切换，让 DB 与内存状态完全对齐（排除首次加载时的流式消息残留）
+    await navTo(page, _convB);
+    await page.waitForTimeout(500);
+    await navTo(page, _convA);
+    await page.waitForSelector(MESSAGE_ITEM, { timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(1_000);
     const baseCount = await page.locator(MESSAGE_ITEM).count();
     expect(baseCount, 'R2: conv_a must have messages on first visit').toBeGreaterThan(0);
 
