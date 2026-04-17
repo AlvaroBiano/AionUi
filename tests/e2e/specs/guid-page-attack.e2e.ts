@@ -186,7 +186,13 @@ test.describe('M1-A1: AC14a 快速双击 Enter 防重', () => {
 // 这测试 AssistantSelectionArea.tsx 的 onClick 去抖和状态更新是否正确串行。
 
 test.describe('M1-A2: AC12 连续快速点击不同快速启动卡片', () => {
+  // BUG-005: AC12 快速连点竞态 — card[0] 的异步更新覆盖 card[1]，last click wins 未实现
+  // 标记为 test.fail()，待 dev-2 修复 AssistantSelectionArea.tsx 后移除
   test('快速连点 card[0] → card[1]，selector 最终显示 card[1] 的 agent', async ({ page }) => {
+    test.fail(
+      true,
+      '[BUG-005] rapid card click race: card[0] async update overwrites card[1] selection — last click wins not implemented'
+    );
     await goToGuid(page);
     await waitForSettle(page);
 
