@@ -35,7 +35,7 @@
 
 | #   | 模块                    | 对应 spec 文件                   | 状态        | 备注                                                                                     |
 | --- | ----------------------- | -------------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
-| 1   | 首页导航（Guid 页）     | `guid-page.e2e.ts` + `guid-page-attack.e2e.ts` | ✅ 完成 | 正规：29 passed / 2 合法 skip；攻击：11 passed / 1 expected-fail（BUG-005 P2 open）；PM ✅；commit 8eadb15ec |
+| 1   | 首页导航（Guid 页）     | `guid-page.e2e.ts` + `guid-page-attack.e2e.ts` | ✅ 完成 | 正规：29 passed / 2 合法 skip；攻击：12 passed / 0 fail（BUG-005 已修 commit eba307349）；PM ✅ |
 | 2   | 对话核心流程            | `conversation-core.e2e.ts`       | ✅ 完成     | 47 passed / 4 合法 skip（AC3e/f cron、AC23 待实现、AC28 streaming）；2026-04-17 全量清理 |
 | 3   | 对话管理操作            | `conversation-operations.e2e.ts` | ⬜ 未评估   |                                                                                          |
 | 4   | 消息输入框（SendBox）   | `sendbox-ui.e2e.ts`              | ⬜ 未评估   |                                                                                          |
@@ -107,4 +107,6 @@
 | 2026-04-17 | bug-reports.md BUG-001～BUG-004 录入完成                                    |
 | 2026-04-17 | guid-page-attack.e2e.ts 新建（M1-A1～A5，10 用例）；PM [TEST-APPROVED] ✅       |
 | 2026-04-17 | BUG-005 P2 发现（AC12 快速连点竞态）；test.fail() 标记；已通知 dev-2           |
+| 2026-04-17 | BUG-005 P2 修复（card React key 去 idx 后缀）；12 passed / 0 fail；PM [TEST-APPROVED] ✅ |
+| 2026-04-17 | **Module 1 攻击测试完成**：guid-page-attack.e2e.ts 12/12 全绿入库              |
 | 2026-04-17 | **Module 1 攻击测试入库**：guid-page-attack.e2e.ts 11 passed / 1 expected-fail（BUG-005）；PM [TEST-APPROVED] ✅ commit 8eadb15ec |
