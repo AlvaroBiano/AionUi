@@ -13,7 +13,7 @@ import { resolveAgentKey } from '../GroupedHistory/utils/groupingHelpers';
 import { emitter } from '../../../utils/emitter';
 import { Button, Dropdown } from '@arco-design/web-react';
 import { History, Plus } from '@icon-park/react';
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,6 +39,19 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
   const navigate = useNavigate();
   const isCreatingRef = useRef(false);
   const { conversations } = useConversationHistoryContext();
+  const [open, setOpen] = useState(false);
+
+  // Close dropdown on Escape key
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   const agentKey = resolveAgentKey(conversation);
 
@@ -52,6 +65,7 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
   const handleCreateNew = async () => {
     if (isCreatingRef.current) return;
     isCreatingRef.current = true;
+    setOpen(false);
     try {
       const id = uuid();
       const latest = await ipcBridge.conversation.get.invoke({ id: conversation.id }).catch((): null => null);
@@ -100,7 +114,10 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
           <div
             key={conv.id}
             className={`flex items-center gap-8px px-12px py-6px cursor-pointer hover:bg-[var(--color-fill-2)] ${isActive ? 'bg-[var(--color-fill-2)]' : ''}`}
-            onClick={() => void navigate(`/conversation/${conv.id}`)}
+            onClick={() => {
+              setOpen(false);
+              void navigate(`/conversation/${conv.id}`);
+            }}
           >
             <span
               className={`flex-1 min-w-0 truncate text-13px ${isActive ? 'font-medium text-t-primary' : 'text-t-primary'}`}
@@ -115,7 +132,14 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
   );
 
   return (
-    <Dropdown droplist={droplist} trigger='click' position='br' getPopupContainer={() => document.body}>
+    <Dropdown
+      droplist={droplist}
+      trigger='click'
+      position='br'
+      getPopupContainer={() => document.body}
+      popupVisible={open}
+      onVisibleChange={setOpen}
+    >
       <Button
         size='mini'
         title={t('conversation.history.historyPanel')}
