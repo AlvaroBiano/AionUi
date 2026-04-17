@@ -99,7 +99,7 @@ export {
   type ExtensionSnapshot,
   type ChannelPluginStatus,
 } from './extensions';
-export { invokeBridge } from './bridge';
+export { invokeBridge, setConfigStorage, getConfigStorage } from './bridge';
 export {
   selectAgent,
   selectModel,

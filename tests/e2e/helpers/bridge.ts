@@ -70,3 +70,23 @@ export async function invokeBridge<T = unknown>(
     { requestKey: key, requestData: data, requestTimeoutMs: timeoutMs }
   ) as Promise<T>;
 }
+
+/**
+ * Write a key/value pair to a ConfigStorage namespace via IPC.
+ * The channel follows the @office-ai/platform buildStorage convention:
+ *   `{namespace}.storage.set` with payload `{ key: string, data: value }`
+ *
+ * For ConfigStorage ('agent.config' namespace) the channel is:
+ *   'agent.config.storage.set'
+ */
+export async function setConfigStorage(page: Page, key: string, value: unknown): Promise<void> {
+  await invokeBridge(page, 'agent.config.storage.set', { key, data: value });
+}
+
+/**
+ * Read a key from ConfigStorage via IPC.
+ * Channel: 'agent.config.storage.get'
+ */
+export async function getConfigStorage<T = unknown>(page: Page, key: string): Promise<T | undefined> {
+  return invokeBridge<T | undefined>(page, 'agent.config.storage.get', key);
+}
