@@ -1272,6 +1272,9 @@ test.describe('AC7 攻击性：剪贴板真实内容 + 图标恢复计时', () =
     const hasUserMsg = await userMsg.isVisible({ timeout: 5_000 }).catch(() => false);
     const targetMsg = hasUserMsg ? userMsg : page.locator(MESSAGE_ITEM).first();
 
+    // 记录目标消息的文本内容，用于与剪贴板做精确比对
+    const msgText = ((await targetMsg.textContent().catch(() => null)) ?? '').trim();
+
     await targetMsg.hover();
     await page.waitForTimeout(400);
 
@@ -1307,8 +1310,21 @@ test.describe('AC7 攻击性：剪贴板真实内容 + 图标恢复计时', () =
     // 剪贴板必须可读——null 表示权限被拒或 API 完全失败，属于 P2 bug
     expect(clipboardText, 'AC7: clipboard should be readable — check navigator.clipboard permissions grant').not.toBeNull();
     if (clipboardText !== null) {
-      // 剪贴板内容应非空且包含有意义的文字（长度 > 2，不是空串、不是纯空白）
-      expect(clipboardText.trim().length, 'AC7: copied content should not be empty whitespace').toBeGreaterThan(2);
+      // 剪贴板内容必须与消息文本相关（精确内容对比，不能只断言非空）
+      // targetMsg.textContent() 包含完整气泡文字（用户名+消息+时间戳），
+      // 而复制操作只复制消息正文。因此用 includes 验证：消息气泡文本应包含剪贴板内容，
+      // 或剪贴板内容应被消息气泡文本包含。
+      if (msgText.length > 0) {
+        const clipped = clipboardText.trim();
+        const msgContainsClip = msgText.includes(clipped);
+        const clipContainsMsg = clipped.includes(msgText);
+        expect(
+          msgContainsClip || clipContainsMsg,
+          `AC7: clipboard content must be a substring of (or contain) the message text.\n  Message: "${msgText.slice(0, 80)}"\n  Clipboard: "${clipped.slice(0, 80)}"`,
+        ).toBe(true);
+      } else {
+        expect(clipboardText.trim().length, 'AC7: copied content should not be empty whitespace').toBeGreaterThan(2);
+      }
     }
   });
 
@@ -1468,6 +1484,9 @@ test.describe('AC25 攻击性：快速连点新会话', () => {
     const newConvBtn = dropdown.getByText(/新建会话|新会话|New Conversation/i).first();
     await expect(newConvBtn).toBeVisible({ timeout: 3_000 });
 
+    // 在连点前记录时间戳，用于后续筛选新创建会话的时间窗口
+    const clickTs = Date.now();
+
     // 快速顺序点击3次，不等待导航（模拟用户快速连点）
     // 注：第1次点击后面板会关闭（导航触发），因此第2/3次用 evaluate 直接派发
     // click 事件，绕过 Playwright 的可交互性等待，真实模拟用户快速连点
@@ -1503,7 +1522,6 @@ test.describe('AC25 攻击性：快速连点新会话', () => {
     // 断言2：通过 IPC 查询会话列表，精确统计新创建了几个会话
     // 若防重逻辑生效 → 只有 1 个新会话（finalId）
     // 若防重逻辑缺失 → 会有 3 个相同名称的新会话
-    const clickTs = Date.now();
     type TConvListItem = { id: string; name: string; created_at?: number; updated_at?: number };
     const allConvs = await invokeBridge<TConvListItem[]>(page, 'get-conversations', {}).catch(() => null);
 
