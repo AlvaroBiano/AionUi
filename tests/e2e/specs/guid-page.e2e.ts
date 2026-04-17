@@ -45,11 +45,10 @@ const SIDER_TAB_AGENTS = '[data-testid="sider-tab-agents"]';
 const AGENT_SECTION_HEADER = '[data-agent-section]';
 const ARCO_DROPDOWN = '.arco-dropdown-popup, .arco-trigger-popup, .arco-dropdown-menu';
 
-// Quick-action buttons: no data-testid, identified by position/structure
-// They live inside a flex div with gap-24px inside .guidQuickActions
-// We rely on the outer container that is absolutely positioned + translated
-const QUICK_ACTION_CONTAINER_SELECTOR =
-  '[class*="guidQuickActions"], .absolute.left-50\\%.-translate-x-1\\/2';
+// Quick-action buttons: no data-testid, identified by structure.
+// Confirmed via CDP: inner flex wrapper is always 'flex justify-center items-center gap-24px'.
+// CSS Module hash (_guidQuickActions_<hash>) is unpredictable so we don't rely on it.
+const QUICK_ACTION_INNER_FLEX = 'div.flex.justify-center.items-center.gap-24px';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -205,7 +204,10 @@ test.describe('Guid page – agent selector (AC3, AC4, AC4a)', () => {
     }
 
     // Section label tells us where presets start
-    const presetSection = page.locator('[class*="agentSelectorSectionLabel"]').filter({ hasText: /assistant|助手/i }).first();
+    const presetSection = page
+      .locator('[class*="agentSelectorSectionLabel"]')
+      .filter({ hasText: /assistant|助手/i })
+      .first();
     const hasSectionLabel = await presetSection.isVisible({ timeout: 2_000 }).catch(() => false);
 
     if (!hasSectionLabel) {
@@ -401,7 +403,7 @@ test.describe('Guid page – quick-start cards (AC9–AC13)', () => {
     }
   });
 
-  test('AC12: clicking a quick-start card updates the agent selector to that card\'s agent', async ({ page }) => {
+  test("AC12: clicking a quick-start card updates the agent selector to that card's agent", async ({ page }) => {
     await goToGuid(page);
     await waitForSettle(page);
 
@@ -501,7 +503,10 @@ test.describe('Guid page – send button (AC14, AC14a, AC14b)', () => {
     // Arco disabled button: aria-disabled="true" or class arco-btn-disabled
     const isDisabled = await sendBtn
       .evaluate(
-        (el) => el.getAttribute('aria-disabled') === 'true' || el.classList.contains('arco-btn-disabled') || (el as HTMLButtonElement).disabled
+        (el) =>
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.classList.contains('arco-btn-disabled') ||
+          (el as HTMLButtonElement).disabled
       )
       .catch(() => false);
     expect(isDisabled).toBe(true);
@@ -520,7 +525,10 @@ test.describe('Guid page – send button (AC14, AC14a, AC14b)', () => {
 
     const isDisabled = await sendBtn
       .evaluate(
-        (el) => el.getAttribute('aria-disabled') === 'true' || el.classList.contains('arco-btn-disabled') || (el as HTMLButtonElement).disabled
+        (el) =>
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.classList.contains('arco-btn-disabled') ||
+          (el as HTMLButtonElement).disabled
       )
       .catch(() => false);
     expect(isDisabled).toBe(false);
@@ -582,53 +590,29 @@ test.describe('Guid page – plus button menu (AC15)', () => {
     await goToGuid(page);
     await waitForSettle(page);
 
-    // The + button is an Arco Button inside the Dropdown in GuidActionRow
-    // It renders as: button.arco-btn inside span.actionEntry > Dropdown
-    // The icon is Plus from @icon-park/react
-    const plusBtn = page
-      .locator(
-        '.guid-input-card-shell .arco-btn-text.arco-btn-shape-circle, ' +
-          '[data-testid="guid-plus-btn"]'
-      )
-      .first();
+    // Confirmed via CDP: Plus button renders as:
+    //   <span class="flex items-center gap-4px cursor-pointer lh-[1]">  ← Dropdown trigger span
+    //     <button class="arco-btn arco-btn-text ... arco-btn-shape-circle arco-btn-icon-only">
+    // The Dropdown trigger='hover' is on the span wrapper.
+    const plusBtn = page.locator('.guid-input-card-shell .arco-btn-text.arco-btn-shape-circle').first();
+    await expect(plusBtn, 'AC15: plus button should be visible').toBeVisible({ timeout: 8_000 });
 
-    const isVisible = await plusBtn.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (!isVisible) {
-      test.skip(true, 'Plus button not found – selector may need adjustment after UI change');
-      return;
-    }
-
-    await expect(plusBtn).toBeVisible();
-
-    // Trigger the dropdown. The Dropdown has trigger='hover' on the span wrapper.
-    // We hover over the plus button to open it.
+    // Hover the span wrapper (the Dropdown trigger) to open the menu.
+    // Confirmed: span class "flex items-center gap-4px cursor-pointer lh-[1]"
     const plusSpan = page.locator('.guid-input-card-shell span.flex.items-center.gap-4px').first();
-    const spanVisible = await plusSpan.isVisible({ timeout: 3_000 }).catch(() => false);
-
-    if (spanVisible) {
-      await plusSpan.hover();
-    } else {
-      await plusBtn.hover();
-    }
-
+    await plusSpan.hover();
     await page.waitForTimeout(500);
 
-    // The Arco Menu should be visible somewhere in the page (it's portal-rendered)
-    // Arco Dropdown renders a .arco-trigger-popup or .arco-dropdown-popup in the document body
-    const menu = page.locator('.arco-dropdown-menu, .arco-menu, .arco-trigger-popup').first();
-    const menuVisible = await menu.isVisible({ timeout: 3_000 }).catch(() => false);
+    // Arco Dropdown portal-renders as .arco-trigger-popup in document.body
+    const menu = page.locator('.arco-dropdown-menu, .arco-trigger-popup').first();
+    await expect(menu, 'AC15: plus dropdown should open on hover').toBeVisible({ timeout: 5_000 });
 
-    if (!menuVisible) {
-      test.skip(true, 'Plus dropdown did not open on hover – may require click in this environment');
-      return;
-    }
-
-    // Get the full text of ALL visible dropdown/menu elements (portal may render outside the first match)
+    // Get the full text of ALL visible dropdown elements (portal may render outside the first match)
     const allMenuText = await page.evaluate(() => {
       const selectors = ['.arco-dropdown-menu', '.arco-menu', '.arco-trigger-popup'];
       return selectors
         .flatMap((sel) => Array.from(document.querySelectorAll(sel)))
-        .filter((el) => (el as HTMLElement).offsetParent !== null) // visible
+        .filter((el) => (el as HTMLElement).offsetParent !== null)
         .map((el) => el.textContent ?? '')
         .join(' ');
     });
@@ -637,15 +621,14 @@ test.describe('Guid page – plus button menu (AC15)', () => {
     const hasUpload = /上传|upload|device|host|file/i.test(allMenuText);
     // Should contain workspace option
     const hasWorkspace = /文件夹|workspace|folder|工作区/i.test(allMenuText);
+    expect(hasUpload || hasWorkspace, 'AC15: dropdown should contain upload or workspace option').toBe(true);
 
-    expect(hasUpload || hasWorkspace).toBe(true);
-
-    // Count all arco-menu-item elements that are visible (may span multiple portals)
+    // Count all arco-menu-item elements that are visible
     const allItemCount = await page.evaluate(() => {
       const items = document.querySelectorAll('.arco-menu-item, .arco-dropdown-menu-item');
       return Array.from(items).filter((el) => (el as HTMLElement).offsetParent !== null).length;
     });
-    expect(allItemCount).toBeGreaterThanOrEqual(2);
+    expect(allItemCount, 'AC15: dropdown should have ≥2 items').toBeGreaterThanOrEqual(2);
 
     // Close menu
     await page.keyboard.press('Escape');
@@ -664,96 +647,68 @@ test.describe('Guid page – quick-action buttons (AC16, AC16a, AC16b, AC16c)', 
 
   async function getQuickActionDivs(page: import('@playwright/test').Page) {
     // QuickActionButtons renders:
-    //   <div className={`absolute left-50% -translate-x-1/2 ... ${styles.guidQuickActions}`}>
-    //     <div className='flex justify-center items-center gap-24px'>
-    //       <div ... cursor-pointer rd-999px ...>   (bug report)
-    //       <div ... cursor-pointer rd-999px ...>   (star)
-    //       <div ... cursor-pointer rd-999px ...>   (webui)
+    //   <div class="absolute left-50% -translate-x-1/2 ... _guidQuickActions_<hash>_<n>">
+    //     <div class="flex justify-center items-center gap-24px">
+    //       <div class="group inline-flex items-center justify-center ... cursor-pointer ...">  (bug report)
+    //       <div class="group inline-flex items-center justify-center ... cursor-pointer ...">  (star)
+    //       <div class="group inline-flex items-center justify-center ... cursor-pointer ...">  (webui)
     //
-    // CSS Modules hash the guidQuickActions class name, so we use UnoCSS utility classes
-    // that remain as-is: 'absolute', 'left-50%', '-translate-x-1/2'
-    // These three divs all share: inline-flex, items-center, rd-999px, cursor-pointer, bg-fill-0
+    // Confirmed via CDP: the inner flex container class is always
+    // 'flex justify-center items-center gap-24px', and it has exactly 3 children.
+    // CSS Modules hash is unpredictable; UnoCSS utility classes are stable.
 
-    // Strategy: find divs that match the pill-button shape used by QuickActionButtons
-    const pillBtns = page.locator(
-      'div.inline-flex.items-center.justify-center.cursor-pointer[class*="rd-999px"][class*="bg-fill-0"]'
-    );
+    // Primary strategy: find the stable inner flex wrapper, then its direct children
+    const innerFlex = page.locator('div.flex.justify-center.items-center.gap-24px').first();
+    const innerVisible = await innerFlex.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (innerVisible) {
+      const children = innerFlex.locator('> div');
+      const count = await children.count();
+      if (count >= 3) return children;
+    }
+
+    // Fallback: the three button divs all use inline-flex + cursor-pointer + group
+    const pillBtns = page.locator('div.inline-flex.items-center.justify-center.cursor-pointer.group');
     const count = await pillBtns.count();
     if (count >= 3) return pillBtns;
 
-    // Fallback: look for the flex container with gap-24px that is absolutely positioned
-    const container = page.locator('div.absolute[class*="left-50"]').first();
-    const containerVisible = await container.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (!containerVisible) return null;
-    const inner = container.locator('div.cursor-pointer, div[class*="cursor-pointer"]');
-    return inner;
+    return null;
   }
 
   test('AC16: three quick-action buttons are visible', async ({ page }) => {
     await goToGuid(page);
     await waitForSettle(page);
 
+    // Confirmed via CDP: 3 buttons are direct children of flex.justify-center.items-center.gap-24px
     const btns = await getQuickActionDivs(page);
-    if (!btns) {
-      test.skip(true, 'Quick-action button container not found – selector may need adjustment');
-      return;
-    }
-
-    const count = await btns.count();
-    expect(count).toBeGreaterThanOrEqual(3);
+    expect(btns, 'AC16: quick-action button container must be present').not.toBeNull();
+    const count = await btns!.count();
+    expect(count, 'AC16: should have exactly 3 quick-action buttons').toBeGreaterThanOrEqual(3);
   });
 
   test('AC16a: feedback (bug report) button opens FeedbackReportModal', async ({ page }) => {
-    // Always navigate to guid first to ensure the QuickActionButtons are mounted
     await goToGuid(page);
     await waitForSettle(page);
-    // Extra wait to ensure guidQuickActions finishes rendering
     await page.waitForTimeout(500);
 
+    // Confirmed via CDP: button[0] text "想吐槽或提建议?" = bug report (feedback)
     const btns = await getQuickActionDivs(page);
-    if (!btns) {
-      test.skip(true, 'Quick-action button container not found');
-      return;
-    }
+    expect(btns, 'AC16a: quick-action container must be present').not.toBeNull();
 
-    const count = await btns.count();
-    if (count === 0) {
-      test.skip(true, 'No quick-action buttons found on guid page');
-      return;
-    }
-
-    // Bug report is the first button (leftmost) – it has a chat-bubble SVG icon
-    const bugReportBtn = btns.first();
-    const btnVisible = await bugReportBtn.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (!btnVisible) {
-      test.skip(true, 'Bug report button not visible');
-      return;
-    }
+    const bugReportBtn = btns!.first();
+    await expect(bugReportBtn, 'AC16a: bug report button should be visible').toBeVisible({ timeout: 5_000 });
 
     await bugReportBtn.click();
     await page.waitForTimeout(700);
 
-    // FeedbackReportModal uses ModalWrapper (which renders .arco-modal)
-    // It must be visible somewhere in the page
-    const modalVisible = await page
-      .waitForSelector('.arco-modal:visible', { timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false);
+    // FeedbackReportModal renders as .arco-modal (portal-rendered)
+    await expect(page.locator('.arco-modal').first(), 'AC16a: FeedbackReportModal should open').toBeVisible({ timeout: 5_000 });
 
-    if (!modalVisible) {
-      test.skip(true, 'FeedbackReportModal did not open after clicking bug report button');
-      return;
-    }
-
-    // Verify modal content: should have a Select for module and a TextArea for description
-    // Use page-level locators since modal is portal-rendered
+    // Verify modal has a Select or TextArea for content
     const selectEl = page.locator('.arco-modal .arco-select, .arco-modal .arco-select-view').first();
     const textAreaEl = page.locator('.arco-modal textarea').first();
-
     const hasSelect = await selectEl.isVisible({ timeout: 3_000 }).catch(() => false);
     const hasTextArea = await textAreaEl.isVisible({ timeout: 3_000 }).catch(() => false);
-
-    expect(hasSelect || hasTextArea).toBe(true);
+    expect(hasSelect || hasTextArea, 'AC16a: modal should contain select or textarea').toBe(true);
 
     // Close modal
     await page.keyboard.press('Escape');
@@ -771,28 +726,17 @@ test.describe('Guid page – quick-action buttons (AC16, AC16a, AC16b, AC16c)', 
     await goToGuid(page);
     await waitForSettle(page);
 
+    // Confirmed via CDP: button[2] text "远程连接 · 运行中" = WebUI status
     const btns = await getQuickActionDivs(page);
-    if (!btns) {
-      test.skip(true, 'Quick-action button container not found');
-      return;
-    }
+    expect(btns, 'AC16c: quick-action container must be present').not.toBeNull();
 
-    // WebUI is the last (third) button (rightmost)
-    const count = await btns.count();
-    if (count < 3) {
-      test.skip(true, `Only ${count} quick-action buttons found, expected ≥3`);
-      return;
-    }
+    const count = await btns!.count();
+    expect(count, 'AC16c: should have ≥3 quick-action buttons').toBeGreaterThanOrEqual(3);
 
-    const webuiBtn = btns.nth(2);
-    const btnVisible = await webuiBtn.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (!btnVisible) {
-      test.skip(true, 'WebUI status button not visible');
-      return;
-    }
+    const webuiBtn = btns!.nth(2);
+    await expect(webuiBtn, 'AC16c: WebUI button should be visible').toBeVisible({ timeout: 5_000 });
 
-    // The div has an onClick handler but a child button may intercept pointer events.
-    // Use evaluate to dispatch a click event directly on the element.
+    // The div has an onClick handler; dispatch click directly
     await webuiBtn.evaluate((el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
 
     await page
@@ -813,31 +757,27 @@ test.describe('Guid page – SkillsMarketBanner (AC17)', () => {
     // Give SkillsMarketBanner time to initialize (it has a 2-second timeout guard)
     await page.waitForTimeout(2500);
 
-    // The banner renders as an absolutely positioned div at top-right containing
-    // the text from t('conversation.welcome.skillsMarket')
-    // We look for an Arco Switch inside the header area (top-right corner)
-    const bannerSwitch = page
-      .locator('.arco-switch')
-      .filter({
-        // The banner's switch is at the top of the page (right side)
-        // We look for it within the first 200px vertically
-      })
-      .first();
+    // Confirmed via CDP: the banner renders as:
+    //   <div class="absolute right-12px z-10">
+    //     <div class="flex items-center border ... bg-fill-0 ... rd-10px ...">
+    //       <arco-switch>
+    //       <span>技能市场 / Skills Market text</span>
+    //     </div>
+    //   </div>
+    // Target the stable container: absolute + right-12px + z-10
+    const bannerContainer = page.locator('div.absolute.right-12px.z-10').first();
+    const containerVisible = await bannerContainer.isVisible({ timeout: 5_000 }).catch(() => false);
 
-    // Also look for any element containing "Skills Market" or "技能市场"
-    const bannerText = page.locator('*').filter({ hasText: /skills market|技能市场/i }).first();
-    const textVisible = await bannerText.isVisible({ timeout: 5_000 }).catch(() => false);
-
-    if (!textVisible) {
-      // The banner text may be inside a div without accessible text; check for the switch
-      const switchVisible = await bannerSwitch.isVisible({ timeout: 3_000 }).catch(() => false);
-      if (!switchVisible) {
+    if (!containerVisible) {
+      // Also try: the switch itself is confirmed present; just assert it's attached
+      const switchAttached = await page.locator('.arco-switch').first().isVisible({ timeout: 3_000 }).catch(() => false);
+      if (!switchAttached) {
         test.skip(true, 'SkillsMarketBanner not visible – may require skillsMarket.enabled config init');
         return;
       }
-      expect(switchVisible).toBe(true);
+      expect(switchAttached).toBe(true);
     } else {
-      expect(textVisible).toBe(true);
+      expect(containerVisible).toBe(true);
     }
   });
 });
@@ -910,7 +850,11 @@ test.describe('Guid page – URL param agent selection (AC21)', () => {
 
     // Get a different agent's name by reading the second item
     const secondItemName = (
-      (await items.nth(1).locator('[class*="agentSelectorItemName"]').textContent().catch(() => '')) ?? ''
+      (await items
+        .nth(1)
+        .locator('[class*="agentSelectorItemName"]')
+        .textContent()
+        .catch(() => '')) ?? ''
     ).trim();
 
     // Close the dropdown
@@ -978,7 +922,10 @@ test.describe('Guid page – resetAssistant (AC22)', () => {
     }
 
     // Try to find and click a preset (items after section label "Preset Assistants / 预设助手")
-    const presetSection = page.locator('[class*="agentSelectorSectionLabel"]').filter({ hasText: /assistant|助手/i }).first();
+    const presetSection = page
+      .locator('[class*="agentSelectorSectionLabel"]')
+      .filter({ hasText: /assistant|助手/i })
+      .first();
     const hasPreset = await presetSection.isVisible({ timeout: 2_000 }).catch(() => false);
 
     let presetWasSelected = false;
@@ -1068,11 +1015,10 @@ test.describe('Guid page – visual regression snapshots', () => {
     await waitForSettle(page);
     await page.waitForTimeout(300);
 
-    // Quick-action buttons container: CSS Module class 'guidQuickActions' (hashed)
-    // Fall back to absolute positioned container used by QuickActionButtons
-    const container = page
-      .locator('[class*="guidQuickActions"]')
-      .first();
+    // Quick-action inner flex wrapper: stable UnoCSS class confirmed via CDP
+    // The outer container uses a hashed CSS Module class (_guidQuickActions_<hash>)
+    // so we snapshot the stable inner flex div instead.
+    const container = page.locator(QUICK_ACTION_INNER_FLEX).first();
 
     const isVisible = await container.isVisible({ timeout: 5_000 }).catch(() => false);
     if (!isVisible) {
