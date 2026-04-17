@@ -684,6 +684,18 @@ test.describe('Virtual scroll performance with 120+ messages (AC13)', () => {
 // ── 12. Auto-scroll and scroll-to-bottom button (AC14, AC15, AC16) ────────────
 
 test.describe('Auto-scroll and scroll-to-bottom (AC14, AC15, AC16)', () => {
+  // Helper: wait for Virtuoso scroller to be attached to DOM (not just visible).
+  // The scroller may be inside an overflow:hidden container which can cause
+  // Playwright's isVisible() to return false even when the element is functional.
+  async function waitForScroller(page: import('@playwright/test').Page) {
+    try {
+      await page.waitForSelector('[data-virtuoso-scroller="true"]', { state: 'attached', timeout: 12_000 });
+    } catch {
+      return null;
+    }
+    return page.locator('[data-virtuoso-scroller="true"]').first();
+  }
+
   test('AC14: page is scrolled to bottom after navigating to a conversation with messages', async ({ page }) => {
     const ok = await goToConversation(page, _testConversationId);
     test.skip(!ok, 'Could not navigate to test conversation');
@@ -691,10 +703,9 @@ test.describe('Auto-scroll and scroll-to-bottom (AC14, AC15, AC16)', () => {
     await page.waitForSelector(MESSAGE_ITEM, { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(800); // allow Virtuoso to settle scroll position
 
-    const scroller = page.locator('[data-virtuoso-scroller="true"], .virtuoso-scroller').first();
-    const scrollerVisible = await scroller.isVisible({ timeout: 8_000 }).catch(() => false);
-    if (!scrollerVisible) {
-      test.skip(true, 'Virtuoso scroller not visible');
+    const scroller = await waitForScroller(page);
+    if (!scroller) {
+      test.skip(true, 'Virtuoso scroller not found in DOM');
       return;
     }
 
@@ -713,15 +724,14 @@ test.describe('Auto-scroll and scroll-to-bottom (AC14, AC15, AC16)', () => {
     await page.waitForSelector(MESSAGE_ITEM, { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(500);
 
-    const msgList = page.locator('.virtuoso-scroller').first();
-    const listVisible = await msgList.isVisible({ timeout: 3_000 }).catch(() => false);
-    if (!listVisible) {
-      test.skip(true, 'Virtuoso scroller not visible');
+    const scroller = await waitForScroller(page);
+    if (!scroller) {
+      test.skip(true, 'Virtuoso scroller not found in DOM');
       return;
     }
 
     // Scroll to top to trigger scroll-to-bottom button
-    await msgList.evaluate((el) => (el.scrollTop = 0));
+    await scroller.evaluate((el) => (el.scrollTop = 0));
     await page.waitForTimeout(800);
 
     const btn = page.locator(SCROLL_TO_BOTTOM_BTN).first();
@@ -737,14 +747,13 @@ test.describe('Auto-scroll and scroll-to-bottom (AC14, AC15, AC16)', () => {
     await page.waitForSelector(MESSAGE_ITEM, { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(500);
 
-    const msgList = page.locator('.virtuoso-scroller').first();
-    const listVisible = await msgList.isVisible({ timeout: 3_000 }).catch(() => false);
-    if (!listVisible) {
-      test.skip(true, 'Virtuoso scroller not visible');
+    const scroller = await waitForScroller(page);
+    if (!scroller) {
+      test.skip(true, 'Virtuoso scroller not found in DOM');
       return;
     }
 
-    await msgList.evaluate((el) => (el.scrollTop = 0));
+    await scroller.evaluate((el) => (el.scrollTop = 0));
     await page.waitForTimeout(800);
 
     const btn = page.locator(SCROLL_TO_BOTTOM_BTN).first();
@@ -1059,14 +1068,17 @@ test.describe('History panel interactions (AC20–AC26)', () => {
       return;
     }
 
-    // Iterate rows to find one without the active-background class
+    // Iterate rows to find one without the active-background class.
+    // Use exact token check (split on whitespace) to avoid matching
+    // hover:bg-[var(--color-fill-2)] which is present on ALL rows.
     let targetRowIndex = -1;
     for (let i = 0; i < rowCount; i++) {
       const cls = await allRows
         .nth(i)
         .getAttribute('class')
         .catch(() => '');
-      if (!cls?.includes('bg-[var(--color-fill-2)]')) {
+      const tokens = (cls ?? '').split(/\s+/);
+      if (!tokens.includes('bg-[var(--color-fill-2)]')) {
         targetRowIndex = i;
         break;
       }
