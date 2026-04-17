@@ -348,7 +348,12 @@ export class AcpAgent {
         };
         const sessionMode = yoloModeMap[this.extra.backend];
         if (sessionMode) {
-          await this.applySessionMode(sessionMode, true, `${this.extra.backend} YOLO mode`);
+          const yoloApplied = await this.applySessionMode(sessionMode, false, `${this.extra.backend} YOLO mode`);
+          if (!yoloApplied) {
+            this.emitErrorMessage(
+              `Failed to enable YOLO mode (${sessionMode}). The session will continue but permission prompts may appear.`
+            );
+          }
         }
       } else if (this.extra.sessionMode && this.extra.sessionMode !== 'default') {
         // Apply non-default, non-YOLO session mode (e.g., acceptEdits, auto, dontAsk, plan)
@@ -440,17 +445,19 @@ export class AcpAgent {
    * @param fatal  If true, throw on failure (YOLO — must succeed); if false, warn and continue.
    * @param label  Human-readable label for log messages (e.g., 'claude YOLO mode').
    */
-  private async applySessionMode(mode: string, fatal: boolean, label: string): Promise<void> {
+  private async applySessionMode(mode: string, fatal: boolean, label: string): Promise<boolean> {
     try {
       const modeStart = Date.now();
       await this.connection.setSessionMode(mode);
       console.log(`[ACP-PERF] start: session mode set ${Date.now() - modeStart}ms`);
+      return true;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       if (fatal) {
         throw new Error(`[ACP] Failed to enable ${label} (${mode}): ${msg}`, { cause: error });
       }
       console.warn(`[ACP] Failed to set session mode "${mode}": ${msg}`);
+      return false;
     }
   }
 

@@ -228,17 +228,26 @@ describe('AcpAgent.start() — applySessionMode', () => {
     expect(mockSetSessionMode).toHaveBeenCalledWith('bypassPermissions');
   });
 
-  it('throws when YOLO mode fails (fatal=true)', async () => {
-    mockSetSessionMode.mockRejectedValue(new Error('connection lost'));
+  it('does not throw when YOLO mode fails and emits error message', async () => {
+    mockSetSessionMode.mockRejectedValue(new Error('Internal error'));
+    const onStreamEvent = vi.fn();
 
     const agent = new AcpAgent({
       ...baseConfig,
+      onStreamEvent,
       extra: {
         backend: 'claude',
         yoloMode: true,
       },
     });
 
-    await expect(agent.start()).rejects.toThrow('Failed to enable claude YOLO mode');
+    await expect(agent.start()).resolves.toBeUndefined();
+    expect(mockSetSessionMode).toHaveBeenCalledOnce();
+
+    const errorMessages = onStreamEvent.mock.calls.filter(
+      ([msg]: [{ type: string; data: string }]) =>
+        msg.type === 'error' && typeof msg.data === 'string' && msg.data.includes('Failed to enable YOLO mode')
+    );
+    expect(errorMessages.length).toBe(1);
   });
 });
