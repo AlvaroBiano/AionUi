@@ -164,65 +164,82 @@ const ConversationHistoryPanel: React.FC<ConversationHistoryPanelProps> = ({ con
       {/* 分隔线 */}
       {sameAgentConversations.length > 0 && <div className='mx-8px my-4px border-t border-[var(--color-border-2)]' />}
 
-      {/* 历史会话列表 */}
-      {sameAgentConversations.map((conv) => {
-        const isActive = conv.id === conversation.id;
-        const isPinned = isConversationPinned(conv);
-        const ts = conv.modifyTime ?? conv.createTime ?? 0;
-        return (
-          <div
-            key={conv.id}
-            className={`group relative flex items-center gap-8px px-12px py-6px cursor-pointer hover:bg-[var(--color-fill-2)] ${isActive ? 'bg-[var(--color-fill-2)]' : ''}`}
-            onClick={() => {
-              setOpen(false);
-              void navigate(`/conversation/${conv.id}`);
-            }}
-          >
-            <span
-              className={`flex-1 min-w-0 truncate text-13px ${isActive ? 'font-medium text-t-primary' : 'text-t-primary'}`}
-            >
-              {conv.name || t('conversation.welcome.newConversation')}
-            </span>
-            {ts > 0 && (
-              <span className='text-11px text-t-tertiary shrink-0 whitespace-nowrap group-hover:hidden'>
-                {formatTime(ts)}
-              </span>
-            )}
-            {/* Inline action buttons — visible on hover */}
+      {/* 历史会话列表 — scrollable with max height */}
+      <div className='max-h-400px overflow-y-auto'>
+        {sameAgentConversations.map((conv) => {
+          const isActive = conv.id === conversation.id;
+          const isPinned = isConversationPinned(conv);
+          const ts = conv.modifyTime ?? conv.createTime ?? 0;
+          return (
             <div
-              className='hidden group-hover:flex items-center gap-4px shrink-0'
-              onClick={(e) => e.stopPropagation()}
+              key={conv.id}
+              className={`group relative flex items-center gap-8px px-12px py-6px cursor-pointer hover:bg-[var(--color-fill-2)] ${isActive ? 'bg-[var(--color-fill-2)]' : ''}`}
+              onClick={() => {
+                setOpen(false);
+                void navigate(`/conversation/${conv.id}`);
+              }}
             >
               <span
-                className='flex-center cursor-pointer text-t-secondary hover:text-t-primary'
-                title={isPinned ? t('conversation.history.unpin') : t('conversation.history.pin')}
-                onClick={() => void handleTogglePin(conv)}
+                className={`flex-1 min-w-0 truncate text-13px ${isActive ? 'font-medium text-t-primary' : 'text-t-primary'}`}
               >
-                <Pushpin
-                  theme={isPinned ? 'filled' : 'outline'}
-                  size='14'
-                  fill={isPinned ? iconColors.primary : undefined}
-                />
+                {conv.name || t('conversation.welcome.newConversation')}
               </span>
-              <Popconfirm
-                title={t('conversation.history.deleteTitle')}
-                content={t('conversation.history.deleteConfirm')}
-                okText={t('conversation.history.confirmDelete')}
-                cancelText={t('conversation.history.cancelDelete')}
-                onOk={() => void handleRemove(conv.id)}
-                getPopupContainer={() => document.body}
-              >
+              {ts > 0 && (
                 <span
-                  className='flex-center cursor-pointer text-t-secondary hover:text-[rgb(var(--danger-6))]'
-                  title={t('conversation.history.deleteTitle')}
+                  className={`text-11px text-t-tertiary shrink-0 whitespace-nowrap ${isPinned ? 'hidden' : 'group-hover:hidden'}`}
                 >
-                  <DeleteOne theme='outline' size='14' />
+                  {formatTime(ts)}
                 </span>
-              </Popconfirm>
+              )}
+              {/* Pin icon — always visible when pinned, hover-only otherwise */}
+              {isPinned && (
+                <span
+                  className='flex-center cursor-pointer text-t-secondary hover:text-t-primary shrink-0 group-hover:hidden'
+                  title={t('conversation.history.unpin')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleTogglePin(conv);
+                  }}
+                >
+                  <Pushpin theme='filled' size='14' fill={iconColors.primary} />
+                </span>
+              )}
+              {/* Inline action buttons — visible on hover */}
+              <div
+                className='hidden group-hover:flex items-center gap-4px shrink-0'
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Popconfirm
+                  title={t('conversation.history.deleteTitle')}
+                  content={t('conversation.history.deleteConfirm')}
+                  okText={t('conversation.history.confirmDelete')}
+                  cancelText={t('conversation.history.cancelDelete')}
+                  onOk={() => void handleRemove(conv.id)}
+                  getPopupContainer={() => document.body}
+                >
+                  <span
+                    className='flex-center cursor-pointer text-t-secondary hover:text-[rgb(var(--danger-6))]'
+                    title={t('conversation.history.deleteTitle')}
+                  >
+                    <DeleteOne theme='outline' size='14' />
+                  </span>
+                </Popconfirm>
+                <span
+                  className='flex-center cursor-pointer text-t-secondary hover:text-t-primary'
+                  title={isPinned ? t('conversation.history.unpin') : t('conversation.history.pin')}
+                  onClick={() => void handleTogglePin(conv)}
+                >
+                  <Pushpin
+                    theme={isPinned ? 'filled' : 'outline'}
+                    size='14'
+                    fill={isPinned ? iconColors.primary : undefined}
+                  />
+                </span>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 
