@@ -275,10 +275,8 @@ export const processGeminiStreamEvents = async (
           break;
         }
         case ServerGeminiEventType.Retry:
-          onStreamEvent({
-            type: ServerGeminiEventType.Error,
-            data: 'Request is being retried after a temporary failure. Please wait…',
-          });
+          // Retry is an internal transient event — log only, do not surface to UI
+          console.debug('[GeminiStream] Transient retry in progress, waiting...');
           break;
         case ServerGeminiEventType.InvalidStream:
           // InvalidStream indicates the model returned invalid content (empty response, no finish reason, etc.)
