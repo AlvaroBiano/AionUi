@@ -561,6 +561,10 @@ export class GeminiAgent {
     const toolCallRequests: ToolCallRequestInfo[] = [];
     let heartbeatWarned = false;
     let invalidStreamDetected = false;
+    // Tracks whether any visible content (text or thought) was streamed before
+    // an invalid_stream event. If true, the model completed its thinking but
+    // produced no final text — treat as a normal (empty) finish, not an error.
+    let hadContent = false;
 
     // 流连接事件处理
     // Stream connection event handler
@@ -596,6 +600,14 @@ export class GeminiAgent {
         // 检测 invalid_stream 事件
         // Detect invalid_stream event
         if (data.type === ('invalid_stream' as string)) {
+          // If the model already streamed thought/text content, this is a long-thinking
+          // response with no final text — treat as a normal finish, not an error.
+          if (hadContent) {
+            console.warn(
+              '[GeminiAgent] Invalid stream after content — treating as normal finish (long-thinking scenario)'
+            );
+            return;
+          }
           invalidStreamDetected = true;
           const eventData = data.data as { message: string; retryable: boolean };
           if (
@@ -620,6 +632,9 @@ export class GeminiAgent {
 
         // Use a fresh msg_id for error events so error/tips messages don't
         // replace already-streamed content that shares the original msg_id.
+        if (data.type === 'content' || data.type === 'thought') {
+          hadContent = true;
+        }
         this.onStreamEvent({
           ...data,
           msg_id: data.type === 'error' ? uuid() : msg_id,
