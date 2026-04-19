@@ -11,7 +11,6 @@ import FilePreview from '@/renderer/components/media/FilePreview';
 import HorizontalFileList from '@/renderer/components/media/HorizontalFileList';
 import SendBox from '@/renderer/components/chat/sendbox';
 import CommandQueuePanel from '@/renderer/components/chat/CommandQueuePanel';
-import SendBoxSettingsPopover from '@/renderer/components/chat/SendBoxSettingsPopover';
 import AionrsModelSelector from './AionrsModelSelector';
 import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
 import { useLatestRef } from '@/renderer/hooks/ui/useLatestRef';
@@ -40,6 +39,7 @@ import { iconColors } from '@/renderer/styles/colors';
 import AgentModeSelector from '@/renderer/components/agent/AgentModeSelector';
 import { mergeWithCapabilities, type AgentModeOption } from '@/renderer/utils/model/agentModes';
 import ThoughtDisplay from '@/renderer/components/chat/ThoughtDisplay';
+import { useHeaderSettings } from '@/renderer/hooks/context/HeaderSettingsContext';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AionrsModelSelection } from './useAionrsModelSelection';
@@ -124,7 +124,29 @@ const AionrsSendBox: React.FC<{
   const addOrUpdateMessage = useAddOrUpdateMessage();
   const removeMessageByMsgId = useRemoveMessageByMsgId();
   const { setSendBoxHandler } = usePreviewContext();
+  const { setSections } = useHeaderSettings();
   const isBusy = running;
+
+  // Register settings sections in the header
+  useEffect(() => {
+    setSections({
+      modelNode: <AionrsModelSelector selection={modelSelection} variant='settings' />,
+      permissionNode:
+        dynamicModes.length > 0 ? (
+          <AgentModeSelector
+            backend='aionrs'
+            conversationId={conversation_id}
+            compact
+            dynamicModes={dynamicModes}
+            compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+            modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
+            compactLabelPrefix={t('agentMode.permission')}
+            hideCompactLabelPrefixOnMobile
+          />
+        ) : undefined,
+    });
+    return () => setSections({});
+  }, [setSections, conversation_id, modelSelection, dynamicModes, t]);
 
   const setContentRef = useLatestRef(setContent);
   const atPathRef = useLatestRef(atPath);
@@ -365,23 +387,6 @@ const AionrsSendBox: React.FC<{
         tools={
           <div className='flex items-center gap-4px'>
             <FileAttachButton openFileSelector={openFileSelector} onLocalFilesAdded={handleFilesAdded} />
-            <SendBoxSettingsPopover
-              modelNode={<AionrsModelSelector selection={modelSelection} variant='settings' />}
-              permissionNode={
-                dynamicModes.length > 0 ? (
-                  <AgentModeSelector
-                    backend='aionrs'
-                    conversationId={conversation_id}
-                    compact
-                    dynamicModes={dynamicModes}
-                    compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-                    modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
-                    compactLabelPrefix={t('agentMode.permission')}
-                    hideCompactLabelPrefixOnMobile
-                  />
-                ) : undefined
-              }
-            />
           </div>
         }
         sendButtonPrefix={

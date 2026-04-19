@@ -24,7 +24,7 @@ import { iconColors } from '@/renderer/styles/colors';
 import FileAttachButton from '@/renderer/components/media/FileAttachButton';
 import AcpModelSelector from '@/renderer/components/agent/AcpModelSelector';
 import AcpConfigSelector from '@/renderer/components/agent/AcpConfigSelector';
-import SendBoxSettingsPopover from '@/renderer/components/chat/SendBoxSettingsPopover';
+import { useHeaderSettings } from '@/renderer/hooks/context/HeaderSettingsContext';
 import React, { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import FilePreview from '@/renderer/components/media/FilePreview';
@@ -132,6 +132,46 @@ const AcpSendBox: React.FC<{
   const slashCommands = useSlashCommands(conversation_id, { agentStatus: acpStatus });
   const { atPath, uploadFile, setAtPath, setUploadFile, content, setContent } = useSendBoxDraft(conversation_id);
   const { setSendBoxHandler } = usePreviewContext();
+  const { setSections } = useHeaderSettings();
+
+  // Register settings sections in the header
+  useEffect(() => {
+    setSections({
+      modelNode: <AcpModelSelector conversationId={conversation_id} backend={backend} />,
+      permissionNode: showModeSelector ? (
+        <AgentModeSelector
+          backend={backend}
+          conversationId={conversation_id}
+          compact
+          initialMode={sessionMode}
+          compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+          modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
+          compactLabelPrefix={t('agentMode.permission')}
+          hideCompactLabelPrefixOnMobile
+          onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
+        />
+      ) : undefined,
+      configNode:
+        backend === 'codex' ? (
+          <AcpConfigSelector
+            conversationId={conversation_id}
+            backend={backend}
+            initialConfigOptions={cachedConfigOptions}
+          />
+        ) : undefined,
+    });
+    return () => setSections({});
+  }, [
+    setSections,
+    conversation_id,
+    backend,
+    sessionMode,
+    showModeSelector,
+    isLeadInTeam,
+    teamPermission?.propagateMode,
+    cachedConfigOptions,
+    t,
+  ]);
 
   // Use useLatestRef to keep latest setters to avoid re-registering handler
   const setContentRef = useLatestRef(setContent);
@@ -377,33 +417,6 @@ Please check your local CLI tool authentication status`,
         tools={
           <div className='flex items-center gap-4px'>
             <FileAttachButton openFileSelector={openFileSelector} onLocalFilesAdded={handleFilesAdded} />
-            <SendBoxSettingsPopover
-              modelNode={<AcpModelSelector conversationId={conversation_id} backend={backend} />}
-              permissionNode={
-                showModeSelector ? (
-                  <AgentModeSelector
-                    backend={backend}
-                    conversationId={conversation_id}
-                    compact
-                    initialMode={sessionMode}
-                    compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-                    modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
-                    compactLabelPrefix={t('agentMode.permission')}
-                    hideCompactLabelPrefixOnMobile
-                    onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
-                  />
-                ) : undefined
-              }
-              configNode={
-                backend === 'codex' ? (
-                  <AcpConfigSelector
-                    conversationId={conversation_id}
-                    backend={backend}
-                    initialConfigOptions={cachedConfigOptions}
-                  />
-                ) : undefined
-              }
-            />
           </div>
         }
         prefix={

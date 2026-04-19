@@ -24,7 +24,7 @@ type SettingsSection = {
 const POPUP_ZINDEX = 999; // popup stacking context — above UI chrome, below Arco dropdowns
 const OVERLAY_ZINDEX = 998; // click-outside catcher — below popup, above rest of UI
 
-type PopupPos = { bottom: number; right: number };
+type PopupPos = { top?: number; bottom?: number; left?: number; right?: number };
 
 /**
  * A gear icon button that opens a settings popup for the send box.
@@ -40,7 +40,9 @@ const SendBoxSettingsPopover: React.FC<{
   modelNode?: React.ReactNode;
   permissionNode?: React.ReactNode;
   configNode?: React.ReactNode;
-}> = ({ modelNode, permissionNode, configNode }) => {
+  /** 'above' opens above the button (legacy sendbox), 'below' opens below (header). Default: 'above' */
+  placement?: 'above' | 'below';
+}> = ({ modelNode, permissionNode, configNode, placement = 'above' }) => {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const [popupPos, setPopupPos] = useState<PopupPos | null>(null);
@@ -57,13 +59,20 @@ const SendBoxSettingsPopover: React.FC<{
   const handleToggle = useCallback(() => {
     if (!visible && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      setPopupPos({
-        bottom: window.innerHeight - rect.top + 4,
-        right: window.innerWidth - rect.right,
-      });
+      if (placement === 'below') {
+        setPopupPos({
+          top: rect.bottom + 4,
+          left: rect.left,
+        });
+      } else {
+        setPopupPos({
+          bottom: window.innerHeight - rect.top + 4,
+          right: window.innerWidth - rect.right,
+        });
+      }
     }
     setVisible((v) => !v);
-  }, [visible]);
+  }, [visible, placement]);
 
   return (
     <div className='relative'>
@@ -89,8 +98,10 @@ const SendBoxSettingsPopover: React.FC<{
               className='fixed min-w-220px rounded-8px overflow-hidden'
               style={{
                 zIndex: POPUP_ZINDEX,
-                bottom: `${popupPos.bottom}px`,
-                right: `${popupPos.right}px`,
+                ...(popupPos.top != null ? { top: `${popupPos.top}px` } : {}),
+                ...(popupPos.bottom != null ? { bottom: `${popupPos.bottom}px` } : {}),
+                ...(popupPos.left != null ? { left: `${popupPos.left}px` } : {}),
+                ...(popupPos.right != null ? { right: `${popupPos.right}px` } : {}),
                 backgroundColor: 'var(--color-bg-1)',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                 border: '1px solid var(--color-border-2)',

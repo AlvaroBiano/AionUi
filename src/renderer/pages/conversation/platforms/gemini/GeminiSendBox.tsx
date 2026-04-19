@@ -6,7 +6,6 @@ import FilePreview from '@/renderer/components/media/FilePreview';
 import HorizontalFileList from '@/renderer/components/media/HorizontalFileList';
 import SendBox from '@/renderer/components/chat/sendbox';
 import CommandQueuePanel from '@/renderer/components/chat/CommandQueuePanel';
-import SendBoxSettingsPopover from '@/renderer/components/chat/SendBoxSettingsPopover';
 import GeminiModelSelector from './GeminiModelSelector';
 import { useAgentReadinessCheck } from '@/renderer/hooks/agent/useAgentReadinessCheck';
 import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
@@ -36,6 +35,7 @@ import AgentModeSelector from '@/renderer/components/agent/AgentModeSelector';
 import { useTeamPermission } from '@/renderer/pages/team/hooks/TeamPermissionContext';
 import ThoughtDisplay from '@/renderer/components/chat/ThoughtDisplay';
 import { useCommandQueueEnabled } from '@/renderer/hooks/system/useCommandQueueEnabled';
+import { useHeaderSettings } from '@/renderer/hooks/context/HeaderSettingsContext';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GeminiModelSelection } from './useGeminiModelSelection';
@@ -197,7 +197,28 @@ const GeminiSendBox: React.FC<{
   const addOrUpdateMessage = useAddOrUpdateMessage();
   const removeMessageByMsgId = useRemoveMessageByMsgId();
   const { setSendBoxHandler } = usePreviewContext();
+  const { setSections } = useHeaderSettings();
   const isBusy = running;
+
+  // Register settings sections in the header
+  useEffect(() => {
+    setSections({
+      modelNode: <GeminiModelSelector selection={modelSelection} variant='settings' />,
+      permissionNode: showModeSelector ? (
+        <AgentModeSelector
+          backend='gemini'
+          conversationId={conversation_id}
+          compact
+          compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
+          modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
+          compactLabelPrefix={t('agentMode.permission')}
+          hideCompactLabelPrefixOnMobile
+          onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
+        />
+      ) : undefined,
+    });
+    return () => setSections({});
+  }, [setSections, conversation_id, modelSelection, showModeSelector, isLeadInTeam, teamPermission?.propagateMode, t]);
 
   // Use useLatestRef to keep latest setters to avoid re-registering handler
   const setContentRef = useLatestRef(setContent);
@@ -462,23 +483,6 @@ const GeminiSendBox: React.FC<{
         tools={
           <div className='flex items-center gap-4px'>
             <FileAttachButton openFileSelector={openFileSelector} onLocalFilesAdded={handleFilesAdded} />
-            <SendBoxSettingsPopover
-              modelNode={<GeminiModelSelector selection={modelSelection} variant='settings' />}
-              permissionNode={
-                showModeSelector ? (
-                  <AgentModeSelector
-                    backend='gemini'
-                    conversationId={conversation_id}
-                    compact
-                    compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
-                    modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
-                    compactLabelPrefix={t('agentMode.permission')}
-                    hideCompactLabelPrefixOnMobile
-                    onModeChanged={isLeadInTeam ? teamPermission?.propagateMode : undefined}
-                  />
-                ) : undefined
-              }
-            />
           </div>
         }
         sendButtonPrefix={
