@@ -6,42 +6,41 @@
 
 import { ipcBridge } from '@/common';
 import { uuid } from '@/common/utils';
+import AgentModeSelector from '@/renderer/components/agent/AgentModeSelector';
 import ContextUsageIndicator from '@/renderer/components/agent/ContextUsageIndicator';
+import CommandQueuePanel from '@/renderer/components/chat/CommandQueuePanel';
+import SendBox from '@/renderer/components/chat/sendbox';
+import ThoughtDisplay from '@/renderer/components/chat/ThoughtDisplay';
+import FileAttachButton from '@/renderer/components/media/FileAttachButton';
 import FilePreview from '@/renderer/components/media/FilePreview';
 import HorizontalFileList from '@/renderer/components/media/HorizontalFileList';
-import SendBox from '@/renderer/components/chat/sendbox';
-import CommandQueuePanel from '@/renderer/components/chat/CommandQueuePanel';
 import { useAutoTitle } from '@/renderer/hooks/chat/useAutoTitle';
-import { useLatestRef } from '@/renderer/hooks/ui/useLatestRef';
-import { useOpenFileSelector } from '@/renderer/hooks/file/useOpenFileSelector';
-import FileAttachButton from '@/renderer/components/media/FileAttachButton';
 import { getSendBoxDraftHook, type FileOrFolderItem } from '@/renderer/hooks/chat/useSendBoxDraft';
 import { createSetUploadFile, useSendBoxFiles } from '@/renderer/hooks/chat/useSendBoxFiles';
 import { useSlashCommands } from '@/renderer/hooks/chat/useSlashCommands';
+import { useOpenFileSelector } from '@/renderer/hooks/file/useOpenFileSelector';
+import { useLatestRef } from '@/renderer/hooks/ui/useLatestRef';
 import { useAddOrUpdateMessage, useRemoveMessageByMsgId } from '@/renderer/pages/conversation/Messages/hooks';
+import { assertBridgeSuccess } from '@/renderer/pages/conversation/platforms/assertBridgeSuccess';
 import {
   shouldEnqueueConversationCommand,
   useConversationCommandQueue,
   type ConversationCommandQueueItem,
 } from '@/renderer/pages/conversation/platforms/useConversationCommandQueue';
-import { assertBridgeSuccess } from '@/renderer/pages/conversation/platforms/assertBridgeSuccess';
 import { usePreviewContext } from '@/renderer/pages/conversation/Preview';
 import { allSupportedExts } from '@/renderer/services/FileService';
+import { iconColors } from '@/renderer/styles/colors';
 import { emitter, useAddEventListener } from '@/renderer/utils/emitter';
 import { mergeFileSelectionItems } from '@/renderer/utils/file/fileSelection';
 import { buildDisplayMessage, collectSelectedFiles } from '@/renderer/utils/file/messageFiles';
+import { mergeWithCapabilities, type AgentModeOption } from '@/renderer/utils/model/agentModes';
 import { getModelContextLimit } from '@/renderer/utils/model/modelContextLimits';
-import { useCommandQueueEnabled } from '@/renderer/hooks/system/useCommandQueueEnabled';
 import { Message, Tag } from '@arco-design/web-react';
 import { Shield } from '@icon-park/react';
-import { iconColors } from '@/renderer/styles/colors';
-import AgentModeSelector from '@/renderer/components/agent/AgentModeSelector';
-import { mergeWithCapabilities, type AgentModeOption } from '@/renderer/utils/model/agentModes';
-import ThoughtDisplay from '@/renderer/components/chat/ThoughtDisplay';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AionrsModelSelection } from './useAionrsModelSelection';
 import { useAionrsMessage } from './useAionrsMessage';
+import type { AionrsModelSelection } from './useAionrsModelSelection';
 
 const useAionrsSendBoxDraft = getSendBoxDraftHook('aionrs', {
   _type: 'aionrs',
@@ -89,13 +88,14 @@ const useSendBoxDraft = (conversation_id: string) => {
 const AionrsSendBox: React.FC<{
   conversation_id: string;
   modelSelection: AionrsModelSelection;
-}> = ({ conversation_id, modelSelection }) => {
+  teamId?: string;
+  agentSlotId?: string;
+  sessionMode?: string;
+}> = ({ conversation_id, modelSelection, teamId, agentSlotId, sessionMode }) => {
   const [workspacePath, setWorkspacePath] = useState('');
   const [dynamicModes, setDynamicModes] = useState<AgentModeOption[]>([]);
   const { t } = useTranslation();
   const { checkAndUpdateTitle } = useAutoTitle();
-  const isCommandQueueEnabled = useCommandQueueEnabled();
-
   const { currentModel, getDisplayModelName } = modelSelection;
 
   const { thought, running, hasHydratedRunningState, tokenUsage, setActiveMsgId, setWaitingResponse, resetState } =
@@ -165,29 +165,52 @@ const AionrsSendBox: React.FC<{
       setWaitingResponse(true);
 
       const displayMessage = buildDisplayMessage(input, files, workspacePath);
-      addOrUpdateMessage(
-        {
-          id: msg_id,
-          type: 'text',
-          position: 'right',
-          conversation_id,
-          content: {
-            content: displayMessage,
+      if (!teamId) {
+        addOrUpdateMessage(
+          {
+            id: msg_id,
+            type: 'text',
+            position: 'right',
+            conversation_id,
+            content: {
+              content: displayMessage,
+            },
+            createdAt: Date.now(),
           },
-          createdAt: Date.now(),
-        },
-        true
-      );
+          true
+        );
+      }
 
       try {
         void checkAndUpdateTitle(conversation_id, input);
-        const result = await ipcBridge.conversation.sendMessage.invoke({
-          input: displayMessage,
-          msg_id,
-          conversation_id,
-          files,
-        });
-        assertBridgeSuccess(result, 'Failed to send message to Aion CLI');
+        if (teamId) {
+          if (agentSlotId) {
+            const result = await ipcBridge.team.sendMessageToAgent.invoke({
+              teamId,
+              slotId: agentSlotId,
+              content: displayMessage,
+              files,
+            });
+            const maybeError = result as unknown as { __bridgeError?: boolean; message?: string };
+            if (maybeError.__bridgeError) {
+              throw new Error(maybeError.message || 'Failed to send message to agent');
+            }
+          } else {
+            const result = await ipcBridge.team.sendMessage.invoke({ teamId, content: displayMessage, files });
+            const maybeError = result as unknown as { __bridgeError?: boolean; message?: string };
+            if (maybeError.__bridgeError) {
+              throw new Error(maybeError.message || 'Failed to send message to team');
+            }
+          }
+        } else {
+          const result = await ipcBridge.conversation.sendMessage.invoke({
+            input: displayMessage,
+            msg_id,
+            conversation_id,
+            files,
+          });
+          assertBridgeSuccess(result, 'Failed to send message to Aion CLI');
+        }
         emitter.emit('chat.history.refresh');
         if (files.length > 0) {
           emitter.emit('aionrs.workspace.refresh');
@@ -199,12 +222,14 @@ const AionrsSendBox: React.FC<{
     },
     [
       addOrUpdateMessage,
+      agentSlotId,
       checkAndUpdateTitle,
       conversation_id,
       currentModel?.useModel,
       setActiveMsgId,
       removeMessageByMsgId,
       setWaitingResponse,
+      teamId,
       workspacePath,
     ]
   );
@@ -225,7 +250,7 @@ const AionrsSendBox: React.FC<{
     resetActiveExecution,
   } = useConversationCommandQueue({
     conversationId: conversation_id,
-    enabled: isCommandQueueEnabled,
+    enabled: true,
     isBusy,
     isHydrated: hasHydratedRunningState,
     onExecute: executeCommand,
@@ -259,7 +284,7 @@ const AionrsSendBox: React.FC<{
   }, [conversation_id, executeCommand]);
 
   const onSendHandler = async (message: string) => {
-    if (!isCommandQueueEnabled && isBusy) {
+    if (!teamId && isBusy) {
       Message.warning(t('messages.conversationInProgress'));
       return;
     }
@@ -270,7 +295,7 @@ const AionrsSendBox: React.FC<{
 
     if (
       shouldEnqueueConversationCommand({
-        enabled: isCommandQueueEnabled,
+        enabled: true,
         isBusy,
         hasPendingCommands,
       })
@@ -367,6 +392,7 @@ const AionrsSendBox: React.FC<{
               backend='aionrs'
               conversationId={conversation_id}
               compact
+              initialMode={sessionMode}
               dynamicModes={dynamicModes}
               compactLeadingIcon={<Shield theme='outline' size='14' fill={iconColors.secondary} />}
               modeLabelFormatter={(mode) => t(`agentMode.${mode.value}`, { defaultValue: mode.label })}
@@ -424,7 +450,7 @@ const AionrsSendBox: React.FC<{
         onSend={onSendHandler}
         slashCommands={slashCommands}
         onSlashBuiltinCommand={onSlashBuiltinCommand}
-        allowSendWhileLoading={isCommandQueueEnabled}
+        allowSendWhileLoading
       />
     </div>
   );

@@ -213,11 +213,10 @@ message: Generate daily report
       });
     });
 
-    it('executes CRON_DELETE command via cronService', async () => {
+    it('ignores CRON_DELETE (no longer supported)', async () => {
       simulateTurn(manager, ['[CRON_DELETE: cron-job-42]']);
-      await vi.waitFor(() => {
-        expect(mockCronService.removeJob).toHaveBeenCalledWith('cron-job-42');
-      });
+      await new Promise((r) => setTimeout(r, 100));
+      expect(mockCronService.removeJob).not.toHaveBeenCalled();
     });
 
     it('emits system response to UI via ipcBridge', async () => {
@@ -242,7 +241,7 @@ message: Generate daily report
       await vi.waitFor(() => {
         expect(sendSpy).toHaveBeenCalledWith(
           expect.objectContaining({
-            input: expect.stringContaining('[System Response]'),
+            content: expect.stringContaining('[System Response]'),
           })
         );
       });
@@ -256,9 +255,9 @@ message: Generate daily report
       simulateTurn(manager, ['[CRON_LIST]']);
       await vi.waitFor(() => {
         expect(sendSpy).toHaveBeenCalled();
-        const call = sendSpy.mock.calls[0][0] as { input: string };
-        expect(call.input).toContain('[System Response]');
-        expect(call.input).toContain('My Task');
+        const call = sendSpy.mock.calls[0][0] as { content: string };
+        expect(call.content).toContain('[System Response]');
+        expect(call.content).toContain('My Task');
       });
     });
 
@@ -321,7 +320,7 @@ message: Generate daily report
         expect(mockCronService.listJobsByConversation).toHaveBeenCalled();
         expect(sendSpy).toHaveBeenCalledWith(
           expect.objectContaining({
-            input: expect.stringContaining('[System Response]'),
+            content: expect.stringContaining('[System Response]'),
           })
         );
       });
@@ -361,10 +360,10 @@ message: Generate morning report
       vi.clearAllMocks();
       sendSpy.mockResolvedValue(undefined);
 
-      // Turn 2 — another cron command
-      simulateTurn(manager, ['[CRON_DELETE: cron-99]'], 'msg-t2');
+      // Turn 2 — another cron command (CRON_DELETE is ignored, use CRON_LIST instead)
+      simulateTurn(manager, ['[CRON_LIST]'], 'msg-t2');
       await vi.waitFor(() => {
-        expect(mockCronService.removeJob).toHaveBeenCalledWith('cron-99');
+        expect(mockCronService.listJobsByConversation).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -399,9 +398,9 @@ message: Generate morning report
       simulateTurn(manager, ['[CRON_LIST]']);
       await vi.waitFor(() => {
         expect(sendSpy).toHaveBeenCalled();
-        const call = sendSpy.mock.calls[0][0] as { input: string };
-        expect(call.input).toContain('[System Response]');
-        expect(call.input).toContain('Service down');
+        const call = sendSpy.mock.calls[0][0] as { content: string };
+        expect(call.content).toContain('[System Response]');
+        expect(call.content).toContain('Service down');
       });
     });
   });
