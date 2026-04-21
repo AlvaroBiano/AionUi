@@ -14,7 +14,7 @@
 
 - [x] **1.1** agentCrash flag (P0) — `process_crash` signal type, 消除 keyword 耦合
 - [x] **1.2** sendMessage 断连恢复 (P1) — AcpAgentV2 已有 reconnect (error/idle → kill+start), 补测试验证, 更新审计文档
-- [ ] **1.3** @file 引用增强 (P1) — 引号路径, 去重, workspace 搜索, binary 警告
+- [x] **1.3** @file 引用增强 (P1) — workspace 路径解析, 3 层递归搜索, binary 警告, 引号路径+去重保留
 
 验证: 现有测试 + 手动测 team mode crash recovery
 
