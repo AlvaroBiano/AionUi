@@ -29,7 +29,7 @@
 - [x] **2.2** BackendPolicy — per-backend 有状态策略: Claude (model switch notice, beforePrompt, /login), Codex (mode interception + sandbox config), Snow (mode interception), Qwen (error enhancement, login). Default policy for all others. Factory: `createBackendPolicy(backend)`
 - [x] **2.3** OutputPipeline — ThinkTagFilter (`<think>` 提取, 复用 ThinkTagDetector) + ToolCallMerger (deep merge, stateful). StatusFilter 留给 2.1 AcpRuntime 骨架 (走 onStatusChange 回调, 非 TMessage 流)
 - [x] **2.4** InputPipeline — FirstMessageInjector (preset/skills/teamGuide 首消息注入, stateful once) + FileRefProcessor (复用 InputPreprocessor). UserMessagePersister 独立 (副作用非变换, DI deps). AcpSession API 变更 (sendMessage 接收 PromptContent) + MessageTranslator 移入 OutputPipeline 均留到 2.1
-- [ ] **2.5** TurnTracker — 15s finish 兜底, agentCrash 合成, turn 状态维护
+- [x] **2.5** TurnTracker — 15s finish 兜底 (inactivity fallback with reset-on-activity), turn lifecycle (begin/finish/consume/clear), shouldFireFallback guard (permission dialog). 不碰事件总线 — onFallback 回调由 AcpRuntime 处理
 - [ ] **2.6** 权限策略 — team MCP 工具自动批准, channel 通知
 
 此阶段 fan-out 先用直接调用, 不引入 EventDispatcher — 先让功能对, 再优化结构。
