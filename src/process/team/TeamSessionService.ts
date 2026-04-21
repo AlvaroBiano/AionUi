@@ -24,7 +24,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { resolveLocaleKey } from '@/common/utils';
 import { hasGeminiOauthCreds } from './googleAuthCheck';
-import { getFullAutoMode } from '@/common/types/agentModes';
+import { getFullAutoMode, getFullAutoModeStrict } from '@/common/types/agentModes';
 
 export class TeamSessionService {
   private readonly sessions: Map<string, TeamSession> = new Map();
@@ -662,7 +662,7 @@ export class TeamSessionService {
     }
     if (!inheritedSessionMode) {
       const agentBackend = this.resolveBackend(agent.agentType, team.agents);
-      inheritedSessionMode = getFullAutoMode(agentBackend);
+      inheritedSessionMode = getFullAutoModeStrict(agentBackend);
     }
 
     const conversationParams = await this.buildConversationParams({
