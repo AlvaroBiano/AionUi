@@ -27,11 +27,7 @@ const mapStatusToState = (
   lastStatus?: string,
   recentEvents: IExtensionAgentActivityEvent[] = []
 ): AgentActivityState => {
-  if (
-    runtimeStatus === 'error' ||
-    lastStatus === 'error' ||
-    recentEvents.some((e) => /error|失败|异常/i.test(e.text))
-  )
+  if (runtimeStatus === 'error' || lastStatus === 'error' || recentEvents.some((e) => /error|失败|异常/i.test(e.text)))
     return 'error';
 
   const hasWriteEvent = recentEvents.some((e) => /write|patch|edit|写入|修改|生成文件/i.test(e.text));

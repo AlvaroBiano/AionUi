@@ -622,45 +622,45 @@ stateDiagram-v2
 
 #### 完整状态转换表
 
-| #   | 当前状态  | 触发              | 目标状态  | 条件               | 动作                                                           |
-| --- | --------- | ----------------- | --------- | ------------------ | -------------------------------------------------------------- |
-| T1  | idle      | `start()`         | starting  | --                 | 创建连接, 开始握手                                             |
-| T2  | starting  | 握手成功          | active    | --                 | 同步配置, reassert, 通知 UI, flush pending                     |
-| T3  | starting  | 握手失败          | starting  | 可重试且未超限     | teardown + 指数退避重试 (1s/2s/4s)                             |
-| T4  | starting  | 握手失败          | error     | 不可重试或重试超限 | teardown + 通知 UI 错误                                        |
-| T5  | active    | `sendMessage()`   | prompting | --                 | preprocess + reassertConfig + execute prompt                   |
-| T6  | active    | `suspend()`       | suspended | --                 | teardown(关闭进程), 保留 sessionId                             |
-| T7  | active    | `stop()`          | idle      | --                 | teardown + 清理资源                                            |
-| T8  | active    | 进程意外退出      | suspended | --                 | 静默挂起, 等下次 sendMessage 触发 resume                       |
-| T9  | prompting | prompt 完成       | active    | --                 | onTurnEnd, 发送 turn_finished 信号                             |
-| T10 | prompting | 可恢复错误        | active    | retryable          | 发送 recoverable error 信号, re-throw                          |
-| T11 | prompting | AUTH_REQUIRED     | error     | --                 | 保存 pending prompt, teardown, 发送 auth_required 信号         |
-| T12 | prompting | 不可恢复错误      | error     | !retryable         | clearPending + rejectAll + 通知 UI                             |
-| T13 | prompting | 进程 crash        | resuming  | --                 | stopTimer + rejectAll permissions + 自动 resume                |
-| T14 | prompting | `stop()`          | idle      | --                 | cancel + teardown                                              |
-| T15 | suspended | `sendMessage()`   | resuming  | --                 | setPending + spawn 新进程 + loadSession                        |
-| T16 | suspended | `stop()`          | idle      | --                 | 清理（无进程需杀）                                             |
-| T17 | resuming  | 恢复成功          | active    | --                 | reassertConfig + flush pending prompt                          |
-| T18 | resuming  | 恢复失败          | resuming  | 可重试且未超限     | teardown + 指数退避重试                                        |
-| T19 | resuming  | 恢复失败          | error     | 重试超限           | teardown + 通知 UI                                             |
-| T20 | error     | `start()` / `retryAuth()` | starting | --          | 重置重试计数, 开始新的 start 流程                              |
-| T21 | error     | `stop()`          | idle      | --                 | 清理                                                           |
+| #   | 当前状态  | 触发                      | 目标状态  | 条件               | 动作                                                   |
+| --- | --------- | ------------------------- | --------- | ------------------ | ------------------------------------------------------ |
+| T1  | idle      | `start()`                 | starting  | --                 | 创建连接, 开始握手                                     |
+| T2  | starting  | 握手成功                  | active    | --                 | 同步配置, reassert, 通知 UI, flush pending             |
+| T3  | starting  | 握手失败                  | starting  | 可重试且未超限     | teardown + 指数退避重试 (1s/2s/4s)                     |
+| T4  | starting  | 握手失败                  | error     | 不可重试或重试超限 | teardown + 通知 UI 错误                                |
+| T5  | active    | `sendMessage()`           | prompting | --                 | preprocess + reassertConfig + execute prompt           |
+| T6  | active    | `suspend()`               | suspended | --                 | teardown(关闭进程), 保留 sessionId                     |
+| T7  | active    | `stop()`                  | idle      | --                 | teardown + 清理资源                                    |
+| T8  | active    | 进程意外退出              | suspended | --                 | 静默挂起, 等下次 sendMessage 触发 resume               |
+| T9  | prompting | prompt 完成               | active    | --                 | onTurnEnd, 发送 turn_finished 信号                     |
+| T10 | prompting | 可恢复错误                | active    | retryable          | 发送 recoverable error 信号, re-throw                  |
+| T11 | prompting | AUTH_REQUIRED             | error     | --                 | 保存 pending prompt, teardown, 发送 auth_required 信号 |
+| T12 | prompting | 不可恢复错误              | error     | !retryable         | clearPending + rejectAll + 通知 UI                     |
+| T13 | prompting | 进程 crash                | resuming  | --                 | stopTimer + rejectAll permissions + 自动 resume        |
+| T14 | prompting | `stop()`                  | idle      | --                 | cancel + teardown                                      |
+| T15 | suspended | `sendMessage()`           | resuming  | --                 | setPending + spawn 新进程 + loadSession                |
+| T16 | suspended | `stop()`                  | idle      | --                 | 清理（无进程需杀）                                     |
+| T17 | resuming  | 恢复成功                  | active    | --                 | reassertConfig + flush pending prompt                  |
+| T18 | resuming  | 恢复失败                  | resuming  | 可重试且未超限     | teardown + 指数退避重试                                |
+| T19 | resuming  | 恢复失败                  | error     | 重试超限           | teardown + 通知 UI                                     |
+| T20 | error     | `start()` / `retryAuth()` | starting  | --                 | 重置重试计数, 开始新的 start 流程                      |
+| T21 | error     | `stop()`                  | idle      | --                 | 清理                                                   |
 
 #### 命令 x 状态矩阵
 
-| 命令 \ 状态        | idle     | starting              | active          | prompting        | suspended       | resuming              | error                 |
-| ------------------- | -------- | --------------------- | --------------- | ---------------- | --------------- | --------------------- | --------------------- |
-| **start**           | 执行     | no-op                 | no-op           | no-op            | no-op           | no-op                 | 执行                  |
-| **sendMessage**     | throw    | throw                 | 直接执行 prompt | throw            | setPending+resume | throw               | throw                 |
-| **cancelPrompt**    | no-op    | no-op                 | no-op           | cancel 当前      | no-op           | no-op                 | no-op                 |
-| **cancelAll**       | no-op    | clear pending         | clear pending   | cancel+clear     | clear pending   | clear pending         | no-op                 |
-| **setModel**        | throw    | 缓存意图              | 缓存+立即 apply | 缓存意图         | 缓存意图        | 缓存意图              | throw                 |
-| **setMode**         | throw    | 缓存意图              | 缓存+立即 apply | 缓存意图         | 缓存意图        | 缓存意图              | throw                 |
-| **setConfigOption** | 缓存意图 | 缓存意图              | 缓存+立即 apply | 缓存意图         | 缓存意图        | 缓存意图              | 缓存意图              |
-| **confirmPerm**     | no-op    | no-op                 | no-op           | resolve          | no-op           | no-op                 | no-op                 |
-| **retryAuth**       | no-op    | 执行(if authPending)  | no-op           | no-op            | no-op           | no-op                 | 执行(if authPending)  |
-| **suspend**         | no-op    | no-op                 | 执行            | no-op            | already         | no-op                 | no-op                 |
-| **stop**            | cleanup  | teardown(注1)         | teardown+idle   | cancel+teardown+idle | cleanup+idle | teardown(注1)         | cleanup+idle          |
+| 命令 \ 状态         | idle     | starting             | active          | prompting            | suspended         | resuming      | error                |
+| ------------------- | -------- | -------------------- | --------------- | -------------------- | ----------------- | ------------- | -------------------- |
+| **start**           | 执行     | no-op                | no-op           | no-op                | no-op             | no-op         | 执行                 |
+| **sendMessage**     | throw    | throw                | 直接执行 prompt | throw                | setPending+resume | throw         | throw                |
+| **cancelPrompt**    | no-op    | no-op                | no-op           | cancel 当前          | no-op             | no-op         | no-op                |
+| **cancelAll**       | no-op    | clear pending        | clear pending   | cancel+clear         | clear pending     | clear pending | no-op                |
+| **setModel**        | throw    | 缓存意图             | 缓存+立即 apply | 缓存意图             | 缓存意图          | 缓存意图      | throw                |
+| **setMode**         | throw    | 缓存意图             | 缓存+立即 apply | 缓存意图             | 缓存意图          | 缓存意图      | throw                |
+| **setConfigOption** | 缓存意图 | 缓存意图             | 缓存+立即 apply | 缓存意图             | 缓存意图          | 缓存意图      | 缓存意图             |
+| **confirmPerm**     | no-op    | no-op                | no-op           | resolve              | no-op             | no-op         | no-op                |
+| **retryAuth**       | no-op    | 执行(if authPending) | no-op           | no-op                | no-op             | no-op         | 执行(if authPending) |
+| **suspend**         | no-op    | no-op                | 执行            | no-op                | already           | no-op         | no-op                |
+| **stop**            | cleanup  | teardown(注1)        | teardown+idle   | cancel+teardown+idle | cleanup+idle      | teardown(注1) | cleanup+idle         |
 
 > **注1**: `stop()` 从 `starting` / `resuming` 调用时，会执行 teardown 清理资源，但 `VALID_TRANSITIONS` 表中这两个状态不允许转换到 `idle`，`setStatus('idle')` 会被静默忽略。实际进程已被杀死但状态未变更——这是一个已知的 transition table 缺口。
 

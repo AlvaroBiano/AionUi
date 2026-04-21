@@ -26,7 +26,7 @@
 目标: AcpRuntime 实现 IAgentManager, 内部组件齐全, 可独立测试
 
 - [ ] **2.1** AcpRuntime 骨架 — 清空现有代码, 实现 IAgentManager, 持有 AcpSession, 基本 sendMessage/stop/kill 跑通
-- [ ] **2.2** BackendPolicy — per-backend 有状态策略 (即 TODO.md 中的 SessionPlugin 概念): mode 拦截 (Codex/Snow), model 映射 (Claude cc-switch), model switch notice (Claude `<system-reminder>`), CLI login (claude/qwen), error 增强 (Qwen), sandbox config (Codex). 通过 SessionOptions/SessionCallbacks 影响 Session 行为, 不违反 session 层禁依赖 ProcessConfig 约束
+- [x] **2.2** BackendPolicy — per-backend 有状态策略: Claude (model switch notice, beforePrompt, /login), Codex (mode interception + sandbox config), Snow (mode interception), Qwen (error enhancement, login). Default policy for all others. Factory: `createBackendPolicy(backend)`
 - [ ] **2.3** OutputPipeline — ThinkTagFilter (`<think>` 提取) + StatusFilter (噪音抑制) + ToolCallMerger (deep merge, 来自 TODO.md tool_call 合并策略)
 - [ ] **2.4** InputPipeline — UserMessagePersister + FileRefProcessor + FirstMessageInjector. FileRefProcessor 预留 SDK ContentBlock 接口 (TODO.md 文件引用调研), 初期仍用纯文本 fallback
 - [ ] **2.5** TurnTracker — 15s finish 兜底, agentCrash 合成, turn 状态维护
@@ -82,9 +82,9 @@
 
 ## 后续 (不在本轮范围, 记录备查)
 
-| 项目 | 说明 | 来源 |
-|------|------|------|
-| SDK ContentBlock 文件引用 | 调研各后端 promptCapabilities, 按能力发 file/image block vs 纯文本 fallback | TODO.md |
-| acp_session 表读取方 | ACP Discovery 需求落地时补消费逻辑 (session 恢复, idle reclaim) | TODO.md |
-| Hook Runtime (Layer 2) | EventDispatcher 之上加安全壳, Extension 可挂载 hook | RFC |
-| useConversationCommandQueue enabled 参数 | enabled 始终为 true, 考虑去掉 | TODO.md |
+| 项目                                     | 说明                                                                        | 来源    |
+| ---------------------------------------- | --------------------------------------------------------------------------- | ------- |
+| SDK ContentBlock 文件引用                | 调研各后端 promptCapabilities, 按能力发 file/image block vs 纯文本 fallback | TODO.md |
+| acp_session 表读取方                     | ACP Discovery 需求落地时补消费逻辑 (session 恢复, idle reclaim)             | TODO.md |
+| Hook Runtime (Layer 2)                   | EventDispatcher 之上加安全壳, Extension 可挂载 hook                         | RFC     |
+| useConversationCommandQueue enabled 参数 | enabled 始终为 true, 考虑去掉                                               | TODO.md |

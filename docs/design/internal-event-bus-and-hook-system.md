@@ -70,6 +70,7 @@ channelEventBus.emitAgentMessage(id, message)  → Channel 模块
 **影响范围**：6 个 AgentManager（ACP、Gemini、Aionrs、OpenClaw、Remote、NanoBot）。
 
 **涉及文件**：
+
 - `src/process/task/AcpAgentManager.ts` — import channelEventBus (:3), teamEventBus (:4)
 - `src/process/task/GeminiAgentManager.ts` — import channelEventBus (:7), teamEventBus (:34)
 - `src/process/task/AionrsManager.ts` — import channelEventBus (:11), teamEventBus (:12)
@@ -90,6 +91,7 @@ skillSuggestWatcher.onFinish()       // 完成时
 **脆弱性**：如果新增一个 AgentManager 忘记加这些调用，cron 模块会静默地出错（认为 agent 还在工作，不执行定时任务）。
 
 **涉及文件**：
+
 - `src/process/task/AcpAgentManager.ts` — import cronBusyGuard (:29), skillSuggestWatcher (:39)
 - `src/process/task/GeminiAgentManager.ts` — import cronBusyGuard (:24), skillSuggestWatcher (:25)
 - `src/process/task/AionrsManager.ts` — import cronBusyGuard (:28), skillSuggestWatcher (:29)
@@ -111,6 +113,7 @@ emitConversationListChanged() + refreshTrayMenu()  // step 5: 通知 UI
 ```
 
 **涉及文件**：
+
 - `src/process/bridge/conversationBridge.ts` — 删除逻辑 (:264-300)，创建逻辑 (:127-173)，更新逻辑 (:302-337)，warmup (:344-360)，sendMessage (:496-606)
 
 #### Pattern 4: MessageMiddleware 硬编码 Cron 逻辑
@@ -118,6 +121,7 @@ emitConversationListChanged() + refreshTrayMenu()  // step 5: 通知 UI
 `MessageMiddleware.ts` 直接 import cronService 并在 `handleCronCommands()` 中执行 cron job 的 CRUD：
 
 **涉及文件**：
+
 - `src/process/task/MessageMiddleware.ts` — import cronService (:10)，handleCronCommands (:191-258)
 
 #### Pattern 5: Team MCP 注入散布各处
@@ -125,6 +129,7 @@ emitConversationListChanged() + refreshTrayMenu()  // step 5: 通知 UI
 `shouldInjectTeamGuideMcp()` + `getTeamGuideStdioConfig()` 在 5 个文件中被 import：
 
 **涉及文件**：
+
 - `src/process/task/AcpAgentManager.ts` (:44) — shouldInjectTeamGuideMcp
 - `src/process/task/AcpAgentManager.ts` (:1009) — dynamic import teamGuidePrompt
 - `src/process/task/agentUtils.ts` (:9) — getTeamGuidePrompt
@@ -151,23 +156,27 @@ emitConversationListChanged() + refreshTrayMenu()  // step 5: 通知 UI
 ```
 
 **Layer 1: Internal Event Bus**
+
 - 给谁用：AionUi 自身模块（Team、Cron、Channel、Preview 等）
 - 解决什么：模块间硬编码依赖
 - 边界：纯内部，不暴露给外部代码。不涉及权限、沙箱、打包。
 - 本 RFC 的核心范围
 
 **Layer 2: Hook API**
+
 - 给谁用：Extension 开发者
 - 解决什么：Extension 无法挂载到核心流程（消息流、会话生命周期）
 - 边界：建立在 Layer 1 之上，监听同一套事件，但加了安全壳（权限声明、超时、隔离执行）
 - 后续 RFC
 
 **Layer 3: Extension 整合**
+
 - hooks 成为 `contributes` manifest 的一种类型
 - 复用现有 manifest schema、lifecycle hooks、sandbox 机制
 - 后续 RFC
 
 **Layer 4: Hub**
+
 - 复用现有 `HubIndexManager`、`HubInstaller` 基础设施
 - 前提：Layer 1-3 可用后自然接入
 - 后续 RFC
@@ -192,14 +201,14 @@ emitConversationListChanged() + refreshTrayMenu()  // step 5: 通知 UI
 
 ```ts
 // Before (每个 Manager 重复 ~60 行)
-ipcBridge.acpConversation.responseStream.emit(message)
-teamEventBus.emit('responseStream', message)
-channelEventBus.emitAgentMessage(id, message)
-cronBusyGuard.setProcessing(false)
-skillSuggestWatcher.onFinish()
+ipcBridge.acpConversation.responseStream.emit(message);
+teamEventBus.emit('responseStream', message);
+channelEventBus.emitAgentMessage(id, message);
+cronBusyGuard.setProcessing(false);
+skillSuggestWatcher.onFinish();
 
 // After (1 行)
-eventBus.emit('agent:finish', { conversationId, message, agentType })
+eventBus.emit('agent:finish', { conversationId, message, agentType });
 ```
 
 #### 领域 2: Turn 生命周期（解决 Pattern 2）
@@ -213,8 +222,8 @@ eventBus.emit('agent:finish', { conversationId, message, agentType })
 
 ```ts
 // CronBusyGuard 内部
-eventBus.on('turn:started', () => this.setProcessing(true))
-eventBus.on('turn:completed', () => this.setProcessing(false))
+eventBus.on('turn:started', () => this.setProcessing(true));
+eventBus.on('turn:completed', () => this.setProcessing(false));
 ```
 
 #### 领域 3: 会话生命周期（解决 Pattern 3）
@@ -230,15 +239,15 @@ eventBus.on('turn:completed', () => this.setProcessing(false))
 
 ```ts
 // Before (bridge 手动编排 5 个模块)
-await workerTaskManager.kill(id)
-await channelManager.cleanupConversation(id)
-await conversationService.deleteConversation(id)
-removeFromMessageCache(id)
-emitConversationListChanged()
-refreshTrayMenuSafely()
+await workerTaskManager.kill(id);
+await channelManager.cleanupConversation(id);
+await conversationService.deleteConversation(id);
+removeFromMessageCache(id);
+emitConversationListChanged();
+refreshTrayMenuSafely();
 
 // After (service 发事件，各模块自行处理)
-await conversationService.deleteConversation(id) // 内部 emit conversation:deleting → conversation:deleted
+await conversationService.deleteConversation(id); // 内部 emit conversation:deleting → conversation:deleted
 ```
 
 #### 领域 4: Cron 命令检测（解决 Pattern 4）
@@ -251,11 +260,11 @@ await conversationService.deleteConversation(id) // 内部 emit conversation:del
 
 ```ts
 // Before (MessageMiddleware 直接 CRUD cron jobs)
-import { cronService } from '../services/cron/cronServiceSingleton'
-await cronService.addJob(jobData)
+import { cronService } from '../services/cron/cronServiceSingleton';
+await cronService.addJob(jobData);
 
 // After (只检测和通知)
-eventBus.emit('cron:command:detected', { conversationId, commands })
+eventBus.emit('cron:command:detected', { conversationId, commands });
 ```
 
 #### 领域 5: Agent 配置注入（解决 Pattern 5）
@@ -270,9 +279,9 @@ eventBus.emit('cron:command:detected', { conversationId, commands })
 // Team 模块内部注册一次
 eventBus.on('agent:configuring', (ctx) => {
   if (shouldInjectTeamGuideMcp(ctx.conversationId)) {
-    ctx.config.mcpServers.push(getTeamGuideStdioConfig())
+    ctx.config.mcpServers.push(getTeamGuideStdioConfig());
   }
-})
+});
 ```
 
 ### 4.2 接口设计
@@ -420,22 +429,24 @@ hooks 成为 Extension manifest 的一种 `contributes` 类型：
     "hooks": {
       "agent:finish": {
         "handler": "hooks/translate.mjs",
-        "timeout": 10000
-      }
-    }
+        "timeout": 10000,
+      },
+    },
   },
   "permissions": {
-    "hooks": ["agent:finish"]
-  }
+    "hooks": ["agent:finish"],
+  },
 }
 ```
 
 复用现有 Extension 基础设施：
+
 - manifest schema（Zod 校验）
 - lifecycle hooks（onInstall, onActivate, onDeactivate, onUninstall）
 - Hub 安装/分发（HubIndexManager, HubInstaller）
 
 需要重新评估的部分：
+
 - Sandbox 执行模型的复杂度：当前 Worker Thread sandbox 是否过重？是否需要更轻量的选项？
 - Castor6 提出的 `command` 模式（spawn 外部脚本）的安全性与适用场景
 
@@ -446,6 +457,7 @@ hooks 成为 Extension manifest 的一种 `contributes` 类型：
 ### Phase 1: 建立 Event Bus + 解耦 Agent 消息扇出（Pattern 1 + 2）
 
 **范围**：
+
 - 新建 `src/process/eventBus/` 模块
 - 重构 6 个 AgentManager，移除 teamEventBus / channelEventBus / cronBusyGuard / skillSuggestWatcher 的直接 import
 - Team 模块改为订阅 `agent:stream/finish`
@@ -453,6 +465,7 @@ hooks 成为 Extension manifest 的一种 `contributes` 类型：
 - CronBusyGuard 改为订阅 `turn:started/completed`
 
 **验证**：
+
 - 所有 AgentManager 不再 import team、channel、cron 模块
 - 现有 team mode 功能正常
 - 现有 channel bot 功能正常
@@ -463,17 +476,20 @@ hooks 成为 Extension manifest 的一种 `contributes` 类型：
 ### Phase 2: 解耦 Conversation 生命周期（Pattern 3）
 
 **范围**：
+
 - ConversationService 在 create/delete/update 时 emit 事件
 - `conversationBridge.ts` 不再手动串联清理链
 - 各模块（WorkerTaskManager、Channel、MessageCache、Tray）改为订阅事件
 
 **验证**：
+
 - 删除会话后所有关联资源被正确清理
 - `conversationBridge.ts` 复杂度显著降低
 
 ### Phase 3: 解耦 MessageMiddleware（Pattern 4）
 
 **范围**：
+
 - MessageMiddleware 只负责检测 cron 命令，emit `cron:command:detected`
 - CronService 订阅并处理
 - MessageMiddleware 移除对 cronService 的 import
@@ -481,6 +497,7 @@ hooks 成为 Extension manifest 的一种 `contributes` 类型：
 ### Phase 4: 解耦 Team MCP 注入（Pattern 5）
 
 **范围**：
+
 - 引入 `agent:configuring` waterfall 事件
 - Team 模块注册配置中间件
 - 移除 5 个文件中散布的 `shouldInjectTeamGuideMcp` 调用

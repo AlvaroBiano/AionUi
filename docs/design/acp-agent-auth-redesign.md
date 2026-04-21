@@ -147,6 +147,7 @@ flowchart TD
 ```
 
 关键状态：**Reconnecting**。认证步骤完成后，spawn 新 Agent 进程重新建立 session。
+
 - 如有 `oldSessionId` → 先尝试 `loadSession(oldSessionId)` 恢复上下文
 - `loadSession` 不支持或失败 → fallback 到 `createSession`（上下文丢失，告知用户）
 - 仍返回 `AUTH_REQUIRED` → 认证实际未成功，进入 AuthFailed 让用户重试
@@ -251,10 +252,10 @@ authMethods: [] 但收到 AUTH_REQUIRED:
 
 ```typescript
 type AuthResolution =
-  | { strategy: 'auto_env_var'; method: AuthMethod }       // 静默，不弹 Modal
-  | { strategy: 'single_method'; method: AuthMethod }      // 可能需要 UI
-  | { strategy: 'user_choice'; methods: AuthMethod[] }     // 必须弹 Modal
-  | { strategy: 'no_methods' }                             // 无方法可用
+  | { strategy: 'auto_env_var'; method: AuthMethod } // 静默，不弹 Modal
+  | { strategy: 'single_method'; method: AuthMethod } // 可能需要 UI
+  | { strategy: 'user_choice'; methods: AuthMethod[] } // 必须弹 Modal
+  | { strategy: 'no_methods' }; // 无方法可用
 
 class AuthMethodResolver {
   /**
@@ -275,10 +276,12 @@ class AuthMethodResolver {
 ### 5.1 问题本质
 
 认证过程分两步：
+
 1. **登录步骤** — 用户在浏览器/终端/输入框完成操作
 2. **Agent 接受** — Agent 进程确认凭证有效，`createSession()` 不再返回 `AUTH_REQUIRED`
 
 步骤 1 完成 **不等于** 步骤 2 成功。例如：
+
 - 终端退出码 0 但 token 实际已过期
 - OAuth 浏览器回调成功但 Agent 检测到 scope 不足
 - API Key 格式正确但已被 revoke
@@ -565,7 +568,7 @@ class AuthService {
     private readonly stateManager: AuthStateManager,
     private readonly clientFactory: ConnectorFactory,
     private readonly executors: IAuthExecutor[],
-    private readonly emitter: AuthEventEmitter,
+    private readonly emitter: AuthEventEmitter
   ) {}
 
   /**
@@ -584,7 +587,7 @@ class AuthService {
     });
 
     // 2. 找到匹配的 executor 并执行
-    const executor = this.executors.find(e => e.canHandle(method));
+    const executor = this.executors.find((e) => e.canHandle(method));
     if (!executor) {
       return this.fail(conversationId, 'No handler for this auth method', false);
     }
@@ -605,7 +608,7 @@ class AuthService {
   async verifyManualLogin(
     conversationId: string,
     agentConfig: AgentConfig,
-    oldSessionId: string | null,
+    oldSessionId: string | null
   ): Promise<AuthenticateResponse> {
     return this.reconnectAndReport(conversationId, agentConfig, oldSessionId);
   }
@@ -617,7 +620,7 @@ class AuthService {
   private async reconnectAndReport(
     conversationId: string,
     agentConfig: AgentConfig,
-    oldSessionId: string | null,
+    oldSessionId: string | null
   ): Promise<AuthenticateResponse> {
     this.emitter.emitStateChange(conversationId, { status: 'reconnecting' });
 
@@ -642,10 +645,7 @@ class AuthService {
     };
   }
 
-  private async reconnect(
-    agentConfig: AgentConfig,
-    oldSessionId: string | null,
-  ): Promise<ReconnectResult> {
+  private async reconnect(agentConfig: AgentConfig, oldSessionId: string | null): Promise<ReconnectResult> {
     const client = this.clientFactory.create(agentConfig);
     await client.start();
 
@@ -709,9 +709,7 @@ type AuthExecuteRequest = {
   agentConfig: AgentConfig;
 };
 
-type AuthStepResult =
-  | { success: true }
-  | { success: false; error: string; retryable: boolean };
+type AuthStepResult = { success: true } | { success: false; error: string; retryable: boolean };
 
 interface IAuthExecutor {
   canHandle(method: AuthMethod): boolean;
@@ -910,25 +908,19 @@ export const acpAuth = {
   onAuthStateChange: bridge.buildEmitter<AcpAuthStateChangeEvent>('acp.auth.state-change'),
 
   /** renderer → main: 执行认证 */
-  authenticate: bridge.buildProvider<AcpAuthenticateRequest, AcpAuthenticateResponse>(
-    'acp.auth.authenticate'
-  ),
+  authenticate: bridge.buildProvider<AcpAuthenticateRequest, AcpAuthenticateResponse>('acp.auth.authenticate'),
 
   /** renderer → main: 打开外部终端 (Terminal Auth Tier 2) */
   openTerminal: bridge.buildProvider<AcpOpenTerminalRequest, void>('acp.auth.open-terminal'),
 
   /** renderer → main: 用户确认已在外部终端完成登录，触发 verify */
-  verifyLogin: bridge.buildProvider<AcpVerifyLoginRequest, AcpAuthenticateResponse>(
-    'acp.auth.verify-login'
-  ),
+  verifyLogin: bridge.buildProvider<AcpVerifyLoginRequest, AcpAuthenticateResponse>('acp.auth.verify-login'),
 
   /** renderer → main: 取消认证 */
   cancelAuth: bridge.buildProvider<{ conversationId: string }, void>('acp.auth.cancel'),
 
   /** renderer → main: 手动触发重新认证 */
-  reauthenticate: bridge.buildProvider<{ conversationId: string }, void>(
-    'acp.auth.reauthenticate'
-  ),
+  reauthenticate: bridge.buildProvider<{ conversationId: string }, void>('acp.auth.reauthenticate'),
 };
 ```
 
@@ -1003,25 +995,15 @@ type AcpAuthStateChangeEvent = {
 
 export function registerAcpAuthBridge(authService: AuthService): void {
   // 纯透传 — 零逻辑
-  ipcBridge.acpAuth.authenticate.handle(
-    (req) => authService.authenticate(req)
-  );
+  ipcBridge.acpAuth.authenticate.handle((req) => authService.authenticate(req));
 
-  ipcBridge.acpAuth.openTerminal.handle(
-    (req) => authService.openExternalTerminal(req)
-  );
+  ipcBridge.acpAuth.openTerminal.handle((req) => authService.openExternalTerminal(req));
 
-  ipcBridge.acpAuth.verifyLogin.handle(
-    (req) => authService.verifyManualLogin(req.conversationId)
-  );
+  ipcBridge.acpAuth.verifyLogin.handle((req) => authService.verifyManualLogin(req.conversationId));
 
-  ipcBridge.acpAuth.cancelAuth.handle(
-    (req) => authService.cancelAuth(req.conversationId)
-  );
+  ipcBridge.acpAuth.cancelAuth.handle((req) => authService.cancelAuth(req.conversationId));
 
-  ipcBridge.acpAuth.reauthenticate.handle(
-    (req) => authService.reauthenticate(req.conversationId)
-  );
+  ipcBridge.acpAuth.reauthenticate.handle((req) => authService.reauthenticate(req.conversationId));
 }
 ```
 
@@ -1171,7 +1153,7 @@ type AcpAuthState =
   | { status: 'idle' }
   | { status: 'required'; event: AcpAuthRequiredEvent }
   | { status: 'authenticating'; methodId: string; methodName: string }
-  | { status: 'terminal_waiting'; methodId: string; command: string }  // 外部终端模式
+  | { status: 'terminal_waiting'; methodId: string; command: string } // 外部终端模式
   | { status: 'reconnecting' }
   | { status: 'success' }
   | { status: 'failed'; error: string; retryable: boolean; event?: AcpAuthRequiredEvent };
@@ -1213,7 +1195,10 @@ function useAcpAuth(conversationId: string) {
       }
     });
 
-    return () => { unsub1(); unsub2(); };
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [conversationId]);
 
   const authenticate = useCallback(
@@ -1223,15 +1208,11 @@ function useAcpAuth(conversationId: string) {
   );
 
   const openTerminal = useCallback(
-    (methodId: string) =>
-      ipcBridge.acpAuth.openTerminal.invoke({ conversationId, methodId }),
+    (methodId: string) => ipcBridge.acpAuth.openTerminal.invoke({ conversationId, methodId }),
     [conversationId]
   );
 
-  const verifyLogin = useCallback(
-    () => ipcBridge.acpAuth.verifyLogin.invoke({ conversationId }),
-    [conversationId]
-  );
+  const verifyLogin = useCallback(() => ipcBridge.acpAuth.verifyLogin.invoke({ conversationId }), [conversationId]);
 
   const cancel = useCallback(() => {
     ipcBridge.acpAuth.cancelAuth.invoke({ conversationId });
@@ -1297,6 +1278,7 @@ class SecureCredentialStore {
 ```
 
 底层机制：
+
 - **macOS**: Keychain (AES-256)
 - **Windows**: DPAPI
 - **Linux**: libsecret / kwallet
@@ -1307,8 +1289,8 @@ fallback（safeStorage 不可用时）：拒绝存储，提示用户设置环境
 
 ```typescript
 type AuthMetadata = {
-  lastMethodId?: string;    // 上次成功使用的方法
-  lastAuthTime?: number;    // 上次认证时间
+  lastMethodId?: string; // 上次成功使用的方法
+  lastAuthTime?: number; // 上次认证时间
 };
 // 存储在 ConfigStorage: acp.auth.meta.{backend}
 ```
@@ -1316,6 +1298,7 @@ type AuthMetadata = {
 ### 9.4 清理死代码
 
 移除：
+
 - `acp.config[backend].authToken` — 从未使用
 - `acp.config[backend].authMethodId` — 从未使用
 - `credentialCrypto.ts` 中的 Base64 编码方式 — 替换为 safeStorage
@@ -1332,8 +1315,8 @@ AionUi 每个 conversation 有独立 Agent 进程。如果 Conv B 有活跃 sess
 
 ```typescript
 type AuthPendingReason =
-  | 'initial'     // session 从未建立（blocked at creation）
-  | 'mid_session' // session 已有，中途过期（blocked at prompt）
+  | 'initial' // session 从未建立（blocked at creation）
+  | 'mid_session'; // session 已有，中途过期（blocked at prompt）
 ```
 
 **initial**: 从未有过 session → 可以安全 auto retry（无历史可丢失）
@@ -1438,6 +1421,7 @@ private handleAuthRefreshed(): void {
 ### 11.2 手动重新认证
 
 触发入口：
+
 1. **菜单 "Reauthenticate"** — 对话标题栏 dropdown
 2. **斜杠命令 `/login`** — 聊天输入框
 

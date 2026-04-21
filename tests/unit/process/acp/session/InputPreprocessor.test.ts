@@ -121,9 +121,7 @@ describe('InputPreprocessor', () => {
         ] as unknown as fs.Dirent[];
       }
       if (d === '/workspace/src') {
-        return [
-          { name: 'utils.ts', isFile: () => true, isDirectory: () => false },
-        ] as unknown as fs.Dirent[];
+        return [{ name: 'utils.ts', isFile: () => true, isDirectory: () => false }] as unknown as fs.Dirent[];
       }
       return [] as unknown as fs.Dirent[];
     });
@@ -179,7 +177,9 @@ describe('InputPreprocessor', () => {
       readdirCalls.push(d);
       // Create a deep chain: workspace/a/b/c/d/target.ts
       // Only workspace/a/b/c should be searched (depth 3), not workspace/a/b/c/d (depth 4)
-      return [{ name: d.endsWith('/c') ? 'd' : 'a', isFile: () => false, isDirectory: () => true }] as unknown as fs.Dirent[];
+      return [
+        { name: d.endsWith('/c') ? 'd' : 'a', isFile: () => false, isDirectory: () => true },
+      ] as unknown as fs.Dirent[];
     });
 
     const pp = new InputPreprocessor(readFile, '/workspace');

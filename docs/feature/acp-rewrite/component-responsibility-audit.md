@@ -92,8 +92,8 @@
 
 ### 缺口速览
 
-| 大类           | 新架构缺口                                                                    |
-| -------------- | ----------------------------------------------------------------------------- |
+| 大类           | 新架构缺口                                                                     |
+| -------------- | ------------------------------------------------------------------------------ |
 | A 进程生命周期 | ✅ 基本覆盖 (suspend vs kill 语义差异待对齐)                                   |
 | B 协议通信     | ✅ 完全覆盖                                                                    |
 | C 认证         | ⚠️ 协议级有, **CLI login 缺失** (AcpAgentV2 compat 补)                         |
@@ -254,8 +254,8 @@
 `AcpAgentV2` (`src/process/acp/compat/AcpAgentV2.ts`, 809 行) 是 AcpAgent 的**兼容替代品**, 内部委托给 `AcpSession`。
 它复制了 AcpAgent 的大部分职责 (A1-A30 中约 20 项), 但以下几项**在 V2 中缺失或弱化**:
 
-| 旧职责                  | V2 状态                                             | 参考                                                          |
-| ----------------------- | --------------------------------------------------- | ------------------------------------------------------------- |
+| 旧职责                  | V2 状态                                              | 参考                                                          |
+| ----------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
 | A2 自动重连             | ❌ 缺失 (P1 open bug)                                | V2-MIGRATION-AUDIT #21                                        |
 | A11 model 再确认        | ⚠️ 策略不同 (V2 成功后清 desired)                    | V2-MIGRATION-AUDIT #23                                        |
 | A16 @ 文件引用          | ⚠️ 简化版 (无引号路径/去重/workspace搜索/binary警告) | V2-MIGRATION-AUDIT #22                                        |
@@ -482,6 +482,7 @@
 ## 职责覆盖关系速查
 
 下表展示**旧组件职责被新组件覆盖的情况**:
+
 - ✅ = 完全覆盖
 - ⚠️ = 部分覆盖 / 弱化
 - ❌ = 未覆盖 (缺失)
@@ -490,108 +491,108 @@
 
 | 旧                    | 新       | 状态 | 备注                         |
 | --------------------- | -------- | ---- | ---------------------------- |
-| C1 子进程生成         | P1       | ✅    | spawnFn 注入更灵活           |
-| C2 协议握手           | P6       | ✅    | SDK-based                    |
-| C3 启动失败检测       | P7       | ✅    | 4-signal 更完善              |
-| C4 stderr 捕获        | P2       | ✅    | 8KB vs 2KB                   |
-| C5 NDJSON 收发        | P4       | ✅    | SDK ndJsonStream vs 手写     |
-| C6 JSON-RPC 路由      | P5       | ✅    | SDK 内置                     |
-| C7 pending request    | P9       | ✅    | 断连自动 reject              |
-| C8 session 管理       | P8 + S10 | ✅    |                              |
-| C9 能力解析           | S25      | ✅    | ConfigTracker                |
-| C10 CWD 归一化        | S6       | ⚠️    | assertPathAllowed 不完全等价 |
-| C11 prompt 发送       | P8 + S17 | ✅    |                              |
-| C12 prompt 取消       | P8 + S17 | ✅    |                              |
-| C13 timeout 暂停/恢复 | S19      | ✅    | PromptTimer                  |
-| C14 权限协商          | S20      | ✅    | PermissionResolver           |
-| C15 config/model/mode | P8 + S25 | ✅    |                              |
-| C16 config 流式更新   | S5       | ✅    | AcpSession.handleMessage     |
-| C17 文件读写          | S4 + S6  | ✅    | buildProtocolHandlers        |
-| C18 路径解析          | S6       | ✅    | assertPathAllowed            |
-| C19 认证              | P8 + S28 | ✅    |                              |
-| C20 优雅断连          | P12      | ✅    | 3 阶段                       |
-| C21 异常退出          | P3       | ✅    | 4-signal first-write-wins    |
-| C22 首 chunk 延迟     | —        | ❌    | 新版未追踪                   |
-| C23 启动错误消息      | P7       | ⚠️    | 诊断信息格式不同             |
+| C1 子进程生成         | P1       | ✅   | spawnFn 注入更灵活           |
+| C2 协议握手           | P6       | ✅   | SDK-based                    |
+| C3 启动失败检测       | P7       | ✅   | 4-signal 更完善              |
+| C4 stderr 捕获        | P2       | ✅   | 8KB vs 2KB                   |
+| C5 NDJSON 收发        | P4       | ✅   | SDK ndJsonStream vs 手写     |
+| C6 JSON-RPC 路由      | P5       | ✅   | SDK 内置                     |
+| C7 pending request    | P9       | ✅   | 断连自动 reject              |
+| C8 session 管理       | P8 + S10 | ✅   |                              |
+| C9 能力解析           | S25      | ✅   | ConfigTracker                |
+| C10 CWD 归一化        | S6       | ⚠️   | assertPathAllowed 不完全等价 |
+| C11 prompt 发送       | P8 + S17 | ✅   |                              |
+| C12 prompt 取消       | P8 + S17 | ✅   |                              |
+| C13 timeout 暂停/恢复 | S19      | ✅   | PromptTimer                  |
+| C14 权限协商          | S20      | ✅   | PermissionResolver           |
+| C15 config/model/mode | P8 + S25 | ✅   |                              |
+| C16 config 流式更新   | S5       | ✅   | AcpSession.handleMessage     |
+| C17 文件读写          | S4 + S6  | ✅   | buildProtocolHandlers        |
+| C18 路径解析          | S6       | ✅   | assertPathAllowed            |
+| C19 认证              | P8 + S28 | ✅   |                              |
+| C20 优雅断连          | P12      | ✅   | 3 阶段                       |
+| C21 异常退出          | P3       | ✅   | 4-signal first-write-wins    |
+| C22 首 chunk 延迟     | —        | ❌   | 新版未追踪                   |
+| C23 启动错误消息      | P7       | ⚠️   | 诊断信息格式不同             |
 
 ### AcpAgent → AcpSession + AcpAgentV2
 
 | 旧                             | 新                 | 状态 | 备注                                             |
 | ------------------------------ | ------------------ | ---- | ------------------------------------------------ |
-| A1 连接生命周期                | S9 + S12           | ✅    | SessionLifecycle                                 |
-| A2 自动重连                    | —                  | ❌    | **P1 open bug**, V2 抛 INVALID_STATE             |
-| A3 认证流程 (multi-step)       | S11 + S28          | ⚠️    | 有协议认证, 无 CLI login                         |
-| A4 CLI login 执行              | AcpAgentV2         | ✅    | 在 compat 层, 非 session 层                      |
-| A5 session 创建/恢复           | S10                | ✅    |                                                  |
-| A6 MCP 注入                    | R4 + S30           | ✅    |                                                  |
-| A7 MCP 就绪等待                | AcpAgentV2         | ✅    | 在 compat 层                                     |
-| A8 YOLO mode                   | S13                | ✅    |                                                  |
-| A9 session mode                | S25 + P8           | ✅    |                                                  |
-| A10 model 管理                 | S25 + P8           | ✅    |                                                  |
-| A11 model 再确认               | S14                | ⚠️    | reassertConfig 只在重连时, 非每次 prompt         |
-| A12 Claude model switch notice | AcpAgentV2         | ✅    | 在 compat 层                                     |
-| A13 config options             | S25 + P8           | ✅    |                                                  |
-| A14 prompt timeout 配置        | S19                | ✅    |                                                  |
-| A15 消息发送                   | S17                | ⚠️    | 无 auto-reconnect, 无 @file 完整版               |
-| A16 @ 文件引用 (完整版)        | S29                | ⚠️    | **简化版**: 无引号/去重/workspace搜索/binary警告 |
-| A17 权限请求                   | S20                | ✅    |                                                  |
-| A18 approval 缓存              | S21                | ✅    | LRU with key hashing                             |
-| A19 权限确认                   | S22-perm           | ✅    |                                                  |
-| A20 navigation 拦截            | AcpAgentV2         | ✅    | 在 compat 层                                     |
-| A21 session update 分发        | S5 + S22           | ✅    |                                                  |
-| A22 agentCrash flag            | —                  | ❌    | **P0 open bug**                                  |
-| A23 断连/崩溃处理              | S7                 | ⚠️    | 恢复有, 但无 agentCrash 标记                     |
-| A24 context usage              | S5 callback        | ✅    |                                                  |
-| A25 file operation 渲染        | —                  | ❌    | 新版不生成 file op TMessage                      |
-| A26 UI 事件发射                | R5 + R6            | ⚠️    | 新格式 SignalEvent, 非旧格式 IResponseMessage    |
-| A27 TMessage 类型映射          | S22                | ✅    | MessageTranslator                                |
-| A28 能力缓存到 ProcessConfig   | AcpAgentV2         | ✅    | 在 compat 层                                     |
-| A29 prompt 取消 + kill         | S17 + S15          | ✅    |                                                  |
-| A30 错误分类                   | AcpError hierarchy | ⚠️    | 结构化但无 Qwen 特定增强                         |
+| A1 连接生命周期                | S9 + S12           | ✅   | SessionLifecycle                                 |
+| A2 自动重连                    | —                  | ❌   | **P1 open bug**, V2 抛 INVALID_STATE             |
+| A3 认证流程 (multi-step)       | S11 + S28          | ⚠️   | 有协议认证, 无 CLI login                         |
+| A4 CLI login 执行              | AcpAgentV2         | ✅   | 在 compat 层, 非 session 层                      |
+| A5 session 创建/恢复           | S10                | ✅   |                                                  |
+| A6 MCP 注入                    | R4 + S30           | ✅   |                                                  |
+| A7 MCP 就绪等待                | AcpAgentV2         | ✅   | 在 compat 层                                     |
+| A8 YOLO mode                   | S13                | ✅   |                                                  |
+| A9 session mode                | S25 + P8           | ✅   |                                                  |
+| A10 model 管理                 | S25 + P8           | ✅   |                                                  |
+| A11 model 再确认               | S14                | ⚠️   | reassertConfig 只在重连时, 非每次 prompt         |
+| A12 Claude model switch notice | AcpAgentV2         | ✅   | 在 compat 层                                     |
+| A13 config options             | S25 + P8           | ✅   |                                                  |
+| A14 prompt timeout 配置        | S19                | ✅   |                                                  |
+| A15 消息发送                   | S17                | ⚠️   | 无 auto-reconnect, 无 @file 完整版               |
+| A16 @ 文件引用 (完整版)        | S29                | ⚠️   | **简化版**: 无引号/去重/workspace搜索/binary警告 |
+| A17 权限请求                   | S20                | ✅   |                                                  |
+| A18 approval 缓存              | S21                | ✅   | LRU with key hashing                             |
+| A19 权限确认                   | S22-perm           | ✅   |                                                  |
+| A20 navigation 拦截            | AcpAgentV2         | ✅   | 在 compat 层                                     |
+| A21 session update 分发        | S5 + S22           | ✅   |                                                  |
+| A22 agentCrash flag            | —                  | ❌   | **P0 open bug**                                  |
+| A23 断连/崩溃处理              | S7                 | ⚠️   | 恢复有, 但无 agentCrash 标记                     |
+| A24 context usage              | S5 callback        | ✅   |                                                  |
+| A25 file operation 渲染        | —                  | ❌   | 新版不生成 file op TMessage                      |
+| A26 UI 事件发射                | R5 + R6            | ⚠️   | 新格式 SignalEvent, 非旧格式 IResponseMessage    |
+| A27 TMessage 类型映射          | S22                | ✅   | MessageTranslator                                |
+| A28 能力缓存到 ProcessConfig   | AcpAgentV2         | ✅   | 在 compat 层                                     |
+| A29 prompt 取消 + kill         | S17 + S15          | ✅   |                                                  |
+| A30 错误分类                   | AcpError hierarchy | ⚠️   | 结构化但无 Qwen 特定增强                         |
 
 ### AcpAgentManager → AcpRuntime
 
 | 旧                             | 新  | 状态 | 备注                                                   |
 | ------------------------------ | --- | ---- | ------------------------------------------------------ |
-| M1 agent 惰性初始化            | R2  | ⚠️    | Runtime 直接 start, 无 bootstrap promise               |
-| M2 bootstrap 预热抑制          | —   | ❌    |                                                        |
-| M3 消息发送入口                | R8  | ⚠️    | 纯委托, 无业务逻辑                                     |
-| M4 用户消息预持久化            | —   | ❌    |                                                        |
-| M5 首消息技能/预设注入         | —   | ❌    |                                                        |
-| M6 turn 追踪 + finish 兜底     | —   | ❌    |                                                        |
-| M7 流式文本 DB 缓冲            | —   | ❌    |                                                        |
-| M8 stream 事件处理管线         | R5  | ⚠️    | 只有 hook, 无处理管线                                  |
-| M9 agent 状态噪音过滤          | —   | ❌    |                                                        |
-| M10 thinking 消息累积          | —   | ❌    |                                                        |
-| M11 `<think>` 标签提取         | —   | ❌    |                                                        |
-| M12 signal 事件处理            | R6  | ⚠️    | 翻译为 SignalEvent, 无业务分发                         |
-| M13 权限管理 (manager 层)      | —   | ❌    | yolo/team auto-approve 在 Session 层; channel 通知缺失 |
-| M14 三路事件总线广播           | —   | ❌    |                                                        |
-| M15 request_trace 事件         | —   | ❌    |                                                        |
-| M16 cron 集成                  | —   | ❌    |                                                        |
-| M17 finish 处理                | —   | ❌    |                                                        |
-| M18 TurnCompletionService      | —   | ❌    |                                                        |
-| M19 per-conversation DB 持久化 | R11 | ❌    | 设计了但全部注释掉                                     |
-| M20 model list 缓存            | —   | ❌    |                                                        |
-| M21 后端特定 mode 拦截         | —   | ❌    |                                                        |
-| M22 codex sandbox mode         | —   | ❌    |                                                        |
-| M23 stop                       | R8  | ✅    |                                                        |
-| M24 kill                       | R3  | ⚠️    | close vs kill 语义不同                                 |
-| M25 slash commands 管理        | —   | ❌    |                                                        |
-| M26 preview open 事件          | —   | ❌    |                                                        |
+| M1 agent 惰性初始化            | R2  | ⚠️   | Runtime 直接 start, 无 bootstrap promise               |
+| M2 bootstrap 预热抑制          | —   | ❌   |                                                        |
+| M3 消息发送入口                | R8  | ⚠️   | 纯委托, 无业务逻辑                                     |
+| M4 用户消息预持久化            | —   | ❌   |                                                        |
+| M5 首消息技能/预设注入         | —   | ❌   |                                                        |
+| M6 turn 追踪 + finish 兜底     | —   | ❌   |                                                        |
+| M7 流式文本 DB 缓冲            | —   | ❌   |                                                        |
+| M8 stream 事件处理管线         | R5  | ⚠️   | 只有 hook, 无处理管线                                  |
+| M9 agent 状态噪音过滤          | —   | ❌   |                                                        |
+| M10 thinking 消息累积          | —   | ❌   |                                                        |
+| M11 `<think>` 标签提取         | —   | ❌   |                                                        |
+| M12 signal 事件处理            | R6  | ⚠️   | 翻译为 SignalEvent, 无业务分发                         |
+| M13 权限管理 (manager 层)      | —   | ❌   | yolo/team auto-approve 在 Session 层; channel 通知缺失 |
+| M14 三路事件总线广播           | —   | ❌   |                                                        |
+| M15 request_trace 事件         | —   | ❌   |                                                        |
+| M16 cron 集成                  | —   | ❌   |                                                        |
+| M17 finish 处理                | —   | ❌   |                                                        |
+| M18 TurnCompletionService      | —   | ❌   |                                                        |
+| M19 per-conversation DB 持久化 | R11 | ❌   | 设计了但全部注释掉                                     |
+| M20 model list 缓存            | —   | ❌   |                                                        |
+| M21 后端特定 mode 拦截         | —   | ❌   |                                                        |
+| M22 codex sandbox mode         | —   | ❌   |                                                        |
+| M23 stop                       | R8  | ✅   |                                                        |
+| M24 kill                       | R3  | ⚠️   | close vs kill 语义不同                                 |
+| M25 slash commands 管理        | —   | ❌   |                                                        |
+| M26 preview open 事件          | —   | ❌   |                                                        |
 
 ### WorkerTaskManager → AcpRuntime
 
 | 旧                  | 新  | 状态 | 备注                               |
 | ------------------- | --- | ---- | ---------------------------------- |
-| W1 任务注册         | R1  | ⚠️    | Map vs Array, 无 type 字段         |
-| W2 惰性构建 from DB | —   | ❌    | AcpRuntime 不读 DB                 |
-| W3 多类型工厂分发   | —   | ❌    | AcpRuntime 只管 ACP                |
-| W4 任务替换/去重    | —   | ❌    |                                    |
-| W5 单任务 kill      | R3  | ⚠️    | close (stop+remove) vs kill        |
-| W6 全量清理         | R10 | ⚠️    | shutdown (suspend) vs clear (kill) |
-| W7 空闲回收         | R7  | ⚠️    | suspend vs kill, 不同语义          |
-| W8 任务枚举         | —   | ❌    | 无 listTasks()                     |
+| W1 任务注册         | R1  | ⚠️   | Map vs Array, 无 type 字段         |
+| W2 惰性构建 from DB | —   | ❌   | AcpRuntime 不读 DB                 |
+| W3 多类型工厂分发   | —   | ❌   | AcpRuntime 只管 ACP                |
+| W4 任务替换/去重    | —   | ❌   |                                    |
+| W5 单任务 kill      | R3  | ⚠️   | close (stop+remove) vs kill        |
+| W6 全量清理         | R10 | ⚠️   | shutdown (suspend) vs clear (kill) |
+| W7 空闲回收         | R7  | ⚠️   | suspend vs kill, 不同语义          |
+| W8 任务枚举         | —   | ❌   | 无 listTasks()                     |
 
 ---
 
