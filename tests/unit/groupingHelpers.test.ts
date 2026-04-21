@@ -45,10 +45,14 @@ const testMap = new Map([
 // ---------------------------------------------------------------------------
 
 describe('buildAgentGroupedHistory', () => {
-  it('empty input → empty agentGroups and pinnedConversations', () => {
+  it('empty input → empty agentGroups', () => {
     const result = buildAgentGroupedHistory([], emptyMap);
     expect(result.agentGroups).toHaveLength(0);
-    expect(result.pinnedConversations).toHaveLength(0);
+  });
+
+  it('return type no longer has pinnedConversations field', () => {
+    const result = buildAgentGroupedHistory([], emptyMap);
+    expect('pinnedConversations' in result).toBe(false);
   });
 
   it('gemini conversation without presetAssistantId → grouped under "gemini"', () => {
@@ -131,21 +135,35 @@ describe('buildAgentGroupedHistory', () => {
     expect(group.conversations[1].modifyTime).toBe(2000);
   });
 
-  it('pinned conversation goes to pinnedConversations, not agentGroups', () => {
+  it('all conversations go into agentGroups (no pinnedConversations field)', () => {
+    // After migration, buildAgentGroupedHistory no longer has pinnedConversations.
+    // Even conversations with historyPinned=true go into agentGroups.
     const pinned = makeConv({
       type: 'acp',
-      extra: { backend: 'claude', pinned: true, pinnedAt: 9999 },
+      extra: { backend: 'claude', historyPinned: true, historyPinnedAt: 9999 },
       modifyTime: 9000,
     });
     const normal = makeConv({ type: 'acp', extra: { backend: 'claude' }, modifyTime: 5000 });
 
     const result = buildAgentGroupedHistory([pinned, normal], testMap);
-    expect(result.pinnedConversations).toHaveLength(1);
-    expect(result.pinnedConversations[0].id).toBe(pinned.id);
+    expect('pinnedConversations' in result).toBe(false);
 
-    // The pinned conversation must NOT appear in any agentGroup
+    // Both conversations should appear in agentGroups
     const allGroupedIds = result.agentGroups.flatMap((g) => g.conversations.map((c) => c.id));
-    expect(allGroupedIds).not.toContain(pinned.id);
+    expect(allGroupedIds).toContain(pinned.id);
+    expect(allGroupedIds).toContain(normal.id);
+  });
+
+  it('legacy extra.pinned conversations also go into agentGroups', () => {
+    const legacyPinned = makeConv({
+      type: 'acp',
+      extra: { backend: 'claude', pinned: true, pinnedAt: 9999 },
+      modifyTime: 9000,
+    });
+
+    const result = buildAgentGroupedHistory([legacyPinned], testMap);
+    expect('pinnedConversations' in result).toBe(false);
+    expect(result.agentGroups[0].conversations).toHaveLength(1);
   });
 
   it('team conversation (has teamId) is filtered out entirely', () => {
@@ -153,10 +171,7 @@ describe('buildAgentGroupedHistory', () => {
     const normal = makeConv({ type: 'acp', extra: { backend: 'qwen' }, modifyTime: 5000 });
 
     const result = buildAgentGroupedHistory([team, normal], testMap);
-    const allIds = [
-      ...result.pinnedConversations.map((c) => c.id),
-      ...result.agentGroups.flatMap((g) => g.conversations.map((c) => c.id)),
-    ];
+    const allIds = result.agentGroups.flatMap((g) => g.conversations.map((c) => c.id));
     expect(allIds).not.toContain(team.id);
     expect(allIds).toContain(normal.id);
   });

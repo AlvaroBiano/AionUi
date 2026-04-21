@@ -54,7 +54,7 @@ const createUserMessage = (content: string): TMessage => ({
   createdAt: Date.now(),
 });
 
-describe('useAutoTitle', () => {
+describe('useAutoTitle – happy path', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -92,5 +92,94 @@ describe('useAutoTitle', () => {
       id: 'conv-1',
       updates: { name: '继续' },
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// syncTitleFromHistory – branch coverage (P1)
+// Guard: manually-renamed conversations must NOT be overwritten by auto-title
+// ---------------------------------------------------------------------------
+describe('useAutoTitle – syncTitleFromHistory: already-renamed conversation guard (P1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does NOT overwrite a conversation that has already been renamed (name !== defaultTitle)', async () => {
+    // Conversation has a custom name — not the default "New Chat"
+    conversationGetMock.mockResolvedValue({ id: 'conv-1', name: 'My Project Notes' });
+
+    const { result } = renderHook(() => useAutoTitle());
+
+    await result.current.syncTitleFromHistory('conv-1');
+
+    // Should bail out early — no messages fetched, no update called
+    expect(getConversationMessagesMock).not.toHaveBeenCalled();
+    expect(conversationUpdateMock).not.toHaveBeenCalled();
+    expect(updateTabNameMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT update when conversation.get returns null (deleted/not found)', async () => {
+    conversationGetMock.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useAutoTitle());
+
+    await result.current.syncTitleFromHistory('conv-missing');
+
+    expect(getConversationMessagesMock).not.toHaveBeenCalled();
+    expect(conversationUpdateMock).not.toHaveBeenCalled();
+    expect(updateTabNameMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call updateTabName when conversation.update returns falsy', async () => {
+    conversationGetMock.mockResolvedValue({ id: 'conv-1', name: 'New Chat' });
+    getConversationMessagesMock.mockResolvedValue([createUserMessage('Hello world')]);
+    // IPC update fails
+    conversationUpdateMock.mockResolvedValue(false);
+
+    const { result } = renderHook(() => useAutoTitle());
+
+    await result.current.syncTitleFromHistory('conv-1');
+
+    expect(conversationUpdateMock).toHaveBeenCalled();
+    // updateTabName must NOT be called since the persistence failed
+    expect(updateTabNameMock).not.toHaveBeenCalled();
+    expect(emitterEmitMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call updateTabName when conversation.update returns null', async () => {
+    conversationGetMock.mockResolvedValue({ id: 'conv-1', name: 'New Chat' });
+    getConversationMessagesMock.mockResolvedValue([createUserMessage('Hello world')]);
+    conversationUpdateMock.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useAutoTitle());
+
+    await result.current.syncTitleFromHistory('conv-1');
+
+    expect(updateTabNameMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT update when no title can be derived (no messages, no fallback)', async () => {
+    conversationGetMock.mockResolvedValue({ id: 'conv-1', name: 'New Chat' });
+    getConversationMessagesMock.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useAutoTitle());
+
+    // syncTitleFromHistory with no fallbackContent
+    await result.current.syncTitleFromHistory('conv-1');
+
+    expect(conversationUpdateMock).not.toHaveBeenCalled();
+    expect(updateTabNameMock).not.toHaveBeenCalled();
+  });
+
+  it('handles IPC conversation.get throwing an error without crashing', async () => {
+    conversationGetMock.mockRejectedValue(new Error('IPC error'));
+
+    const { result } = renderHook(() => useAutoTitle());
+
+    // Should not throw
+    await expect(result.current.syncTitleFromHistory('conv-1')).resolves.toBeUndefined();
+
+    expect(conversationUpdateMock).not.toHaveBeenCalled();
+    expect(updateTabNameMock).not.toHaveBeenCalled();
   });
 });

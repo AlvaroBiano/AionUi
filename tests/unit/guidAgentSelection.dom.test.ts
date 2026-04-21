@@ -366,7 +366,9 @@ describe('useGuidAgentSelection – preset agent config resolution', () => {
     defaultCodexModels.push({ id: 'gpt-5', label: 'GPT-5' }, { id: 'gpt-5-mini', label: 'GPT-5 Mini' });
     setupMocks({ cachedModels: {}, acpConfig: {} });
 
-    const { result } = renderHook(() => useGuidAgentSelection(hookOptions));
+    const { result } = renderHook(() => useGuidAgentSelection(hookOptions), {
+      wrapper: ({ children }) => React.createElement(MemoryRouter, null, children),
+    });
 
     await waitFor(() => {
       expect(result.current.availableAgents).toBeDefined();
