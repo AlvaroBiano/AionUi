@@ -277,3 +277,246 @@ describe('useGeminiMessage', () => {
     expect(result.current.thought.subject).toBe('');
   });
 });
+
+// ---------------------------------------------------------------------------
+// R5 架构风险：useGeminiMessage 状态重置竞态
+// ---------------------------------------------------------------------------
+
+describe('R5 - useGeminiMessage: state reset race condition (arch risk)', () => {
+  beforeEach(() => {
+    capturedResponseListener = null;
+    mockGetInvoke.mockResolvedValue(null);
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  describe('1. conversation_id 切换后状态重置', () => {
+    it('切换 conversation_id 后 streamRunning/hasActiveTools/waitingResponse 重置', async () => {
+      mockGetInvoke.mockResolvedValue({ status: 'running', type: 'gemini' });
+
+      const { result, rerender } = renderHook(({ id }) => useGeminiMessage(id), {
+        initialProps: { id: 'conv-aaa' },
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // conv-aaa is running
+      expect(result.current.running).toBe(true);
+      expect(result.current.hasHydratedRunningState).toBe(true);
+
+      // Switch to conv-bbb — mock returns idle
+      mockGetInvoke.mockResolvedValue({ status: 'idle', type: 'gemini' });
+      rerender({ id: 'conv-bbb' });
+
+      // Immediately after switch: hasHydratedRunningState should reset
+      expect(result.current.hasHydratedRunningState).toBe(false);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(result.current.running).toBe(false);
+      expect(result.current.hasHydratedRunningState).toBe(true);
+    });
+  });
+
+  describe('2. cancelled 标志防止旧 get 结果污染新会话', () => {
+    it('conv-aaa 的 get 在切换后才 resolve，其 running 结果不影响 conv-bbb 状态', async () => {
+      let resolveAaa!: (v: unknown) => void;
+      mockGetInvoke
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveAaa = resolve;
+            })
+        )
+        .mockResolvedValue({ status: 'idle', type: 'gemini' });
+
+      const { result, rerender } = renderHook(({ id }) => useGeminiMessage(id), {
+        initialProps: { id: 'conv-aaa' },
+      });
+
+      rerender({ id: 'conv-bbb' });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // conv-bbb is idle
+      expect(result.current.running).toBe(false);
+      expect(result.current.hasHydratedRunningState).toBe(true);
+
+      // Late resolve of conv-aaa's get with running=true — must be ignored
+      await act(async () => {
+        resolveAaa({ status: 'running', type: 'gemini' });
+        await Promise.resolve();
+      });
+
+      expect(result.current.running).toBe(false);
+    });
+  });
+
+  describe('3. 旧会话消息被 conversation_id 检查过滤', () => {
+    it('conv-aaa 的 content 消息不影响 conv-bbb 的 running 状态', async () => {
+      mockGetInvoke.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useGeminiMessage('conv-bbb'));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(result.current.running).toBe(false);
+
+      // Send a content message from a different conversation — should be filtered at line 108
+      act(() => {
+        capturedResponseListener?.({
+          type: 'content',
+          conversation_id: 'conv-aaa', // different conversation
+          data: 'content text',
+        });
+      });
+
+      // If the filter works correctly, running stays false (streamRunning was not set)
+      expect(result.current.running).toBe(false);
+    });
+
+    it('conv-bbb 自己的 content 消息触发 streamRunning=true', async () => {
+      mockGetInvoke.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useGeminiMessage('conv-bbb'));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        capturedResponseListener?.({
+          type: 'content',
+          conversation_id: 'conv-bbb', // correct conversation
+          data: 'content text',
+        });
+      });
+
+      // streamRunning=true → running=true
+      expect(result.current.running).toBe(true);
+    });
+  });
+
+  describe('4. tool_group 状态转换', () => {
+    it('tool_group with Executing tools sets hasActiveTools via running composite', async () => {
+      mockGetInvoke.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useGeminiMessage(CONVERSATION_ID));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Send tool_group with executing tool
+      act(() => {
+        capturedResponseListener?.({
+          type: 'tool_group',
+          conversation_id: CONVERSATION_ID,
+          data: [{ status: 'Executing', name: 'read_file' }],
+        });
+      });
+
+      // running = waitingResponse || streamRunning || hasActiveTools
+      // hasActiveTools=true → running=true
+      expect(result.current.running).toBe(true);
+    });
+
+    it('tool_group with all Done tools transitions hasActiveTools to false and sets waitingResponse', async () => {
+      mockGetInvoke.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useGeminiMessage(CONVERSATION_ID));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // First: tools active
+      act(() => {
+        capturedResponseListener?.({
+          type: 'tool_group',
+          conversation_id: CONVERSATION_ID,
+          data: [{ status: 'Executing', name: 'read_file' }],
+        });
+      });
+      expect(result.current.running).toBe(true);
+
+      // Then: tools done — hasActiveTools=false, waitingResponse=true (wasActive && !hasActive)
+      act(() => {
+        capturedResponseListener?.({
+          type: 'tool_group',
+          conversation_id: CONVERSATION_ID,
+          data: [{ status: 'Done', name: 'read_file' }],
+        });
+      });
+
+      // waitingResponse=true keeps running=true until stream finishes
+      expect(result.current.running).toBe(true);
+    });
+  });
+
+  describe('5. activeMsgIdRef 过滤不同 msg_id 的 thought', () => {
+    it('设置 activeMsgId 后，不同 msg_id 的 thought 被过滤', async () => {
+      mockGetInvoke.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useGeminiMessage(CONVERSATION_ID));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        result.current.setActiveMsgId('msg-active');
+      });
+
+      act(() => {
+        capturedResponseListener?.({
+          type: 'thought',
+          conversation_id: CONVERSATION_ID,
+          msg_id: 'msg-other',
+          data: { subject: 'filtered', description: 'not visible' },
+        });
+        vi.runAllTimers();
+      });
+
+      expect(result.current.thought.subject).toBe('');
+    });
+
+    it('相同 msg_id 的 thought 通过过滤', async () => {
+      mockGetInvoke.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useGeminiMessage(CONVERSATION_ID));
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        result.current.setActiveMsgId('msg-active');
+      });
+
+      act(() => {
+        capturedResponseListener?.({
+          type: 'thought',
+          conversation_id: CONVERSATION_ID,
+          msg_id: 'msg-active',
+          data: { subject: 'visible', description: 'should appear' },
+        });
+        vi.runAllTimers();
+      });
+
+      expect(result.current.thought.subject).toBe('visible');
+    });
+  });
+});

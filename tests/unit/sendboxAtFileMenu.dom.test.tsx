@@ -551,4 +551,31 @@ describe('SendBox @ file menu', () => {
     expect(screen.getAllByText('NEW_GUIDE.md').length).toBeGreaterThan(0);
     expect(mockListWorkspaceFilesInvoke).toHaveBeenCalledTimes(2);
   });
+
+  it('does not crash when workspace is undefined and @ is typed', async () => {
+    const NoWorkspaceHarness: React.FC = () => {
+      const [value, setValue] = useState('');
+      return (
+        <ConversationProvider value={{ conversationId: 'conv-no-ws', type: 'gemini' }}>
+          <SendBox
+            value={value}
+            onChange={setValue}
+            onSend={vi.fn().mockResolvedValue(undefined)}
+          />
+        </ConversationProvider>
+      );
+    };
+
+    render(<NoWorkspaceHarness />);
+
+    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: '@test' } });
+    textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+    fireEvent.keyUp(textarea, { key: 't' });
+
+    expect(textarea).toHaveValue('@test');
+    expect(screen.queryByRole('listbox', { name: 'File mentions' })).not.toBeInTheDocument();
+    expect(mockListWorkspaceFilesInvoke).not.toHaveBeenCalled();
+  });
 });

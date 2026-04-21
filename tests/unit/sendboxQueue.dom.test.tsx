@@ -608,4 +608,18 @@ describe('SendBox queue and interaction behaviors', () => {
 
     expect(mockWarmupInvoke).toHaveBeenCalledWith({ conversation_id: 'conversation-1' });
   });
+
+  it('applies drag highlight styles when a file is being dragged over', () => {
+    dragUploadState = {
+      isFileDragging: true,
+      dragHandlers: {},
+    };
+
+    renderControlledSendBox();
+
+    const panel = document.querySelector('.sendbox-panel');
+    expect(panel).toBeTruthy();
+    expect(panel!.classList.contains('sendbox-panel--dragging')).toBe(true);
+    expect(panel!.classList.contains('b-dashed')).toBe(true);
+  });
 });
