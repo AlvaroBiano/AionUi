@@ -98,25 +98,10 @@ const RESTORABLE_STATES: ReadonlySet<PetState> = new Set<PetState>(['thinking', 
 const DEFAULT_WATER_INTERVAL_MS = 45 * 60_000;
 const MAX_WATER_INTERVAL_MS = 180 * 60_000;
 
-// States where the pet is busy and thirsty should be deferred
-const WELLNESS_BUSY_STATES: ReadonlySet<PetState> = new Set<PetState>([
-  'working',
-  'thinking',
-  'error',
-  'notification',
-  'dragging',
-  'juggling',
-  'building',
-  'carrying',
-  'done',
-  'happy',
-  'attention',
-  'sweeping',
-  'poke-left',
-  'poke-right',
-  'waking',
-  'drinking',
-]);
+// States the reminder will surface on. Whitelist (not blacklist) so half-asleep
+// animations (dozing/sleeping/random-look etc.) don't silently consume a
+// pending reminder — the user won't notice thirsty through those.
+const WELLNESS_READY_STATES: ReadonlySet<PetState> = new Set<PetState>(['idle']);
 
 let wellnessTimer: ReturnType<typeof setTimeout> | null = null;
 let wellnessIntervalMs = DEFAULT_WATER_INTERVAL_MS;
@@ -129,8 +114,10 @@ function startWellnessTimer(): void {
   stopWellnessTimer();
   ProcessConfig.get('pet.wellnessWaterEnabled')
     .then((enabled) => {
+      // Don't register listener or timer when the feature is off.
       if (enabled === false) return;
       wellnessActive = true;
+      registerWellnessStateListener();
       ProcessConfig.get('pet.wellnessWaterInterval')
         .then((interval) => {
           wellnessIntervalMs = (interval as number) || DEFAULT_WATER_INTERVAL_MS;
@@ -141,21 +128,27 @@ function startWellnessTimer(): void {
         });
     })
     .catch(() => {
-      // Default: enabled
+      // Reading config failed → default to enabled.
       wellnessActive = true;
+      registerWellnessStateListener();
       scheduleNextWellnessReminder();
     });
+}
 
-  // Listen for state changes so a pending reminder fires once pet is idle
-  if (!wellnessStateListener && stateMachine) {
-    wellnessStateListener = (state: PetState) => {
-      if (wellnessPending && !WELLNESS_BUSY_STATES.has(state)) {
-        wellnessPending = false;
-        applyThirstyState();
-      }
-    };
-    stateMachine.onStateChange(wellnessStateListener);
-  }
+function registerWellnessStateListener(): void {
+  if (wellnessStateListener || !stateMachine) return;
+  wellnessStateListener = (state: PetState) => {
+    if (wellnessPending && WELLNESS_READY_STATES.has(state)) {
+      wellnessPending = false;
+      // User finally sees the reminder → count this as shown (one ignore tick).
+      // Without it, a reminder surfaced after a long busy stretch would skip the
+      // backoff and re-fire at the base interval as if nothing happened.
+      wellnessConsecutiveIgnores++;
+      applyThirstyState();
+      scheduleNextWellnessReminder();
+    }
+  };
+  stateMachine.onStateChange(wellnessStateListener);
 }
 
 function stopWellnessTimer(): void {
@@ -183,15 +176,21 @@ function fireWellnessReminder(): void {
   if (!wellnessActive || !stateMachine) return;
 
   const current = stateMachine.getCurrentState();
-  if (WELLNESS_BUSY_STATES.has(current)) {
-    // AI / user interaction in progress — defer until pet returns to idle
-    wellnessPending = true;
-  } else {
+  if (WELLNESS_READY_STATES.has(current)) {
     applyThirstyState();
+    // User actually saw the reminder — count as an ignore tick that factors into
+    // the backoff if they don't interact. The listener path does this itself.
+    wellnessConsecutiveIgnores++;
+    scheduleNextWellnessReminder();
+    return;
   }
 
-  wellnessConsecutiveIgnores++;
-  scheduleNextWellnessReminder();
+  // Pet is busy/asleep/interacting — defer. Do NOT reschedule or increment the
+  // ignore counter now. The state listener will surface the reminder the next
+  // time the pet returns to idle, and only then does the backoff advance. This
+  // prevents AI-busy time from inflating the retry interval and also avoids a
+  // pile-up of setTimeout chains waking during long busy stretches.
+  wellnessPending = true;
 }
 
 function applyThirstyState(): void {
