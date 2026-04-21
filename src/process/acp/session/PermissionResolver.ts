@@ -87,13 +87,18 @@ type PendingPermissionWithContext = PendingPermission & {
 };
 
 export class PermissionResolver {
-  private readonly yoloMode: boolean;
+  private _autoApproveAll: boolean;
   private readonly cache: ApprovalCache;
   private readonly pending = new Map<string, PendingPermissionWithContext>();
 
   constructor(config: PermissionResolverConfig) {
-    this.yoloMode = config.autoApproveAll;
+    this._autoApproveAll = config.autoApproveAll;
     this.cache = new ApprovalCache(config.cacheMaxSize ?? 500);
+  }
+
+  /** Update auto-approve state (called when mode changes between YOLO and normal). */
+  setAutoApproveAll(value: boolean): void {
+    this._autoApproveAll = value;
   }
 
   get hasPending(): boolean {
@@ -102,10 +107,10 @@ export class PermissionResolver {
 
   async evaluate(
     request: RequestPermissionRequest,
-    uiCallback: (data: PermissionUIData) => void
+    uiCallback: (data: PermissionUIData) => void,
   ): Promise<RequestPermissionResponse> {
     // Level 1: YOLO mode — auto-approve everything (client-side fallback)
-    if (this.yoloMode) {
+    if (this._autoApproveAll) {
       const allowOption = request.options.find((o) => o.kind.startsWith('allow_'));
       const optionId = allowOption?.optionId ?? request.options[0].optionId;
       return { outcome: { outcome: 'selected', optionId } };

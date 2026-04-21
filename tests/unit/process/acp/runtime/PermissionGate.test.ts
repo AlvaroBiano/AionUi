@@ -1,11 +1,11 @@
-// tests/unit/process/acp/runtime/PermissionPolicy.test.ts
+// tests/unit/process/acp/runtime/PermissionGate.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PermissionPolicy } from '@process/acp/runtime/PermissionPolicy';
-import type { PermissionPolicyCallbacks, PermissionRequest } from '@process/acp/runtime/PermissionPolicy';
+import { PermissionGate } from '@process/acp/runtime/PermissionGate';
+import type { PermissionGateCallbacks, PermissionRequest } from '@process/acp/runtime/PermissionGate';
 
-describe('PermissionPolicy', () => {
-  let policy: PermissionPolicy;
-  let callbacks: PermissionPolicyCallbacks;
+describe('PermissionGate', () => {
+  let policy: PermissionGate;
+  let callbacks: PermissionGateCallbacks;
 
   beforeEach(() => {
     callbacks = {
@@ -13,7 +13,7 @@ describe('PermissionPolicy', () => {
       onConfirmationUpdated: vi.fn(),
       onConfirmationRemoved: vi.fn(),
     };
-    policy = new PermissionPolicy('conv-1', callbacks);
+    policy = new PermissionGate('conv-1', callbacks);
   });
 
   function makeRequest(overrides: Partial<PermissionRequest> = {}): PermissionRequest {

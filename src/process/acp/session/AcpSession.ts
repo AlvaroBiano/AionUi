@@ -262,6 +262,11 @@ export class AcpSession {
     this.permissionResolver.resolve(callId, optionId);
   }
 
+  /** Update protocol-level auto-approve (synced from AcpRuntime when mode changes). */
+  setAutoApproveAll(value: boolean): void {
+    this.permissionResolver.setAutoApproveAll(value);
+  }
+
   // ─── Path validation ────────────────────────────────────────
 
   /**

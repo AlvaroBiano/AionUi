@@ -1,4 +1,4 @@
-// src/process/acp/runtime/PermissionPolicy.ts
+// src/process/acp/runtime/PermissionGate.ts
 
 import type { IConfirmation } from '@/common/chat/chatLib';
 
@@ -21,7 +21,7 @@ export type PermissionDecision =
   | { action: 'auto_approved'; callId: string; optionId: string }
   | { action: 'needs_ui'; confirmation: IConfirmation<PermissionOption> };
 
-export type PermissionPolicyCallbacks = {
+export type PermissionGateCallbacks = {
   /** Notify renderer: new confirmation added. */
   onConfirmationAdded: (conversationId: string, confirmation: IConfirmation<PermissionOption>) => void;
   /** Notify renderer: confirmation updated. */
@@ -30,7 +30,7 @@ export type PermissionPolicyCallbacks = {
   onConfirmationRemoved: (conversationId: string, confirmationId: string) => void;
 };
 
-// ─── PermissionPolicy ───────────────────────────────────────────
+// ─── PermissionGate ───────────────────────────────────────────
 
 /**
  * Manager-level permission policy on top of AcpSession's PermissionResolver.
@@ -40,7 +40,7 @@ export type PermissionPolicyCallbacks = {
  *   L2: LRU approval cache ("always allow" decisions)
  *   L3: UI delegation (Promise-based, calls onPermissionRequest callback)
  *
- * PermissionPolicy (Runtime layer) handles requests that PASSED through L1-L3:
+ * PermissionGate (Runtime layer) handles requests that PASSED through L1-L3:
  *   - Dynamic YOLO (user switched mode mid-conversation)
  *   - Team MCP tool auto-approve (title contains 'aionui-team')
  *   - Confirmation storage for UI display + TurnTracker guard
@@ -49,13 +49,13 @@ export type PermissionPolicyCallbacks = {
  *   - Sending confirmation to ACP agent (AcpRuntime calls session.confirmPermission)
  *   - Channel notification (EventDispatcher subscriber in Phase 3)
  */
-export class PermissionPolicy {
+export class PermissionGate {
   private confirmations: Array<IConfirmation<PermissionOption>> = [];
   private _isYoloMode = false;
 
   constructor(
     private readonly conversationId: string,
-    private readonly callbacks: PermissionPolicyCallbacks
+    private readonly callbacks: PermissionGateCallbacks
   ) {}
 
   /** Update dynamic YOLO state (called when mode changes via setMode). */
