@@ -243,7 +243,14 @@ export class AcpRuntime implements IAgentManager {
   setModel(modelId: string): void {
     this.backendPolicy.setModelOverride(modelId);
     this.session.setModel(modelId);
-    // model:changed will be emitted when session confirms via onModelUpdate callback
+    // Emit immediately (user intent). Session callback onModelUpdate may emit
+    // again when agent confirms, but we don't wait — persistence should capture
+    // the user's choice even if session is temporarily unavailable.
+    this.dispatcher.emit('model:changed', {
+      conversationId: this.conversation_id,
+      agentType: 'acp',
+      modelId,
+    });
   }
 
   setMode(modeId: string): void {
@@ -252,19 +259,17 @@ export class AcpRuntime implements IAgentManager {
     this.permissionGate.setYoloMode(isYolo);
     this.session.setAutoApproveAll(isYolo);
 
-    if (result.intercepted) {
-      // Backend doesn't support set_mode — emit mode:changed locally
-      this.dispatcher.emit('mode:changed', {
-        conversationId: this.conversation_id,
-        agentType: 'acp',
-        modeId,
-        isYolo,
-      });
-      return;
+    if (!result.intercepted) {
+      this.session.setMode(modeId);
     }
 
-    this.session.setMode(modeId);
-    // mode:changed will be emitted when session confirms via onModeUpdate callback
+    // Emit immediately regardless of interception or session state.
+    this.dispatcher.emit('mode:changed', {
+      conversationId: this.conversation_id,
+      agentType: 'acp',
+      modeId,
+      isYolo,
+    });
   }
 
   setConfigOption(id: string, value: string | boolean): void {

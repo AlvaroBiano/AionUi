@@ -19,6 +19,7 @@ import {
   registerCronSubscriber,
   registerSkillSuggestSubscriber,
 } from './subscribers';
+import { registerTeamGuideConfiguringHandler, registerUserMcpConfiguringHandler } from './configuringHandlers';
 
 // Lazy imports to avoid circular dependencies at module scope.
 // These are resolved once when createAgentEventDispatcher() is called.
@@ -80,6 +81,41 @@ export function getAgentEventDispatcher(): EventDispatcher<AgentEventMap> {
     registerSkillSuggestSubscriber(_dispatcher, skillSuggestWatcher);
   } catch {
     console.warn('[compositionRoot] skillSuggestWatcher not available — SkillSuggestSubscriber skipped');
+  }
+
+  // ── Waterfall: agent:configuring ──────────────────────────────
+
+  // 6. Team guide MCP: inject aion_create_team tool for solo agents
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { shouldInjectTeamGuideMcp } = require('@process/team/prompts/teamGuideCapability');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getTeamGuideStdioConfig } = require('@/process/team/mcp/guide/teamGuideSingleton');
+    registerTeamGuideConfiguringHandler(_dispatcher, {
+      shouldInject: shouldInjectTeamGuideMcp,
+      getStdioConfig: getTeamGuideStdioConfig,
+    });
+  } catch {
+    console.warn('[compositionRoot] team guide not available — TeamGuideConfiguringHandler skipped');
+  }
+
+  // 7. User MCP: inject user-configured MCP servers from settings
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { ProcessConfig } = require('@process/utils/initStorage');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { McpConfig } = require('@process/acp/session/McpConfig');
+    registerUserMcpConfiguringHandler(_dispatcher, {
+      getUserServers: async (backend: string) => {
+        const rawMcpServers = await ProcessConfig.get('mcp.config');
+        if (!Array.isArray(rawMcpServers) || rawMcpServers.length === 0) return [];
+        const cachedInit = await ProcessConfig.get('acp.cachedInitializeResult');
+        const caps = cachedInit?.[backend]?.capabilities?.mcpCapabilities;
+        return McpConfig.fromStorageConfig(rawMcpServers, caps);
+      },
+    });
+  } catch {
+    console.warn('[compositionRoot] user MCP config not available — UserMcpConfiguringHandler skipped');
   }
 
   // ── Debug: log all registrations ──────────────────────────────
