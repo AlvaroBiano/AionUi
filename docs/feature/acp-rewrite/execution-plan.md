@@ -27,7 +27,7 @@
 
 - [ ] **2.1** AcpRuntime 骨架 — 清空现有代码, 实现 IAgentManager, 持有 AcpSession, 基本 sendMessage/stop/kill 跑通
 - [x] **2.2** BackendPolicy — per-backend 有状态策略: Claude (model switch notice, beforePrompt, /login), Codex (mode interception + sandbox config), Snow (mode interception), Qwen (error enhancement, login). Default policy for all others. Factory: `createBackendPolicy(backend)`
-- [ ] **2.3** OutputPipeline — ThinkTagFilter (`<think>` 提取) + StatusFilter (噪音抑制) + ToolCallMerger (deep merge, 来自 TODO.md tool_call 合并策略)
+- [x] **2.3** OutputPipeline — ThinkTagFilter (`<think>` 提取, 复用 ThinkTagDetector) + ToolCallMerger (deep merge, stateful). StatusFilter 留给 2.1 AcpRuntime 骨架 (走 onStatusChange 回调, 非 TMessage 流)
 - [ ] **2.4** InputPipeline — UserMessagePersister + FileRefProcessor + FirstMessageInjector. FileRefProcessor 预留 SDK ContentBlock 接口 (TODO.md 文件引用调研), 初期仍用纯文本 fallback
 - [ ] **2.5** TurnTracker — 15s finish 兜底, agentCrash 合成, turn 状态维护
 - [ ] **2.6** 权限策略 — team MCP 工具自动批准, channel 通知
