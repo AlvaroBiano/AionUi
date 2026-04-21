@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scene 1: Hosted LLM - Concept</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        padding: 40px;
+      }
+      h1 {
+        text-align: center;
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #fff;
+      }
+      .subtitle {
+        text-align: center;
+        font-size: 14px;
+        color: #888;
+        margin-bottom: 40px;
+      }
+
+      .concept-container {
+        display: flex;
+        gap: 40px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      /* Left: App Window */
+      .app-window {
+        flex: 1;
+        background: #16213e;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #2a2a4a;
+        min-height: 600px;
+      }
+      .app-titlebar {
+        background: #0f3460;
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #aaa;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .dot-red {
+        background: #ff5f57;
+      }
+      .dot-yellow {
+        background: #febc2e;
+      }
+      .dot-green {
+        background: #28c840;
+      }
+      .app-titlebar span {
+        margin-left: 8px;
+      }
+
+      .app-body {
+        display: flex;
+        height: 560px;
+      }
+
+      /* Sidebar */
+      .sidebar {
+        width: 220px;
+        background: #0f1a2e;
+        border-right: 1px solid #2a2a4a;
+        padding: 16px 12px;
+      }
+      .sidebar-section {
+        margin-bottom: 20px;
+      }
+      .sidebar-label {
+        font-size: 11px;
+        color: #666;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        letter-spacing: 1px;
+      }
+
+      .assistant-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .assistant-card:hover {
+        background: #1a2a4a;
+      }
+      .assistant-card.active {
+        background: #1a3a5a;
+        border: 1px solid #3a6a9a;
+      }
+      .assistant-card.free {
+        opacity: 0.6;
+      }
+
+      .assistant-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+      }
+      .assistant-info {
+        flex: 1;
+      }
+      .assistant-name {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .assistant-desc {
+        font-size: 11px;
+        color: #888;
+      }
+      .badge-pro {
+        background: linear-gradient(135deg, #f093fb, #f5576c);
+        color: white;
+        font-size: 9px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 700;
+      }
+      .badge-free {
+        background: #333;
+        color: #888;
+        font-size: 9px;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
+      /* Chat area */
+      .chat-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-header {
+        padding: 12px 20px;
+        border-bottom: 1px solid #2a2a4a;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .chat-header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .chat-header-left .assistant-avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+      .chat-header h3 {
+        font-size: 14px;
+      }
+      .model-tag {
+        font-size: 11px;
+        color: #4ecdc4;
+        background: #1a3a3a;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      .message {
+        margin-bottom: 16px;
+        max-width: 80%;
+      }
+      .message.user {
+        margin-left: auto;
+      }
+      .message-bubble {
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .message.assistant .message-bubble {
+        background: #1a2a4a;
+      }
+      .message.user .message-bubble {
+        background: #0f3460;
+      }
+
+      .result-preview {
+        margin-top: 12px;
+        background: #0a1628;
+        border: 1px solid #2a3a5a;
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .result-preview .file-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+      }
+      .result-preview .file-name {
+        font-size: 12px;
+        color: #4ecdc4;
+      }
+      .result-preview .file-desc {
+        font-size: 11px;
+        color: #888;
+        margin-top: 4px;
+      }
+
+      .chat-input {
+        padding: 16px 20px;
+        border-top: 1px solid #2a2a4a;
+      }
+      .input-box {
+        background: #0f1a2e;
+        border: 1px solid #2a2a4a;
+        border-radius: 8px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        color: #666;
+        font-size: 13px;
+      }
+
+      /* Right: Explanation */
+      .explanation {
+        width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .explain-card {
+        background: #16213e;
+        border: 1px solid #2a2a4a;
+        border-radius: 10px;
+        padding: 20px;
+      }
+      .explain-card h3 {
+        font-size: 14px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .explain-card p {
+        font-size: 12px;
+        color: #aaa;
+        line-height: 1.7;
+      }
+      .explain-card .highlight {
+        color: #4ecdc4;
+        font-weight: 600;
+      }
+      .explain-card .warn {
+        color: #f5576c;
+        font-weight: 600;
+      }
+
+      .arrow-label {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #666;
+        margin: 4px 0;
+      }
+      .arrow-label::before {
+        content: '';
+        width: 20px;
+        height: 1px;
+        background: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>场景1：托管LLM</h1>
+    <p class="subtitle">用户开箱即用，付费助手交付具体成果</p>
+
+    <div class="concept-container">
+      <!-- App Window -->
+      <div class="app-window">
+        <div class="app-titlebar">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+          <span>AionUI</span>
+        </div>
+        <div class="app-body">
+          <!-- Sidebar -->
+          <div class="sidebar">
+            <div class="sidebar-section">
+              <div class="sidebar-label">付费助手</div>
+              <div class="assistant-card active">
+                <div class="assistant-avatar" style="background: #2a1a4a">&#127912;</div>
+                <div class="assistant-info">
+                  <div class="assistant-name">PPT 大师</div>
+                  <div class="assistant-desc">专业演示文稿</div>
+                </div>
+                <span class="badge-pro">PRO</span>
+              </div>
+              <div class="assistant-card">
+                <div class="assistant-avatar" style="background: #1a2a1a">&#128200;</div>
+                <div class="assistant-info">
+                  <div class="assistant-name">数据分析师</div>
+                  <div class="assistant-desc">Excel / 报表</div>
+                </div>
+                <span class="badge-pro">PRO</span>
+              </div>
+              <div class="assistant-card">
+                <div class="assistant-avatar" style="background: #2a1a1a">&#128221;</div>
+                <div class="assistant-info">
+                  <div class="assistant-name">合同审查</div>
+                  <div class="assistant-desc">法律文档分析</div>
+                </div>
+                <span class="badge-pro">PRO</span>
+              </div>
+            </div>
+            <div class="sidebar-section">
+              <div class="sidebar-label">免费助手</div>
+              <div class="assistant-card free">
+                <div class="assistant-avatar" style="background: #1a1a1a">&#128172;</div>
+                <div class="assistant-info">
+                  <div class="assistant-name">通用对话</div>
+                  <div class="assistant-desc">需自配 API Key</div>
+                </div>
+                <span class="badge-free">FREE</span>
+              </div>
+              <div class="assistant-card free">
+                <div class="assistant-avatar" style="background: #1a1a1a">&#128187;</div>
+                <div class="assistant-info">
+                  <div class="assistant-name">代码助手</div>
+                  <div class="assistant-desc">需自配 API Key</div>
+                </div>
+                <span class="badge-free">FREE</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat -->
+          <div class="chat-area">
+            <div class="chat-header">
+              <div class="chat-header-left">
+                <div class="assistant-avatar" style="background: #2a1a4a; font-size: 14px">&#127912;</div>
+                <h3>PPT 大师</h3>
+              </div>
+              <span class="model-tag">Powered by AionUI LLM</span>
+            </div>
+
+            <div class="chat-messages">
+              <div class="message user">
+                <div class="message-bubble">帮我做一份 Q2 季度汇报 PPT，数据在桌面的 report.xlsx 里</div>
+              </div>
+              <div class="message assistant">
+                <div class="message-bubble">
+                  已读取 ~/Desktop/report.xlsx，正在生成 Q2 季度汇报...
+                  <div class="result-preview">
+                    <div class="file-icon">&#128202;</div>
+                    <div class="file-name">Q2-季度汇报.pptx</div>
+                    <div class="file-desc">12 页 Morph 动画 PPT，含营收趋势、用户增长、目标达成率</div>
+                    <div style="margin-top: 10px; display: flex; gap: 8px">
+                      <span
+                        style="
+                          background: #0f3460;
+                          padding: 4px 12px;
+                          border-radius: 4px;
+                          font-size: 11px;
+                          cursor: pointer;
+                        "
+                        >打开文件</span
+                      >
+                      <span
+                        style="
+                          background: #1a3a1a;
+                          padding: 4px 12px;
+                          border-radius: 4px;
+                          font-size: 11px;
+                          cursor: pointer;
+                        "
+                        >重新生成</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="message assistant">
+                <div class="message-bubble" style="font-size: 11px; color: #888">
+                  本次消耗 2,340 tokens &middot; 费用 $0.03 &middot; 数据未离开本机
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input">
+              <div class="input-box">输入你的需求...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanation -->
+      <div class="explanation">
+        <div class="explain-card">
+          <h3>&#127919; 核心体验</h3>
+          <p>
+            用户选一个<span class="highlight">付费助手</span>，发任务，拿成果。<br /><br />
+            不需要配置 API Key，不需要懂技术。<br />
+            <span class="highlight">开箱即用</span>。
+          </p>
+        </div>
+
+        <div class="explain-card">
+          <h3>&#128176; 收费逻辑</h3>
+          <p>
+            按 <span class="highlight">token 消耗</span>计费。<br /><br />
+            用户看到的是"做一份PPT花了$0.03"，<br />
+            比 Claude.ai $20/月 <span class="highlight">便宜得多</span>。
+          </p>
+        </div>
+
+        <div class="explain-card">
+          <h3>&#128274; 差异化</h3>
+          <p>
+            数据<span class="highlight">本地执行</span>，文件不上云。<br /><br />
+            PPT助手直接读取本地 Excel，<br />
+            这是 Claude.ai / Kimi <span class="warn">做不到的</span>。
+          </p>
+        </div>
+
+        <div class="explain-card">
+          <h3>&#9878; 免费 vs 付费</h3>
+          <p>
+            免费助手：用户自配 Key，AionUI 不管。<br />
+            付费助手：AionUI 托管 LLM，效果可控。<br /><br />
+            <span class="highlight">免费不受限</span>，付费是额外价值。
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

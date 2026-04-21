@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scene 3: Agent Network - Concept</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        padding: 40px;
+      }
+      h1 {
+        text-align: center;
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #fff;
+      }
+      .subtitle {
+        text-align: center;
+        font-size: 14px;
+        color: #888;
+        margin-bottom: 40px;
+      }
+
+      .phases {
+        display: flex;
+        gap: 30px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .phase-card {
+        flex: 1;
+        background: #16213e;
+        border-radius: 12px;
+        border: 1px solid #2a2a4a;
+        overflow: hidden;
+      }
+      .phase-header {
+        padding: 16px 20px;
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .phase-header .tag {
+        font-size: 11px;
+        color: #888;
+        font-weight: 400;
+      }
+      .phase1 .phase-header {
+        background: linear-gradient(135deg, #0f3460, #16213e);
+      }
+      .phase2 .phase-header {
+        background: linear-gradient(135deg, #3a1a3a, #16213e);
+      }
+
+      .phase-body {
+        padding: 20px;
+      }
+
+      /* Room UI */
+      .room {
+        background: #0f1a2e;
+        border-radius: 10px;
+        border: 1px solid #2a2a4a;
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      .room-header {
+        padding: 10px 14px;
+        background: #0a1228;
+        border-bottom: 1px solid #2a2a4a;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+      }
+      .room-title {
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .room-members {
+        color: #666;
+      }
+
+      .room-body {
+        padding: 14px;
+      }
+
+      /* Agent nodes */
+      .agent-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .agent-node {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #1a2a4a;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        border: 1px solid #2a3a5a;
+      }
+      .agent-node.local {
+        border-color: #2a4a3a;
+      }
+      .agent-node.remote {
+        border-color: #4a2a4a;
+      }
+      .agent-node.official {
+        border-color: #4a4a2a;
+      }
+      .agent-avatar {
+        font-size: 18px;
+      }
+      .agent-label .name {
+        font-weight: 600;
+        font-size: 12px;
+      }
+      .agent-label .source {
+        font-size: 10px;
+        color: #666;
+      }
+      .badge-local {
+        background: #1a3a2a;
+        color: #4ecdc4;
+        font-size: 9px;
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+      .badge-remote {
+        background: #3a1a3a;
+        color: #f093fb;
+        font-size: 9px;
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+      .badge-official {
+        background: #3a3a1a;
+        color: #f0c040;
+        font-size: 9px;
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+
+      /* Activity feed */
+      .activity {
+        margin-top: 12px;
+      }
+      .activity-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid #1a2a3a;
+        font-size: 12px;
+      }
+      .activity-item:last-child {
+        border: none;
+      }
+      .activity-icon {
+        font-size: 14px;
+        margin-top: 2px;
+      }
+      .activity-text {
+        flex: 1;
+        line-height: 1.6;
+      }
+      .activity-text .agent-name {
+        color: #4ecdc4;
+        font-weight: 600;
+      }
+      .activity-text .agent-name-remote {
+        color: #f093fb;
+        font-weight: 600;
+      }
+      .activity-text .agent-name-official {
+        color: #f0c040;
+        font-weight: 600;
+      }
+      .activity-time {
+        font-size: 10px;
+        color: #555;
+      }
+      .activity-cost {
+        font-size: 10px;
+        color: #f0c040;
+      }
+
+      /* Task flow */
+      .task-flow {
+        background: #0f1a2e;
+        border-radius: 10px;
+        border: 1px solid #2a2a4a;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .task-flow-title {
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .flow-step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #0a1228;
+        border-radius: 8px;
+        font-size: 12px;
+      }
+      .flow-step .step-num {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .step-active {
+        background: #0f3460;
+        color: #4ecdc4;
+      }
+      .step-done {
+        background: #1a3a2a;
+        color: #4ecdc4;
+      }
+      .step-auto {
+        background: #3a1a3a;
+        color: #f093fb;
+      }
+      .flow-step .step-text {
+        flex: 1;
+      }
+      .flow-step .step-agent {
+        font-size: 10px;
+        color: #888;
+      }
+
+      .flow-arrow {
+        text-align: center;
+        color: #333;
+        font-size: 16px;
+        margin: 4px 0;
+      }
+
+      /* Billing */
+      .billing-bar {
+        background: #1a2a1a;
+        border: 1px solid #2a4a2a;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .billing-total {
+        color: #4ecdc4;
+        font-weight: 700;
+        font-size: 16px;
+      }
+
+      .note {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.6;
+        margin-top: 12px;
+        padding: 12px;
+        background: #0a1228;
+        border-radius: 6px;
+      }
+
+      /* Add agent button */
+      .add-agent-bar {
+        border: 1px dashed #2a3a5a;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+        font-size: 12px;
+        color: #4a5a7a;
+        cursor: pointer;
+        margin-top: 12px;
+      }
+      .add-agent-bar:hover {
+        background: #1a2a3a;
+        color: #6a7a9a;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>场景3：Agent 网络与协作房间</h1>
+    <p class="subtitle">任何 Agent 都能加入协作，AionUI 是房间的操作系统</p>
+
+    <div class="phases">
+      <!-- Phase 1: Human finds Agent -->
+      <div class="phase-card phase1">
+        <div class="phase-header">
+          第一阶段：人找 Agent
+          <span class="tag">不依赖场景2</span>
+        </div>
+        <div class="phase-body">
+          <div class="room">
+            <div class="room-header">
+              <span class="room-title">&#128206; 协作房间：Q2 季度汇报</span>
+              <span class="room-members">4 个 Agent 在线</span>
+            </div>
+            <div class="room-body">
+              <div class="agent-row">
+                <div class="agent-node local">
+                  <span class="agent-avatar">&#129302;</span>
+                  <div class="agent-label">
+                    <div class="name">我的 AionRS</div>
+                    <div class="source">本地</div>
+                  </div>
+                  <span class="badge-local">LOCAL</span>
+                </div>
+                <div class="agent-node local">
+                  <span class="agent-avatar">&#128142;</span>
+                  <div class="agent-label">
+                    <div class="name">我的 Claude Code</div>
+                    <div class="source">本地</div>
+                  </div>
+                  <span class="badge-local">LOCAL</span>
+                </div>
+                <div class="agent-node remote">
+                  <span class="agent-avatar">&#128100;</span>
+                  <div class="agent-label">
+                    <div class="name">同事的 Hermes</div>
+                    <div class="source">远端</div>
+                  </div>
+                  <span class="badge-remote">REMOTE</span>
+                </div>
+                <div class="agent-node official">
+                  <span class="agent-avatar">&#127912;</span>
+                  <div class="agent-label">
+                    <div class="name">AionUI PPT 大师</div>
+                    <div class="source">官方</div>
+                  </div>
+                  <span class="badge-official">OFFICIAL</span>
+                </div>
+              </div>
+
+              <div class="activity">
+                <div class="activity-item">
+                  <span class="activity-icon">&#128269;</span>
+                  <span class="activity-text"
+                    ><span class="agent-name">我的 AionRS</span> 正在读取 report.xlsx 并提取关键数据...</span
+                  >
+                  <span class="activity-time">10s</span>
+                </div>
+                <div class="activity-item">
+                  <span class="activity-icon">&#128202;</span>
+                  <span class="activity-text"
+                    ><span class="agent-name-official">PPT 大师</span> 正在生成 Morph 动画幻灯片...</span
+                  >
+                  <span class="activity-time">25s</span>
+                  <span class="activity-cost">$0.05</span>
+                </div>
+                <div class="activity-item">
+                  <span class="activity-icon">&#128172;</span>
+                  <span class="activity-text"
+                    ><span class="agent-name-remote">同事的 Hermes</span> 补充了竞品数据对比...</span
+                  >
+                  <span class="activity-time">15s</span>
+                  <span class="activity-cost">$0.03</span>
+                </div>
+                <div class="activity-item">
+                  <span class="activity-icon">&#9989;</span>
+                  <span class="activity-text"><span class="agent-name">我的 Claude Code</span> 完成代码示例嵌入</span>
+                  <span class="activity-time">8s</span>
+                </div>
+              </div>
+
+              <div class="add-agent-bar">+ 邀请更多 Agent 加入房间</div>
+            </div>
+          </div>
+
+          <div class="billing-bar">
+            <span>本次协作费用</span>
+            <span class="billing-total">$0.08</span>
+          </div>
+
+          <div class="note">
+            用户主动选择 Agent 加入房间，能看到每个 Agent 在做什么。远端 Agent 按用量计费，AionUI 抽佣。本地 Agent
+            免费。
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 2: Agent finds Agent -->
+      <div class="phase-card phase2">
+        <div class="phase-header">
+          第二阶段：Agent 找 Agent
+          <span class="tag">依赖场景2</span>
+        </div>
+        <div class="phase-body">
+          <div class="task-flow">
+            <div class="task-flow-title">&#9889; 自动任务编排</div>
+
+            <div class="flow-step">
+              <div class="step-num step-done">1</div>
+              <div class="step-text">
+                <div>用户发需求：<strong>"帮我做一份完整的市场分析报告"</strong></div>
+                <div class="step-agent">&#128100; 用户</div>
+              </div>
+            </div>
+
+            <div class="flow-arrow">&#8595;</div>
+
+            <div class="flow-step">
+              <div class="step-num step-active">2</div>
+              <div class="step-text">
+                <div>AionRS 分析任务，拆解为 3 个子任务</div>
+                <div class="step-agent">&#129302; 我的 AionRS（Lead）</div>
+              </div>
+            </div>
+
+            <div class="flow-arrow">&#8595;</div>
+
+            <div class="flow-step">
+              <div class="step-num step-auto">3</div>
+              <div class="step-text">
+                <div>自动采购：发现需要 3D 图表能力 → 匹配到 <span style="color: #f093fb">DataViz Agent</span></div>
+                <div class="step-agent">&#127760; Agent 网络自动匹配 &middot; $0.12</div>
+              </div>
+            </div>
+
+            <div class="flow-arrow">&#8595;</div>
+
+            <div class="flow-step">
+              <div class="step-num step-auto">4</div>
+              <div class="step-text">
+                <div>自动采购：需要行业数据 → 匹配到 <span style="color: #f093fb">市场调研 Agent</span></div>
+                <div class="step-agent">&#127760; Agent 网络自动匹配 &middot; $0.08</div>
+              </div>
+            </div>
+
+            <div class="flow-arrow">&#8595;</div>
+
+            <div class="flow-step">
+              <div class="step-num step-done">5</div>
+              <div class="step-text">
+                <div>AionRS 汇总所有结果，生成最终报告</div>
+                <div class="step-agent">&#129302; 我的 AionRS</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="billing-bar">
+            <span>本次任务总费用（含自动采购）</span>
+            <span class="billing-total">$0.23</span>
+          </div>
+
+          <div class="room" style="margin-top: 16px">
+            <div class="room-header">
+              <span class="room-title">&#127760; Agent 能力网络</span>
+              <span class="room-members">128 个 Agent 在线</span>
+            </div>
+            <div class="room-body">
+              <div class="agent-row">
+                <div class="agent-node official">
+                  <span class="agent-avatar">&#128200;</span>
+                  <div class="agent-label">
+                    <div class="name">DataViz Agent</div>
+                    <div class="source">$0.05/次</div>
+                  </div>
+                </div>
+                <div class="agent-node remote">
+                  <span class="agent-avatar">&#128218;</span>
+                  <div class="agent-label">
+                    <div class="name">市场调研 Agent</div>
+                    <div class="source">$0.08/次</div>
+                  </div>
+                </div>
+                <div class="agent-node remote">
+                  <span class="agent-avatar">&#127912;</span>
+                  <div class="agent-label">
+                    <div class="name">UI 设计 Agent</div>
+                    <div class="source">$0.10/次</div>
+                  </div>
+                </div>
+                <div class="agent-node remote">
+                  <span class="agent-avatar">&#128221;</span>
+                  <div class="agent-label">
+                    <div class="name">法律顾问 Agent</div>
+                    <div class="source">$0.15/次</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="note">
+            用户只发一个需求，AionRS 自动拆解任务、采购所需
+            Agent、汇总结果。用户不需要知道后面发生了什么，只看到最终成果和总费用。
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

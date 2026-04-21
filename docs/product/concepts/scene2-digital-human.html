@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scene 2: Digital Human Evolution - Concept</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        padding: 40px;
+      }
+      h1 {
+        text-align: center;
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #fff;
+      }
+      .subtitle {
+        text-align: center;
+        font-size: 14px;
+        color: #888;
+        margin-bottom: 40px;
+      }
+
+      .layers {
+        display: flex;
+        gap: 30px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .layer-card {
+        flex: 1;
+        background: #16213e;
+        border-radius: 12px;
+        border: 1px solid #2a2a4a;
+        overflow: hidden;
+      }
+      .layer-header {
+        padding: 16px 20px;
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .layer-header .phase {
+        font-size: 11px;
+        color: #888;
+        font-weight: 400;
+      }
+      .layer1 .layer-header {
+        background: linear-gradient(135deg, #0f3460, #16213e);
+      }
+      .layer2 .layer-header {
+        background: linear-gradient(135deg, #1a3a2a, #16213e);
+      }
+      .layer3 .layer-header {
+        background: linear-gradient(135deg, #3a1a3a, #16213e);
+      }
+
+      .layer-body {
+        padding: 20px;
+      }
+
+      /* Layer 1: Memory UI */
+      .memory-demo {
+        background: #0f1a2e;
+        border-radius: 8px;
+        border: 1px solid #2a2a4a;
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      .memory-header {
+        padding: 10px 14px;
+        background: #0a1228;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid #2a2a4a;
+      }
+      .memory-list {
+        padding: 12px 14px;
+      }
+      .memory-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid #1a2a3a;
+        font-size: 12px;
+      }
+      .memory-item:last-child {
+        border: none;
+      }
+      .memory-icon {
+        font-size: 16px;
+        margin-top: 2px;
+      }
+      .memory-text {
+        flex: 1;
+        line-height: 1.6;
+      }
+      .memory-text .key {
+        color: #4ecdc4;
+      }
+      .memory-time {
+        font-size: 10px;
+        color: #555;
+        white-space: nowrap;
+      }
+
+      .toast-bar {
+        background: linear-gradient(135deg, #1a3a3a, #0f2a2a);
+        border: 1px solid #2a4a4a;
+        border-radius: 8px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+      .toast-bar .icon {
+        font-size: 20px;
+      }
+      .toast-bar .text {
+        flex: 1;
+      }
+      .toast-bar .text .highlight {
+        color: #4ecdc4;
+      }
+      .toast-bar .action {
+        background: #2a4a4a;
+        border: none;
+        color: #4ecdc4;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      /* Layer 2: Skill */
+      .skill-card {
+        background: #0f1a2e;
+        border-radius: 8px;
+        border: 1px solid #2a2a4a;
+        padding: 14px;
+        margin-bottom: 10px;
+      }
+      .skill-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .skill-name {
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .skill-status {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .skill-status.new {
+        background: #1a3a2a;
+        color: #4ecdc4;
+      }
+      .skill-status.improved {
+        background: #2a2a1a;
+        color: #f0c040;
+      }
+      .skill-desc {
+        font-size: 11px;
+        color: #888;
+        line-height: 1.6;
+      }
+      .skill-meta {
+        font-size: 10px;
+        color: #555;
+        margin-top: 8px;
+        display: flex;
+        gap: 12px;
+      }
+
+      .confirm-bar {
+        background: #1a2a1a;
+        border: 1px solid #2a4a2a;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .confirm-bar .btn {
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        border: none;
+      }
+      .btn-yes {
+        background: #2a5a2a;
+        color: #8f8;
+      }
+      .btn-no {
+        background: #3a2a2a;
+        color: #f88;
+      }
+
+      /* Layer 3: Profile */
+      .profile-card {
+        background: #0f1a2e;
+        border-radius: 8px;
+        border: 1px solid #2a2a4a;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 16px;
+      }
+      .profile-avatar {
+        font-size: 48px;
+        margin-bottom: 12px;
+      }
+      .profile-name {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .profile-sub {
+        font-size: 11px;
+        color: #888;
+      }
+
+      .stat-row {
+        display: flex;
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .stat-item {
+        flex: 1;
+        background: #0a1228;
+        border-radius: 6px;
+        padding: 10px;
+        text-align: center;
+      }
+      .stat-num {
+        font-size: 20px;
+        font-weight: 700;
+        color: #4ecdc4;
+      }
+      .stat-label {
+        font-size: 10px;
+        color: #666;
+        margin-top: 4px;
+      }
+
+      .trait-list {
+        text-align: left;
+      }
+      .trait-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        font-size: 12px;
+        border-bottom: 1px solid #1a2a3a;
+      }
+      .trait-item:last-child {
+        border: none;
+      }
+      .trait-bar {
+        flex: 1;
+        height: 4px;
+        background: #1a2a3a;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .trait-fill {
+        height: 100%;
+        border-radius: 2px;
+      }
+
+      .note {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.6;
+        margin-top: 12px;
+        padding: 12px;
+        background: #0a1228;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>场景2：AionRS 自进化与数字人养成</h1>
+    <p class="subtitle">"你的AI越用越懂你" — 分三层递进实现</p>
+
+    <div class="layers">
+      <!-- Layer 1 -->
+      <div class="layer-card layer1">
+        <div class="layer-header">
+          第一层：跨会话记忆
+          <span class="phase">与场景1同时上线</span>
+        </div>
+        <div class="layer-body">
+          <div class="toast-bar">
+            <span class="icon">&#129504;</span>
+            <span class="text">助手今天学到了 <span class="highlight">3 条新信息</span></span>
+            <button class="action">查看</button>
+          </div>
+
+          <div class="memory-demo">
+            <div class="memory-header">&#128218; 助手记忆</div>
+            <div class="memory-list">
+              <div class="memory-item">
+                <span class="memory-icon">&#128188;</span>
+                <span class="memory-text"><span class="key">工作角色</span> — 产品经理，负责 B 端 SaaS</span>
+                <span class="memory-time">今天</span>
+              </div>
+              <div class="memory-item">
+                <span class="memory-icon">&#127912;</span>
+                <span class="memory-text"><span class="key">PPT偏好</span> — 深色主题，数据优先，少用动画</span>
+                <span class="memory-time">昨天</span>
+              </div>
+              <div class="memory-item">
+                <span class="memory-icon">&#128196;</span>
+                <span class="memory-text"><span class="key">常用模板</span> — 季度汇报用公司标准模板 v3</span>
+                <span class="memory-time">3天前</span>
+              </div>
+              <div class="memory-item">
+                <span class="memory-icon">&#127760;</span>
+                <span class="memory-text"><span class="key">语言</span> — 中文为主，英文术语保留原文</span>
+                <span class="memory-time">1周前</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="note">用户即时感受到养成感：每次对话后，助手展示学到了什么。参考 Claude Code memory 机制。</div>
+        </div>
+      </div>
+
+      <!-- Layer 2 -->
+      <div class="layer-card layer2">
+        <div class="layer-header">
+          第二层：Skill 自动沉淀
+          <span class="phase">3-6 个月</span>
+        </div>
+        <div class="layer-body">
+          <div class="skill-card">
+            <div class="skill-top">
+              <span class="skill-name">&#9889; 季度汇报 PPT 生成</span>
+              <span class="skill-status new">NEW</span>
+            </div>
+            <div class="skill-desc">
+              从 report.xlsx 提取关键指标，生成 12 页 Morph 动画 PPT，包含营收趋势、用户增长和目标达成率图表。
+            </div>
+            <div class="skill-meta">
+              <span>来源：第 5 次 PPT 任务后自动沉淀</span>
+              <span>使用 3 次</span>
+            </div>
+          </div>
+
+          <div class="skill-card">
+            <div class="skill-top">
+              <span class="skill-name">&#128200; 竞品分析报告</span>
+              <span class="skill-status improved">IMPROVED</span>
+            </div>
+            <div class="skill-desc">抓取公开数据，对比 3-5 个竞品，输出 Word 格式报告，含 SWOT 矩阵和功能对比表。</div>
+            <div class="skill-meta">
+              <span>已自动优化 2 次</span>
+              <span>使用 7 次</span>
+            </div>
+          </div>
+
+          <div class="confirm-bar">
+            <span>&#128276;</span>
+            <span style="flex: 1">助手想要沉淀新 skill：<strong>会议纪要整理</strong></span>
+            <button class="btn btn-yes">确认</button>
+            <button class="btn btn-no">忽略</button>
+          </div>
+
+          <div class="note">任务完成后，助手自动提炼工作流为 Skill。用户确认关键节点，保证不跑偏。</div>
+        </div>
+      </div>
+
+      <!-- Layer 3 -->
+      <div class="layer-card layer3">
+        <div class="layer-header">
+          第三层：用户建模
+          <span class="phase">长期</span>
+        </div>
+        <div class="layer-body">
+          <div class="profile-card">
+            <div class="profile-avatar">&#129302;</div>
+            <div class="profile-name">我的数字人</div>
+            <div class="profile-sub">已陪伴你 147 天</div>
+
+            <div class="stat-row">
+              <div class="stat-item">
+                <div class="stat-num">342</div>
+                <div class="stat-label">对话次数</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-num">18</div>
+                <div class="stat-label">掌握 Skills</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-num">96</div>
+                <div class="stat-label">记忆条目</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="trait-list">
+            <div class="trait-item">
+              <span style="width: 80px">PPT 设计</span>
+              <div class="trait-bar">
+                <div class="trait-fill" style="width: 92%; background: linear-gradient(90deg, #4ecdc4, #44b09e)"></div>
+              </div>
+              <span style="font-size: 11px; color: #4ecdc4">92%</span>
+            </div>
+            <div class="trait-item">
+              <span style="width: 80px">数据分析</span>
+              <div class="trait-bar">
+                <div class="trait-fill" style="width: 78%; background: linear-gradient(90deg, #667eea, #764ba2)"></div>
+              </div>
+              <span style="font-size: 11px; color: #667eea">78%</span>
+            </div>
+            <div class="trait-item">
+              <span style="width: 80px">文案写作</span>
+              <div class="trait-bar">
+                <div class="trait-fill" style="width: 65%; background: linear-gradient(90deg, #f093fb, #f5576c)"></div>
+              </div>
+              <span style="font-size: 11px; color: #f093fb">65%</span>
+            </div>
+            <div class="trait-item">
+              <span style="width: 80px">合同审查</span>
+              <div class="trait-bar">
+                <div class="trait-fill" style="width: 40%; background: linear-gradient(90deg, #ffd89b, #f0c040)"></div>
+              </div>
+              <span style="font-size: 11px; color: #f0c040">40%</span>
+            </div>
+          </div>
+
+          <div class="note">数字人越成熟，迁移成本越高。记忆 + Skills 沉淀在 AionUI，带不走。这是核心护城河。</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

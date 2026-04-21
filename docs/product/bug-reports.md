@@ -32,6 +32,7 @@
 ## P2 — 功能异常
 
 ### [BUG-005] AC12 快速连点不同卡片时 agent 选择竞态 — 最后一次点击的 agent 未生效
+
 - **严重级别**: P2
 - **状态**: Fixed ✅
 - **报告方**: QA-黑盒（攻击性 E2E M1-A2，2026-04-17）
@@ -48,6 +49,7 @@
 - **验证**: `tests/e2e/specs/guid-page-attack.e2e.ts` M1-A2 `test.fail()` 已移除（commit `03535dfd2`）；12 passed / 0 failed
 
 ### [BUG-002] useWorkspaceEvents 跨会话误刷新 — workspace 在切换后继续闪烁
+
 - **严重级别**: P2
 - **状态**: Fixed ✅
 - **报告方**: QA-黑盒（R1 架构风险测试暴露，2026-04-17）
@@ -59,6 +61,7 @@
 - **验证**: `tests/unit/useWorkspaceEvents.r1.dom.test.ts` — 6 个单元测试 FAIL→PASS
 
 ### [BUG-003] useMessageLstCache DB 加载无取消机制 — 快速切换时消息串台
+
 - **严重级别**: P2
 - **状态**: Fixed ✅（cancelled flag 修复 + 150ms 竞态回归测试已补，commit 09dfb88ff）
 - **报告方**: Arch（架构风险 R2，2026-04-17）+ QA-黑盒 验证
@@ -72,6 +75,7 @@
 ## P3 — UI / 体验问题
 
 ### [BUG-004] AC7 复制按钮点击后无视觉反馈
+
 - **严重级别**: P3
 - **状态**: Fixed ✅
 - **报告方**: QA-黑盒（攻击性 E2E 测试，2026-04-17）
@@ -82,6 +86,7 @@
 - **修复**: Dev 在复制 handler 中添加 `copied` 状态，配合 CSS 过渡动画实现视觉反馈
 
 ### [BUG-001] minimap trigger 被绝对定位覆盖层拦截，键盘 / 辅助技术无法激活
+
 - **严重级别**: P3
 - **状态**: Open
 - **报告方**: QA（E2E 测试编写过程中发现，PM [TEST-APPROVED] 时确认）
@@ -91,3 +96,14 @@
 - **实际结果**: 必须调用 `HTMLElement.click()` 绕过 Playwright 可交互性检查才能触发，说明覆盖层阻挡了正常指针事件。
 - **复现方法**: 在 Playwright 测试中对 `.conversation-minimap-trigger` 使用 `.click()` → 超时；改用 `page.evaluate(() => document.querySelector('.conversation-minimap-trigger').click())` → 成功。
 - **修复建议**: 检查 header 中 `div.absolute.size-full` 的 `pointer-events` 设置，确保 trigger 区域 `pointer-events: auto` 或将 trigger 移出覆盖层的 z-index 层级。
+
+### [BUG-006] 历史面板置顶污染侧边栏 — extra.pinned 被两套系统共用
+
+- **严重级别**: P2
+- **状态**: Open
+- **报告方**: 用户（2026-04-19）
+- **描述**: 在历史面板（ConversationHistoryPanel）中点击置顶按钮后，`handleTogglePin` 写入 `conversation.extra.pinned = true`。侧边栏的 `buildGroupedHistory()` / `buildAgentGroupedHistory()`（`groupingHelpers.ts`）通过共用的 `isConversationPinned()` 读取同一字段，将该会话显示到侧边栏置顶区域（WorkspaceGroupedHistory 的 pinned section）。两套置顶系统共用 `extra.pinned` 字段，导致历史面板置顶操作意外影响侧边栏布局。
+- **预期结果**: 历史面板置顶仅影响面板内排序，不影响侧边栏。侧边栏置顶区域（PinnedSiderSection）只显示 Agent/Team 级置顶（`dm-pinned-agent-keys` / `team-pinned-ids`）。
+- **实际结果**: 历史面板置顶后，该会话同时出现在侧边栏的置顶区域。
+- **根因**: `isConversationPinned()`（`groupingHelpers.ts:21-24`）检查 `extra.pinned`，被历史面板和侧边栏两个系统共用，无字段隔离。
+- **修复方案**: 历史面板改用独立字段 `extra.historyPinned`（已在 AC23a 需求中确认）；侧边栏的 `isConversationPinned()` 继续使用 `extra.pinned`（或移除，仅保留 Agent/Team 级置顶）。涉及文件：`ConversationHistoryPanel.tsx`（handleTogglePin、排序逻辑）、`groupingHelpers.ts`（isConversationPinned）。
