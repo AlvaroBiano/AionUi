@@ -5,7 +5,6 @@ import type { AcpPermissionOption } from '@/common/types/acpTypes';
 import type { CronMessageMeta } from '@/common/chat/chatLib';
 import type { SessionNotification } from '@agentclientprotocol/sdk';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
-import type { TMessage } from '@/common/chat/chatLib';
 import type { ClientFactory } from '@process/acp/infra/IAcpClient';
 import { AcpSession, type SessionOptions } from '@process/acp/session/AcpSession';
 import type {
@@ -17,12 +16,30 @@ import type {
   SessionStatus,
 } from '@process/acp/types';
 import type { AgentKillReason, IAgentManager } from '@process/task/IAgentManager';
+import type { EventDispatcher } from '@process/events/EventDispatcher';
+import type { AgentEventMap } from '@process/events/AgentEvents';
 import { createBackendPolicy, type BackendPolicy } from './BackendPolicy';
 import { InputPipeline, type InjectionContext } from './InputPipeline';
 import { OutputPipeline } from './OutputPipeline';
 import { PermissionGate, type PermissionGateCallbacks } from './PermissionGate';
 import { TurnTracker } from './TurnTracker';
 import { UserMessagePersister, type PersisterDeps } from './UserMessagePersister';
+
+// ─── TMessage → IResponseMessage bridge ─────────────────────────
+
+// Temporary: convert new TMessage to old IResponseMessage for event payloads.
+// Will be removed when renderer migrates to TMessage directly.
+import type { TMessage } from '@/common/chat/chatLib';
+
+function toResponseMessage(msg: TMessage, conversationId: string): IResponseMessage {
+  return {
+    type: msg.type,
+    conversation_id: conversationId,
+    msg_id: msg.msg_id ?? msg.id,
+    data: msg.content,
+    hidden: (msg as { hidden?: boolean }).hidden,
+  };
+}
 
 // ─── Config ─────────────────────────────────────────────────────
 
@@ -48,10 +65,8 @@ export type AcpRuntimeConfig = {
   persisterDeps: PersisterDeps;
   permissionCallbacks: PermissionGateCallbacks;
 
-  // Stream output handler (AcpRuntime emits TMessages here)
-  onStreamEvent: (message: TMessage) => void;
-  // Signal output handler (status, error, auth, etc.)
-  onSignalEvent: (event: IResponseMessage) => void;
+  // EventDispatcher — all fan-out goes through here
+  dispatcher: EventDispatcher<AgentEventMap>;
 };
 
 // ─── AcpRuntime ─────────────────────────────────────────────────
@@ -60,16 +75,8 @@ export type AcpRuntimeConfig = {
  * AcpRuntime: the business layer for a single ACP conversation.
  *
  * Implements IAgentManager so it can be registered in WorkerTaskManager.
- * Composes: AcpSession, InputPipeline, OutputPipeline, TurnTracker,
- * BackendPolicy, PermissionGate, UserMessagePersister.
- *
- * Owns all business logic that was previously in AcpAgentManager (1635 lines).
- * AcpSession is the pure protocol layer below; AcpRuntime adds:
- * - Input preprocessing (first message injection, @file resolution)
- * - Output post-processing (SDK→TMessage translation, think tags, tool call merge)
- * - Turn tracking with finish fallback
- * - Per-backend behavioral differences
- * - Permission management (dynamic YOLO, team auto-approve, confirmation lifecycle)
+ * All fan-out goes through EventDispatcher — AcpRuntime does not know
+ * who consumes its events (Bridge, Team, Channel, Cron, Persistence, etc.).
  */
 export class AcpRuntime implements IAgentManager {
   readonly type = 'acp' as const;
@@ -89,6 +96,7 @@ export class AcpRuntime implements IAgentManager {
   private readonly backendPolicy: BackendPolicy;
   private readonly permissionGate: PermissionGate;
   private readonly persister: UserMessagePersister;
+  private readonly dispatcher: EventDispatcher<AgentEventMap>;
 
   private readonly config: AcpRuntimeConfig;
 
@@ -96,6 +104,7 @@ export class AcpRuntime implements IAgentManager {
     this.config = config;
     this.conversation_id = config.conversation_id;
     this.workspace = config.workspace;
+    this.dispatcher = config.dispatcher;
 
     // Components
     this.backendPolicy = createBackendPolicy(config.backend);
@@ -150,7 +159,13 @@ export class AcpRuntime implements IAgentManager {
       silent: data.silent,
     });
 
-    // 2. Resolve injection context on first message
+    // 2. Emit turn:started
+    this.dispatcher.emit('turn:started', {
+      conversationId: this.conversation_id,
+      agentType: 'acp',
+    });
+
+    // 3. Resolve injection context on first message
     let injection: InjectionContext | undefined;
     if (this._isFirstMessage && this.config.resolveInjectionContext) {
       try {
@@ -160,16 +175,16 @@ export class AcpRuntime implements IAgentManager {
       }
     }
 
-    // 3. Input pipeline: strip marker → first message inject → @file resolve
+    // 4. Input pipeline: strip marker → first message inject → @file resolve
     const content = this.inputPipeline.process(data.content, data.files, injection);
     if (this._isFirstMessage) {
       this._isFirstMessage = false;
     }
 
-    // 4. Backend policy: inject model switch notice, re-assert model override
+    // 5. Backend policy: inject model switch notice, re-assert model override
     const processed = this.backendPolicy.beforePrompt(content);
 
-    // 5. Turn tracking
+    // 6. Turn tracking
     const turnId = this.turnTracker.beginTurn();
 
     try {
@@ -228,22 +243,28 @@ export class AcpRuntime implements IAgentManager {
   setModel(modelId: string): void {
     this.backendPolicy.setModelOverride(modelId);
     this.session.setModel(modelId);
+    // model:changed will be emitted when session confirms via onModelUpdate callback
   }
 
   setMode(modeId: string): void {
     const result = this.backendPolicy.interceptSetMode(modeId);
+    const isYolo = modeId === this.backendPolicy.getYoloModeId();
+    this.permissionGate.setYoloMode(isYolo);
+    this.session.setAutoApproveAll(isYolo);
+
     if (result.intercepted) {
-      // Backend doesn't support set_mode — update local state only
-      const isYolo = modeId === this.backendPolicy.getYoloModeId();
-      this.permissionGate.setYoloMode(isYolo);
-      this.session.setAutoApproveAll(isYolo);
+      // Backend doesn't support set_mode — emit mode:changed locally
+      this.dispatcher.emit('mode:changed', {
+        conversationId: this.conversation_id,
+        agentType: 'acp',
+        modeId,
+        isYolo,
+      });
       return;
     }
 
     this.session.setMode(modeId);
-    const isYolo = modeId === this.backendPolicy.getYoloModeId();
-    this.permissionGate.setYoloMode(isYolo);
-    this.session.setAutoApproveAll(isYolo);
+    // mode:changed will be emitted when session confirms via onModeUpdate callback
   }
 
   setConfigOption(id: string, value: string | boolean): void {
@@ -270,30 +291,53 @@ export class AcpRuntime implements IAgentManager {
         this.outputPipeline.onTurnEnd();
       },
 
-      onSessionId: (_sessionId: string) => {
-        // TODO: PersistenceSubscriber (Phase 3)
+      onSessionId: (sessionId: string) => {
+        this.dispatcher.emit('session:id', {
+          conversationId: this.conversation_id,
+          agentType: 'acp',
+          sessionId,
+        });
       },
 
       onStatusChange: (status: AgentStatus) => {
-        // AcpSession already maps 7-state → 4-state and deduplicates.
         this._status = status;
       },
 
-      onConfigUpdate: (_config) => {
-        // TODO: PersistenceSubscriber (Phase 3)
+      onConfigUpdate: (config) => {
+        this.dispatcher.emit('config:changed', {
+          conversationId: this.conversation_id,
+          agentType: 'acp',
+          config,
+        });
       },
 
       onModelUpdate: (model) => {
-        this.backendPolicy.onModelChanged(model.currentModelId ?? '', null);
-        // TODO: PersistenceSubscriber (Phase 3)
+        const modelId = model.currentModelId ?? '';
+        this.backendPolicy.onModelChanged(modelId, null);
+        this.dispatcher.emit('model:changed', {
+          conversationId: this.conversation_id,
+          agentType: 'acp',
+          modelId,
+        });
       },
 
-      onModeUpdate: (_mode) => {
-        // TODO: PersistenceSubscriber (Phase 3)
+      onModeUpdate: (mode) => {
+        const modeId = mode.currentModeId ?? '';
+        const isYolo = modeId === this.backendPolicy.getYoloModeId();
+        this.dispatcher.emit('mode:changed', {
+          conversationId: this.conversation_id,
+          agentType: 'acp',
+          modeId,
+          isYolo,
+        });
       },
 
-      onContextUsage: (_usage) => {
-        // TODO: PersistenceSubscriber (Phase 3)
+      onContextUsage: (usage) => {
+        this.dispatcher.emit('context:usage', {
+          conversationId: this.conversation_id,
+          agentType: 'acp',
+          ...usage,
+        });
       },
 
       onPermissionRequest: (data: PermissionUIData) => {
@@ -309,76 +353,107 @@ export class AcpRuntime implements IAgentManager {
   // ─── Internal handlers ────────────────────────────────────────
 
   private handleNotification(notification: SessionNotification): void {
-    // Bootstrap suppression: don't emit stream events until first sendMessage
     if (this._bootstrapping) return;
 
     this.turnTracker.onActivity();
 
-    // OutputPipeline: translate → think filter → tool call merge
     const messages = this.outputPipeline.process(notification);
     for (const msg of messages) {
-      this.config.onStreamEvent(msg);
+      this.dispatcher.emit('agent:stream', {
+        conversationId: this.conversation_id,
+        agentType: 'acp',
+        message: toResponseMessage(msg, this.conversation_id),
+      });
     }
   }
 
   private handleSignal(signal: SessionSignal): void {
     this.turnTracker.onActivity();
+    const ctx = { conversationId: this.conversation_id, agentType: 'acp' as const };
 
     switch (signal.type) {
-      case 'turn_finished':
+      case 'turn_finished': {
         this.turnTracker.markFinished(this.turnTracker.activeTurnId ?? 0);
         this._status = 'ready';
-        this.config.onSignalEvent({
-          type: 'finish',
-          conversation_id: this.conversation_id,
-          msg_id: `finish_${Date.now()}`,
-          data: null,
+        this.dispatcher.emit('agent:finish', {
+          ...ctx,
+          message: {
+            type: 'finish',
+            conversation_id: this.conversation_id,
+            msg_id: `finish_${Date.now()}`,
+            data: null,
+          },
+        });
+        this.dispatcher.emit('turn:completed', {
+          ...ctx,
+          backend: this.config.backend,
+          workspace: this.workspace,
+          pendingConfirmations: this.permissionGate.getConfirmations().length,
         });
         break;
+      }
 
-      case 'process_crash':
+      case 'process_crash': {
         this.turnTracker.markFinished(this.turnTracker.activeTurnId ?? 0);
         this._status = 'ready';
-        this.config.onSignalEvent({
-          type: 'error',
-          conversation_id: this.conversation_id,
-          msg_id: `error_${Date.now()}`,
-          data: this.backendPolicy.enhanceErrorMessage(
-            `process exited unexpectedly (code: ${signal.exitCode ?? 'unknown'}, signal: ${signal.signal ?? 'none'})`
-          ),
+        const errorMsg = this.backendPolicy.enhanceErrorMessage(
+          `process exited unexpectedly (code: ${signal.exitCode ?? 'unknown'}, signal: ${signal.signal ?? 'none'})`
+        );
+        this.dispatcher.emit('agent:error', {
+          ...ctx,
+          message: {
+            type: 'error',
+            conversation_id: this.conversation_id,
+            msg_id: `error_${Date.now()}`,
+            data: errorMsg,
+          },
         });
-        this.config.onSignalEvent({
-          type: 'finish',
-          conversation_id: this.conversation_id,
-          msg_id: `finish_crash_${Date.now()}`,
-          data: { agentCrash: true },
+        this.dispatcher.emit('agent:finish', {
+          ...ctx,
+          message: {
+            type: 'finish',
+            conversation_id: this.conversation_id,
+            msg_id: `finish_crash_${Date.now()}`,
+            data: { agentCrash: true },
+          },
         });
+        this.dispatcher.emit('turn:completed', { ...ctx, backend: this.config.backend });
         break;
+      }
 
       case 'error':
-        this.config.onSignalEvent({
-          type: 'error',
-          conversation_id: this.conversation_id,
-          msg_id: `error_${Date.now()}`,
-          data: this.backendPolicy.enhanceErrorMessage(signal.message),
+        this.dispatcher.emit('agent:error', {
+          ...ctx,
+          message: {
+            type: 'error',
+            conversation_id: this.conversation_id,
+            msg_id: `error_${Date.now()}`,
+            data: this.backendPolicy.enhanceErrorMessage(signal.message),
+          },
         });
         break;
 
       case 'auth_required':
-        this.config.onSignalEvent({
-          type: 'error',
-          conversation_id: this.conversation_id,
-          msg_id: `auth_${Date.now()}`,
-          data: 'Authentication required',
+        this.dispatcher.emit('agent:error', {
+          ...ctx,
+          message: {
+            type: 'error',
+            conversation_id: this.conversation_id,
+            msg_id: `auth_${Date.now()}`,
+            data: 'Authentication required',
+          },
         });
         break;
 
       case 'session_expired':
-        this.config.onSignalEvent({
-          type: 'error',
-          conversation_id: this.conversation_id,
-          msg_id: `expired_${Date.now()}`,
-          data: 'Session expired',
+        this.dispatcher.emit('agent:error', {
+          ...ctx,
+          message: {
+            type: 'error',
+            conversation_id: this.conversation_id,
+            msg_id: `expired_${Date.now()}`,
+            data: 'Session expired',
+          },
         });
         break;
     }
@@ -394,21 +469,24 @@ export class AcpRuntime implements IAgentManager {
     });
 
     if (decision.action === 'auto_approved') {
-      // Auto-approve: resolve immediately in session
       setTimeout(() => {
         this.session.confirmPermission(decision.callId, decision.optionId);
       }, 50);
     }
-    // 'needs_ui': PermissionGate already stored the IConfirmation + notified renderer
   }
 
   private handleMissingFinish(_turnId: number): void {
     this._status = 'ready';
-    this.config.onSignalEvent({
-      type: 'finish',
-      conversation_id: this.conversation_id,
-      msg_id: `finish_fallback_${Date.now()}`,
-      data: null,
+    const ctx = { conversationId: this.conversation_id, agentType: 'acp' as const };
+    this.dispatcher.emit('agent:finish', {
+      ...ctx,
+      message: {
+        type: 'finish',
+        conversation_id: this.conversation_id,
+        msg_id: `finish_fallback_${Date.now()}`,
+        data: null,
+      },
     });
+    this.dispatcher.emit('turn:completed', { ...ctx, backend: this.config.backend });
   }
 }
