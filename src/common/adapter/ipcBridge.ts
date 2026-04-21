@@ -73,6 +73,11 @@ export const conversation = {
     'conversation.response.search.workspace'
   ),
   reloadContext: bridge.buildProvider<IBridgeResponse, { conversation_id: string }>('conversation.reload-context'),
+  // E2E testing only: inject synthetic messages into a conversation (no-op outside E2E_DEV mode)
+  injectTestMessages: bridge.buildProvider<
+    IBridgeResponse<{ count: number }>,
+    { conversation_id: string; count?: number; withAiTypes?: boolean }
+  >('conversation.inject-test-messages'),
   setConfig: bridge.buildProvider<
     IBridgeResponse,
     {

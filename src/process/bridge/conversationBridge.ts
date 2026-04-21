@@ -11,7 +11,7 @@ import type { IConversationService, CreateConversationParams } from '@process/se
 import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
 import type { TeamSessionService } from '@process/team/TeamSessionService';
 import { ipcBridge } from '@/common';
-import { removeFromMessageCache } from '@process/utils/message';
+import { addMessage, removeFromMessageCache } from '@process/utils/message';
 import {
   getSkillsDir,
   getBuiltinSkillsCopyDir,
@@ -465,6 +465,165 @@ export function initConversationBridge(
       };
     }
   });
+
+  // E2E only: inject synthetic messages for testing scroll/alignment/hover behaviors.
+  // Registered only when E2E_DEV=1 to avoid shipping test surface in production builds.
+  if (process.env.E2E_DEV === '1') {
+    ipcBridge.conversation.injectTestMessages.provider(async ({ conversation_id, count = 20, withAiTypes = false }) => {
+      type TMsg = import('@/common/chat/chatLib').TMessage;
+      try {
+        const now = Date.now();
+        for (let i = 0; i < count; i++) {
+          const isUser = i % 2 === 0;
+          addMessage(conversation_id, {
+            id: crypto.randomUUID(),
+            conversation_id,
+            type: 'text',
+            position: isUser ? 'right' : 'left',
+            status: 'finish',
+            content: {
+              content: isUser
+                ? `E2E test user message #${i + 1}`
+                : `E2E test agent reply #${i + 1} — this is a longer response to simulate realistic message heights.`,
+            },
+            createdAt: now - (count - i) * 1000,
+          } as TMsg);
+        }
+
+        // When withAiTypes=true, also inject AI-specific message types used by AC8-12, AC17-18 tests
+        if (withAiTypes) {
+          const t = Date.now();
+
+          // AC8 – thinking message
+          addMessage(conversation_id, {
+            id: crypto.randomUUID(),
+            conversation_id,
+            type: 'thinking',
+            position: 'left',
+            status: 'finish',
+            content: {
+              content:
+                'E2E test: analyzing the problem space...\n\nThis injected thinking block verifies E2E rendering.',
+              subject: 'Analysis',
+              duration: 2.3,
+              status: 'done',
+            },
+            createdAt: t - 6000,
+          } as TMsg);
+
+          // AC9 / AC10 – tool_group (→ rendered as tool_summary)
+          addMessage(conversation_id, {
+            id: crypto.randomUUID(),
+            conversation_id,
+            type: 'tool_group',
+            position: 'left',
+            status: 'finish',
+            content: [
+              {
+                callId: crypto.randomUUID(),
+                name: 'read_file',
+                description: 'Reading package.json',
+                renderOutputAsMarkdown: false,
+                status: 'Success',
+                resultDisplay: '{"name":"e2e-test"}',
+              },
+              {
+                callId: crypto.randomUUID(),
+                name: 'write_file',
+                description: 'Writing output.txt',
+                renderOutputAsMarkdown: false,
+                status: 'Success',
+              },
+            ],
+            createdAt: t - 5000,
+          } as TMsg);
+
+          // AC11 – plan message
+          addMessage(conversation_id, {
+            id: crypto.randomUUID(),
+            conversation_id,
+            type: 'plan',
+            position: 'left',
+            status: 'finish',
+            content: {
+              sessionId: `e2e-plan-${t}`,
+              entries: [
+                { content: 'Analyze the codebase', status: 'completed' },
+                { content: 'Implement changes', status: 'in_progress' },
+                { content: 'Write tests', status: 'pending' },
+              ],
+            },
+            createdAt: t - 4000,
+          } as TMsg);
+
+          // AC12 – skill_suggest message
+          addMessage(conversation_id, {
+            id: crypto.randomUUID(),
+            conversation_id,
+            type: 'skill_suggest',
+            position: 'left',
+            status: 'finish',
+            content: {
+              cronJobId: `e2e-cron-${t}`,
+              name: 'Daily Standup',
+              description: 'Generate a daily standup summary from git commits',
+              skillContent:
+                '---\nname: Daily Standup\ndescription: Generate a daily standup summary\n---\n\nGenerate standup.',
+            },
+            createdAt: t - 3000,
+          } as TMsg);
+
+          // AC17 – agent_status session_active
+          addMessage(conversation_id, {
+            id: crypto.randomUUID(),
+            conversation_id,
+            type: 'agent_status',
+            position: 'left',
+            status: 'finish',
+            content: {
+              backend: 'claude' as import('@/common/types/acpTypes').AcpBackend,
+              status: 'session_active',
+              agentName: 'Claude',
+              sessionId: `e2e-session-${t}`,
+              isConnected: true,
+              hasActiveSession: true,
+            },
+            createdAt: t - 2000,
+          } as TMsg);
+
+          // AC18 – acp_permission (Allow / Reject options)
+          addMessage(conversation_id, {
+            id: crypto.randomUUID(),
+            conversation_id,
+            type: 'acp_permission',
+            position: 'left',
+            status: 'finish',
+            content: {
+              sessionId: `e2e-perm-${t}`,
+              options: [
+                { optionId: 'allow_once', name: 'Allow Once', kind: 'allow_once' as const },
+                { optionId: 'allow_always', name: 'Allow Always', kind: 'allow_always' as const },
+                { optionId: 'reject_once', name: 'Reject', kind: 'reject_once' as const },
+              ],
+              toolCall: {
+                toolCallId: `e2e-tool-${t}`,
+                title: 'Execute Terminal Command',
+                kind: 'execute',
+                rawInput: { command: 'ls -la', description: 'List directory contents' },
+              },
+            },
+            createdAt: t - 1000,
+          } as TMsg);
+        }
+
+        // Wait briefly so the async queue can flush to the DB before the test proceeds
+        await new Promise<void>((resolve) => setTimeout(resolve, 500));
+        return { success: true, data: { count } };
+      } catch (err) {
+        return { success: false, msg: err instanceof Error ? err.message : String(err) };
+      }
+    });
+  }
 
   // 通用 sendMessage 实现 - 统一调用 IAgentManager.sendMessage
   // Generic sendMessage - dispatches via IAgentManager.sendMessage interface

@@ -207,6 +207,8 @@ export const test = base.extend<Fixtures>({
     if (mainPage.isClosed()) {
       mainPage = await resolveMainWindow(electronApp);
     }
+    // 固定 viewport 尺寸，避免 Electron 窗口高度波动导致视觉快照不稳定（D-014）
+    await mainPage.setViewportSize({ width: 1176, height: 685 });
     await use(mainPage);
 
     // Attach screenshot on failure so it appears in the HTML report.
