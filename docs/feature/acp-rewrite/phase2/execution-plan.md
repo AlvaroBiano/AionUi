@@ -25,7 +25,7 @@
 前置: Phase 1
 目标: AcpRuntime 实现 IAgentManager, 内部组件齐全, 可独立测试
 
-- [ ] **2.1** AcpRuntime 骨架 — 清空现有代码, 实现 IAgentManager, 持有 AcpSession, 基本 sendMessage/stop/kill 跑通
+- [x] **2.1** AcpRuntime 骨架 — 实现 IAgentManager, 组装所有零件, AcpSession 接口改造 (sendMessage→PromptContent, onNotification→SessionNotification, AgentStatus 4 态)
 - [x] **2.2** BackendPolicy — per-backend 有状态策略: Claude (model switch notice, beforePrompt, /login), Codex (mode interception + sandbox config), Snow (mode interception), Qwen (error enhancement, login). Default policy for all others. Factory: `createBackendPolicy(backend)`
 - [x] **2.3** OutputPipeline — ThinkTagFilter (`<think>` 提取, 复用 ThinkTagDetector) + ToolCallMerger (deep merge, stateful). StatusFilter 留给 2.1 AcpRuntime 骨架 (走 onStatusChange 回调, 非 TMessage 流)
 - [x] **2.4** InputPipeline — FirstMessageInjector (preset/skills/teamGuide 首消息注入, stateful once) + FileRefProcessor (复用 InputPreprocessor). UserMessagePersister 独立 (副作用非变换, DI deps). AcpSession API 变更 (sendMessage 接收 PromptContent) + MessageTranslator 移入 OutputPipeline 均留到 2.1
@@ -38,30 +38,20 @@
 
 ---
 
-## Phase 3: EventDispatcher + 订阅者迁移
+## Phase 3+4: EventDispatcher + 切换上线
 
-前置: Phase 2 功能完整
-目标: fan-out 从硬编码 import → EventDispatcher
+前置: Phase 2
+目标: AcpRuntime 通过 EventDispatcher 解耦, 成为生产代码
 
 - [ ] **3.1** EventDispatcher 核心 — emit + waterfall + 类型安全 EventMap
-- [ ] **3.2** 内部订阅者 — BridgeAdapter, TeamConsumer, ChannelConsumer, CronConsumer, PersistenceSubscriber (含修复 agentId 语义: `agentId = customAgentId ?? backend`, 启用 acp_session 表写入, 来自 TODO.md)
-- [ ] **3.3** Composition Root — 启动时统一注册, 一个文件看清全貌
-- [ ] **3.4** AcpRuntime 切换 — 移除直接 import, 改用 dispatcher.emit
-- [ ] **3.5** `agent:configuring` waterfall — MCP 注入从内部逻辑 → waterfall 订阅者
-
-验证: 行为不变, 内部结构变了
-
----
-
-## Phase 4: 切换上线
-
-前置: Phase 3
-目标: AcpRuntime 成为生产代码
-
+- [ ] **3.2** 事件目录 — Output: agent:stream/finish/error/crash; Input/Lifecycle: turn:started/completed, model:changed, mode:changed, conversation:created/deleting; Waterfall: agent:configuring
+- [ ] **3.3** 内部订阅者 — BridgeAdapter (TMessage→IResponseMessage 翻译 + ipcBridge emit), TeamConsumer (替代 teamEventBus), ChannelConsumer (替代 channelEventBus), CronConsumer (替代 cronBusyGuard 直接 import), PersistenceSubscriber (conversation.extra 写入 + acp_session 表, 修复 agentId 语义)
+- [ ] **3.4** Composition Root — 启动时统一注册所有消费者, 一个文件看清全貌
+- [ ] **3.5** AcpRuntime 接入 — setModel/setMode/sendMessage 等改为 dispatcher.emit, 删除硬编码消费者调用
+- [ ] **3.6** `agent:configuring` waterfall — MCP 注入 (team-guide + user config) 从 AcpRuntime 内部逻辑 → waterfall 订阅者
 - [ ] **4.1** Bridge 层适配 — 6 处 instanceof → 接口方法; 3 处 type cast → 接口调用
-- [ ] **4.2** 消息格式桥接 — Bridge Adapter 做 TMessage → IResponseMessage 翻译 (过渡期)
-- [ ] **4.3** Factory 切换 — `factory.register('acp', ...)` 指向新 AcpRuntime
-- [ ] **4.4** 全量回归测试 — 单聊、team mode、channel bot、cron、slash commands、preview
+- [ ] **4.2** Factory 切换 — `factory.register('acp', ...)` 指向新 AcpRuntime
+- [ ] **4.3** 全量回归测试 — 单聊、team mode、channel bot、cron、slash commands、preview
 
 ---
 
@@ -71,12 +61,13 @@
 目标: 删除旧代码, 清理残留耦合
 
 - [ ] **5.1** 删除 AcpAgentManager (1635 行)
-- [ ] **5.2** 删除 AcpAgentV2 (809 行)
+- [ ] **5.2** 删除 AcpAgentV2 (809 行) + session/MessageTranslator.ts
 - [ ] **5.3** 删除 AcpAgent 旧版 (1884 行)
 - [ ] **5.4** 删除 AcpConnection 旧版 (1156 行)
 - [ ] **5.5** 删除 teamEventBus + channelEventBus (已被 EventDispatcher 替代)
-- [ ] **5.6** cronBusyGuard 从 WorkerTaskManager 移到 EventDispatcher 订阅者
-- [ ] **5.7** Renderer tool_call deep merge — 删除 compat 层后 renderer 需自行做 `tool_call_update` 深合并 (来自 TODO.md)
+- [ ] **5.6** 删除 IdleReclaimer.ts + 测试
+- [ ] **5.7** cronBusyGuard 从 WorkerTaskManager 移到 EventDispatcher 订阅者
+- [ ] **5.8** Renderer tool_call deep merge — 删除 compat 层后 renderer 需自行做 `tool_call_update` 深合并 (来自 TODO.md)
 
 ---
 
