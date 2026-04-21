@@ -107,7 +107,7 @@ export class PermissionResolver {
 
   async evaluate(
     request: RequestPermissionRequest,
-    uiCallback: (data: PermissionUIData) => void,
+    uiCallback: (data: PermissionUIData) => void
   ): Promise<RequestPermissionResponse> {
     // Level 1: YOLO mode — auto-approve everything (client-side fallback)
     if (this._autoApproveAll) {

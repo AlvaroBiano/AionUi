@@ -1,291 +1,433 @@
 // src/process/acp/runtime/AcpRuntime.ts
 
+import type { IConfirmation } from '@/common/chat/chatLib';
+import type { AcpPermissionOption } from '@/common/types/acpTypes';
+import type { CronMessageMeta } from '@/common/chat/chatLib';
+import type { SessionNotification } from '@agentclientprotocol/sdk';
+import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 import type { TMessage } from '@/common/chat/chatLib';
-import { getTeamGuideStdioConfig } from '@/process/team/mcp/guide/teamGuideSingleton';
-import type { McpServer } from '@agentclientprotocol/sdk';
 import type { ClientFactory } from '@process/acp/infra/IAcpClient';
-import { IdleReclaimer } from '@process/acp/runtime/IdleReclaimer';
-import { AcpSession } from '@process/acp/session/AcpSession';
-import { McpConfig } from '@process/acp/session/McpConfig';
-import type {
-  AgentConfig,
-  ConfigOption,
-  RuntimeOptions,
-  SessionCallbacks,
-  SessionEntry,
-  SessionStatus,
-  SignalEvent,
-} from '@process/acp/types';
-// TODO(ACP Discovery): Re-enable when acp_session persistence is restored.
-// import type { IAcpSessionRepository } from '@process/services/database/IAcpSessionRepository';
-import { shouldInjectTeamGuideMcp } from '@process/team/prompts/teamGuideCapability';
-import { ProcessConfig } from '@process/utils/initStorage';
+import { AcpSession, type SessionOptions } from '@process/acp/session/AcpSession';
+import type { AgentConfig, PermissionUIData, SessionCallbacks, SessionSignal, SessionStatus } from '@process/acp/types';
+import type { AgentKillReason, IAgentManager } from '@process/task/IAgentManager';
+import type { AgentStatus } from '@process/task/agentTypes';
+import { createBackendPolicy, type BackendPolicy } from './BackendPolicy';
+import { InputPipeline, type InjectionContext } from './InputPipeline';
+import { OutputPipeline } from './OutputPipeline';
+import { PermissionGate, type PermissionGateCallbacks } from './PermissionGate';
+import { TurnTracker } from './TurnTracker';
+import { UserMessagePersister, type PersisterDeps } from './UserMessagePersister';
 
-const DEFAULT_IDLE_TIMEOUT_MS = 300_000; // 5 minutes
-const DEFAULT_CHECK_INTERVAL_MS = 30_000; // 30 seconds
+// ─── Config ─────────────────────────────────────────────────────
 
-type StreamEventHandler = (convId: string, message: TMessage) => void;
-type SignalEventHandler = (convId: string, event: SignalEvent) => void;
+export type AcpRuntimeConfig = {
+  conversation_id: string;
+  workspace: string;
+  agentConfig: AgentConfig;
+  clientFactory: ClientFactory;
+  sessionOptions?: SessionOptions;
+
+  // Business context
+  backend: string;
+  yoloMode?: boolean;
+  presetContext?: string;
+  enabledSkills?: string[];
+  excludeBuiltinSkills?: string[];
+  isInTeam?: boolean;
+
+  // Injection context resolver (async, called on first message)
+  resolveInjectionContext?: () => Promise<InjectionContext>;
+
+  // Dependencies (injected for testability)
+  persisterDeps: PersisterDeps;
+  permissionCallbacks: PermissionGateCallbacks;
+
+  // Stream output handler (AcpRuntime emits TMessages here)
+  onStreamEvent: (message: TMessage) => void;
+  // Signal output handler (status, error, auth, etc.)
+  onSignalEvent: (event: IResponseMessage) => void;
+};
+
+// ─── AcpRuntime ─────────────────────────────────────────────────
 
 /**
- * TODO(ACP Discovery): acp_session persistence is disabled.
+ * AcpRuntime: the business layer for a single ACP conversation.
  *
- * The acpSessionRepo parameter and all writes to the acp_session table are
- * commented out because:
- *   1. agent_id is incorrectly set to conversation_id (see typeBridge.ts).
- *   2. The table is not consumed by any reader yet.
+ * Implements IAgentManager so it can be registered in WorkerTaskManager.
+ * Composes: AcpSession, InputPipeline, OutputPipeline, TurnTracker,
+ * BackendPolicy, PermissionGate, UserMessagePersister.
  *
- * Re-enable together with ACP Discovery which will fix agent_id semantics.
- * See docs/feature/acp-rewrite/TODO.md for details.
+ * Owns all business logic that was previously in AcpAgentManager (1635 lines).
+ * AcpSession is the pure protocol layer below; AcpRuntime adds:
+ * - Input preprocessing (first message injection, @file resolution)
+ * - Output post-processing (SDK→TMessage translation, think tags, tool call merge)
+ * - Turn tracking with finish fallback
+ * - Per-backend behavioral differences
+ * - Permission management (dynamic YOLO, team auto-approve, confirmation lifecycle)
  */
-export class AcpRuntime {
-  private readonly sessions = new Map<string, SessionEntry>();
-  private readonly idleReclaimer: IdleReclaimer;
+export class AcpRuntime implements IAgentManager {
+  readonly type = 'acp' as const;
+  readonly workspace: string;
+  readonly conversation_id: string;
 
-  onStreamEvent: StreamEventHandler = () => {};
-  onSignalEvent: SignalEventHandler = () => {};
+  private _status: AgentStatus = 'idle';
+  private _lastActivityAt: number = Date.now();
+  private _bootstrapping = true;
+  private _isFirstMessage = true;
 
-  constructor(
-    // TODO(ACP Discovery): Re-enable acp_session persistence.
-    // private readonly acpSessionRepo: IAcpSessionRepository,
-    private readonly clientFactory: ClientFactory,
-    options?: RuntimeOptions
-  ) {
-    this.idleReclaimer = new IdleReclaimer(
-      this.sessions,
-      options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
-      options?.checkIntervalMs ?? DEFAULT_CHECK_INTERVAL_MS
-    );
-    this.idleReclaimer.start();
+  // Components
+  private readonly session: AcpSession;
+  private readonly inputPipeline: InputPipeline;
+  private readonly outputPipeline: OutputPipeline;
+  private readonly turnTracker: TurnTracker;
+  private readonly backendPolicy: BackendPolicy;
+  private readonly permissionGate: PermissionGate;
+  private readonly persister: UserMessagePersister;
+
+  private readonly config: AcpRuntimeConfig;
+
+  constructor(config: AcpRuntimeConfig) {
+    this.config = config;
+    this.conversation_id = config.conversation_id;
+    this.workspace = config.workspace;
+
+    // Components
+    this.backendPolicy = createBackendPolicy(config.backend);
+    this.inputPipeline = new InputPipeline(config.workspace);
+    this.outputPipeline = new OutputPipeline(config.conversation_id);
+    this.persister = new UserMessagePersister(config.persisterDeps);
+    this.permissionGate = new PermissionGate(config.conversation_id, config.permissionCallbacks);
+
+    if (config.yoloMode) {
+      this.permissionGate.setYoloMode(true);
+    }
+
+    this.turnTracker = new TurnTracker({
+      onFallback: (turnId) => this.handleMissingFinish(turnId),
+      shouldFireFallback: () => !this.permissionGate.hasPending(),
+    });
+
+    // Create session
+    const callbacks = this.buildSessionCallbacks();
+    this.session = new AcpSession(config.agentConfig, config.clientFactory, callbacks, config.sessionOptions);
   }
 
-  async createConversation(convId: string, agentConfig: AgentConfig): Promise<void> {
-    if (this.sessions.has(convId)) return;
+  // ─── IAgentManager ────────────────────────────────────────────
 
-    // Shallow-clone to avoid mutating the caller's object (e.g., MCP servers would
-    // duplicate on retries if we pushed into the original arrays).
-    const config = { ...agentConfig };
+  get status(): AgentStatus {
+    return this._status;
+  }
 
-    // Inject team-guide MCP server for solo agents (not in team mode) so the
-    // agent has the aion_create_team tool available.
-    if (!config.teamMcpConfig) {
-      if (await shouldInjectTeamGuideMcp(config.agentBackend)) {
-        const aionStdioConfig = getTeamGuideStdioConfig();
-        if (aionStdioConfig) {
-          const guideServer: McpServer = {
-            name: aionStdioConfig.name,
-            command: aionStdioConfig.command,
-            args: aionStdioConfig.args,
-            env: [
-              ...aionStdioConfig.env,
-              { name: 'AION_MCP_BACKEND', value: config.agentBackend },
-              { name: 'AION_MCP_CONVERSATION_ID', value: convId },
-            ],
-          };
-          config.presetMcpServers = [...(config.presetMcpServers || []), guideServer];
-        }
+  get lastActivityAt(): number {
+    return this._lastActivityAt;
+  }
+
+  async sendMessage(data: {
+    content: string;
+    files?: string[];
+    msg_id?: string;
+    cronMeta?: CronMessageMeta;
+    hidden?: boolean;
+    silent?: boolean;
+  }): Promise<void> {
+    this._lastActivityAt = Date.now();
+    this._bootstrapping = false;
+    this._status = 'running';
+
+    // 1. Persist user message immediately (UI sees it before agent init)
+    this.persister.persist({
+      msgId: data.msg_id ?? '',
+      content: data.content,
+      conversationId: this.conversation_id,
+      cronMeta: data.cronMeta,
+      hidden: data.hidden,
+      silent: data.silent,
+    });
+
+    // 2. Resolve injection context on first message
+    let injection: InjectionContext | undefined;
+    if (this._isFirstMessage && this.config.resolveInjectionContext) {
+      try {
+        injection = await this.config.resolveInjectionContext();
+      } catch {
+        // Best effort — send without injection
       }
     }
 
-    // Load user-configured (builtin) MCP servers from settings, filtered by
-    // cached agent MCP capabilities.
-
-    const rawMcpServers = await ProcessConfig.get('mcp.config');
-    if (Array.isArray(rawMcpServers) && rawMcpServers.length > 0) {
-      const cachedInit = await ProcessConfig.get('acp.cachedInitializeResult');
-      const caps = cachedInit?.[config.agentBackend]?.capabilities?.mcpCapabilities;
-      const userServers = McpConfig.fromStorageConfig(rawMcpServers, caps);
-      if (userServers.length > 0) {
-        config.mcpServers = [...(config.mcpServers || []), ...userServers];
-      }
+    // 3. Input pipeline: strip marker → first message inject → @file resolve
+    const content = this.inputPipeline.process(data.content, data.files, injection);
+    if (this._isFirstMessage) {
+      this._isFirstMessage = false;
     }
 
-    const callbacks = this.buildCallbacks(convId);
-    const session = new AcpSession(config, this.clientFactory, callbacks);
+    // 4. Backend policy: inject model switch notice, re-assert model override
+    const processed = this.backendPolicy.beforePrompt(content);
 
-    this.sessions.set(convId, { session, lastActiveAt: Date.now() });
+    // 5. Turn tracking
+    const turnId = this.turnTracker.beginTurn();
 
-    // TODO(ACP Discovery): Re-enable after fixing agent_id.
-    // this.acpSessionRepo.upsertSession({
-    //   conversation_id: convId,
-    //   agent_backend: agentConfig.agentBackend,
-    //   agent_source: agentConfig.agentSource,
-    //   agent_id: agentConfig.agentId,
-    //   session_id: null,
-    //   session_status: 'idle',
-    //   session_config: JSON.stringify(agentConfig),
-    //   last_active_at: Date.now(),
-    //   suspended_at: null,
-    // });
+    try {
+      await this.session.sendMessage(processed);
 
-    session.start();
-  }
-
-  async closeConversation(convId: string): Promise<void> {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    const session = entry.session as AcpSession;
-    await session.stop();
-    this.sessions.delete(convId);
-    // TODO(ACP Discovery): Re-enable after fixing agent_id.
-    // this.acpSessionRepo.deleteSession(convId);
-  }
-
-  async sendMessage(convId: string, text: string, files?: string[]): Promise<void> {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    const session = entry.session as AcpSession;
-    entry.lastActiveAt = Date.now();
-    // TODO(ACP Discovery): Re-enable after fixing agent_id.
-    // this.acpSessionRepo.touchLastActive(convId);
-    await session.sendMessage(text, files);
-  }
-
-  confirmPermission(convId: string, callId: string, optionId: string): void {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    (entry.session as AcpSession).confirmPermission(callId, optionId);
-  }
-
-  cancelPrompt(convId: string): void {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    (entry.session as AcpSession).cancelPrompt();
-  }
-
-  cancelAll(convId: string): void {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    (entry.session as AcpSession).cancelAll();
-  }
-
-  setModel(convId: string, modelId: string): void {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    (entry.session as AcpSession).setModel(modelId);
-  }
-
-  setMode(convId: string, modeId: string): void {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    (entry.session as AcpSession).setMode(modeId);
-  }
-
-  setConfigOption(convId: string, id: string, value: string | boolean): void {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    (entry.session as AcpSession).setConfigOption(id, value);
-  }
-
-  getConfigOptions(convId: string): ConfigOption[] | null {
-    const entry = this.sessions.get(convId);
-    if (!entry) return null;
-    return (entry.session as AcpSession).getConfigOptions();
-  }
-
-  retryAuth(convId: string, credentials?: Record<string, string>): void {
-    const entry = this.sessions.get(convId);
-    if (!entry) return;
-    (entry.session as AcpSession).retryAuth(credentials);
-  }
-
-  getSessionStatus(convId: string): SessionStatus | null {
-    const entry = this.sessions.get(convId);
-    if (!entry) return null;
-    return (entry.session as AcpSession).status;
-  }
-
-  async shutdown(): Promise<void> {
-    this.idleReclaimer.stop();
-    const promises: Promise<void>[] = [];
-    for (const [_, entry] of this.sessions) {
-      const session = entry.session as AcpSession;
-      if (session.status === 'active' || session.status === 'prompting') {
-        promises.push(session.suspend());
+      // Check if finish arrived during sendMessage
+      if (this.turnTracker.consumeFinished(turnId)) {
+        return;
       }
+
+      // If streaming activity observed but no finish yet, fallback timer handles it
+      if (this.turnTracker.hasRuntimeActivity(turnId)) {
+        return;
+      }
+
+      // No finish AND no activity — synthesize finish immediately
+      this.turnTracker.clearTurn(turnId);
+      this.handleMissingFinish(turnId);
+    } catch {
+      this.turnTracker.clearTurn(turnId);
+      this._status = 'ready';
     }
-    await Promise.allSettled(promises);
-    this.sessions.clear();
   }
 
-  private buildCallbacks(convId: string): SessionCallbacks {
+  async stop(): Promise<void> {
+    this.session.cancelPrompt();
+  }
+
+  confirm(_msgId: string, callId: string, data: unknown): void {
+    const option = data as AcpPermissionOption;
+    this.permissionGate.confirmWithOption(callId, {
+      optionId: option.optionId,
+      name: option.name,
+    });
+    this.session.confirmPermission(callId, option.optionId);
+  }
+
+  getConfirmations(): IConfirmation[] {
+    return this.permissionGate.getConfirmations();
+  }
+
+  kill(_reason?: AgentKillReason): void {
+    this.turnTracker.destroy();
+    this.outputPipeline.reset();
+    this.permissionGate.clear();
+    void this.session.stop();
+    this._status = 'idle';
+  }
+
+  // ─── Additional public API (for bridge layer) ─────────────────
+
+  start(): void {
+    this.session.start();
+  }
+
+  setModel(modelId: string): void {
+    this.backendPolicy.setModelOverride(modelId);
+    this.session.setModel(modelId);
+  }
+
+  setMode(modeId: string): void {
+    const result = this.backendPolicy.interceptSetMode(modeId);
+    if (result.intercepted) {
+      // Backend doesn't support set_mode — update local state only
+      const isYolo = modeId === this.backendPolicy.getYoloModeId();
+      this.permissionGate.setYoloMode(isYolo);
+      this.session.setAutoApproveAll(isYolo);
+      return;
+    }
+
+    this.session.setMode(modeId);
+    const isYolo = modeId === this.backendPolicy.getYoloModeId();
+    this.permissionGate.setYoloMode(isYolo);
+    this.session.setAutoApproveAll(isYolo);
+  }
+
+  setConfigOption(id: string, value: string | boolean): void {
+    this.session.setConfigOption(id, value);
+  }
+
+  retryAuth(credentials?: Record<string, string>): void {
+    this.session.retryAuth(credentials);
+  }
+
+  getSessionStatus(): SessionStatus {
+    return this.session.status;
+  }
+
+  // ─── Session callbacks ────────────────────────────────────────
+
+  private buildSessionCallbacks(): SessionCallbacks {
     return {
-      onNotification: (notification) => {
-        // TODO: Will be replaced by OutputPipeline in 2.1
-        void notification;
+      onNotification: (notification: SessionNotification) => {
+        this.handleNotification(notification);
       },
-      onSessionId: (_sessionId) => {
-        // TODO(ACP Discovery): Re-enable after fixing agent_id.
-        // this.acpSessionRepo.updateSessionId(convId, sessionId);
+
+      onTurnEnd: () => {
+        this.outputPipeline.onTurnEnd();
       },
-      onStatusChange: (status) => {
-        // TODO(ACP Discovery): Re-enable after fixing agent_id.
-        // this.persistStatus(convId, status);
-        this.onSignalEvent(convId, { type: 'status_change', status });
+
+      onSessionId: (_sessionId: string) => {
+        // TODO: PersistenceSubscriber (Phase 3)
       },
-      onConfigUpdate: (config) => {
-        // TODO(ACP Discovery): Re-enable after fixing agent_id.
-        // this.acpSessionRepo.updateSessionConfig(convId, JSON.stringify(config));
-        this.onSignalEvent(convId, { type: 'config_update', config });
+
+      onStatusChange: (status: SessionStatus) => {
+        this.mapSessionStatus(status);
       },
+
+      onConfigUpdate: (_config) => {
+        // TODO: PersistenceSubscriber (Phase 3)
+      },
+
       onModelUpdate: (model) => {
-        this.onSignalEvent(convId, { type: 'model_update', model });
+        this.backendPolicy.onModelChanged(model.currentModelId ?? '', null);
+        // TODO: PersistenceSubscriber (Phase 3)
       },
-      onModeUpdate: (mode) => {
-        this.onSignalEvent(convId, { type: 'mode_update', mode });
-      },
-      onContextUsage: (usage) => {
-        this.onSignalEvent(convId, { type: 'context_usage', usage });
-      },
-      onPermissionRequest: (data) => {
-        this.onSignalEvent(convId, { type: 'permission_request', data });
-      },
-      onSignal: (signal) => {
-        switch (signal.type) {
-          case 'auth_required':
-            this.onSignalEvent(convId, { type: 'auth_required', auth: signal.auth });
-            break;
 
-          case 'error':
-            this.onSignalEvent(convId, {
-              type: 'error',
-              message: signal.message,
-              recoverable: signal.recoverable,
-            });
-            break;
+      onModeUpdate: (_mode) => {
+        // TODO: PersistenceSubscriber (Phase 3)
+      },
 
-          case 'session_expired':
-            this.onSignalEvent(convId, {
-              type: 'error',
-              message: 'Session expired',
-              recoverable: true,
-            });
-            break;
-        }
+      onContextUsage: (_usage) => {
+        // TODO: PersistenceSubscriber (Phase 3)
+      },
+
+      onPermissionRequest: (data: PermissionUIData) => {
+        this.handlePermissionRequest(data);
+      },
+
+      onSignal: (signal: SessionSignal) => {
+        this.handleSignal(signal);
       },
     };
   }
 
-  // TODO(ACP Discovery): Re-enable when acp_session persistence is restored.
-  // private persistStatus(convId: string, status: SessionStatus): void {
-  //   const stableStatus = this.toStableStatus(status);
-  //   const suspendedAt = status === 'suspended' ? Date.now() : null;
-  //   this.acpSessionRepo.updateStatus(convId, stableStatus, suspendedAt);
-  // }
+  // ─── Internal handlers ────────────────────────────────────────
 
-  // private toStableStatus(status: SessionStatus): 'idle' | 'active' | 'suspended' | 'error' {
-  //   switch (status) {
-  //     case 'idle':
-  //       return 'idle';
-  //     case 'starting':
-  //     case 'active':
-  //     case 'prompting':
-  //     case 'resuming':
-  //       return 'active';
-  //     case 'suspended':
-  //       return 'suspended';
-  //     case 'error':
-  //       return 'error';
-  //   }
-  // }
+  private handleNotification(notification: SessionNotification): void {
+    // Bootstrap suppression: don't emit stream events until first sendMessage
+    if (this._bootstrapping) return;
+
+    this.turnTracker.onActivity();
+
+    // OutputPipeline: translate → think filter → tool call merge
+    const messages = this.outputPipeline.process(notification);
+    for (const msg of messages) {
+      this.config.onStreamEvent(msg);
+    }
+  }
+
+  private handleSignal(signal: SessionSignal): void {
+    this.turnTracker.onActivity();
+
+    switch (signal.type) {
+      case 'turn_finished':
+        this.turnTracker.markFinished(this.turnTracker.activeTurnId ?? 0);
+        this._status = 'ready';
+        this.config.onSignalEvent({
+          type: 'finish',
+          conversation_id: this.conversation_id,
+          msg_id: `finish_${Date.now()}`,
+          data: null,
+        });
+        break;
+
+      case 'process_crash':
+        this.turnTracker.markFinished(this.turnTracker.activeTurnId ?? 0);
+        this._status = 'ready';
+        this.config.onSignalEvent({
+          type: 'error',
+          conversation_id: this.conversation_id,
+          msg_id: `error_${Date.now()}`,
+          data: this.backendPolicy.enhanceErrorMessage(
+            `process exited unexpectedly (code: ${signal.exitCode ?? 'unknown'}, signal: ${signal.signal ?? 'none'})`
+          ),
+        });
+        this.config.onSignalEvent({
+          type: 'finish',
+          conversation_id: this.conversation_id,
+          msg_id: `finish_crash_${Date.now()}`,
+          data: { agentCrash: true },
+        });
+        break;
+
+      case 'error':
+        this.config.onSignalEvent({
+          type: 'error',
+          conversation_id: this.conversation_id,
+          msg_id: `error_${Date.now()}`,
+          data: this.backendPolicy.enhanceErrorMessage(signal.message),
+        });
+        break;
+
+      case 'auth_required':
+        this.config.onSignalEvent({
+          type: 'error',
+          conversation_id: this.conversation_id,
+          msg_id: `auth_${Date.now()}`,
+          data: 'Authentication required',
+        });
+        break;
+
+      case 'session_expired':
+        this.config.onSignalEvent({
+          type: 'error',
+          conversation_id: this.conversation_id,
+          msg_id: `expired_${Date.now()}`,
+          data: 'Session expired',
+        });
+        break;
+    }
+  }
+
+  private handlePermissionRequest(data: PermissionUIData): void {
+    const decision = this.permissionGate.evaluate({
+      msgId: data.callId,
+      toolCallId: data.callId,
+      toolTitle: data.title,
+      description: data.description,
+      options: data.options.map((o) => ({ optionId: o.optionId, name: o.label })),
+    });
+
+    if (decision.action === 'auto_approved') {
+      // Auto-approve: resolve immediately in session
+      setTimeout(() => {
+        this.session.confirmPermission(decision.callId, decision.optionId);
+      }, 50);
+    }
+    // 'needs_ui': PermissionGate already stored the IConfirmation + notified renderer
+  }
+
+  private handleMissingFinish(_turnId: number): void {
+    this._status = 'ready';
+    this.config.onSignalEvent({
+      type: 'finish',
+      conversation_id: this.conversation_id,
+      msg_id: `finish_fallback_${Date.now()}`,
+      data: null,
+    });
+  }
+
+  private mapSessionStatus(status: SessionStatus): void {
+    switch (status) {
+      case 'idle':
+        this._status = 'idle';
+        break;
+      case 'starting':
+      case 'resuming':
+        this._status = 'running';
+        break;
+      case 'active':
+        if (this._status !== 'running') {
+          this._status = 'ready';
+        }
+        break;
+      case 'prompting':
+        this._status = 'running';
+        break;
+      case 'suspended':
+        this._status = 'ready';
+        break;
+      case 'error':
+        this._status = 'error';
+        break;
+    }
+  }
 }
