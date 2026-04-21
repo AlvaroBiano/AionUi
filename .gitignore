@@ -209,3 +209,8 @@ graphify-out/
 
 .snow/
 CLAUDE.md
+
+# Auto-generated session/skill mirrors for other AI tools
+.aionrs/sessions/
+.codex/skills/
+.opencode/skills/
