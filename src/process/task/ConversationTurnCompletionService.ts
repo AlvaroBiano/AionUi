@@ -58,7 +58,7 @@ export class ConversationTurnCompletionService {
     const workspace = context.workspace ?? (typeof extra.workspace === 'string' ? extra.workspace : '');
     const persistedModelId =
       context.modelId ?? (typeof extra.currentModelId === 'string' ? extra.currentModelId : undefined);
-    const status = context.status ?? (conversation?.status as AgentStatus) ?? 'finished';
+    const status = context.status ?? (conversation?.status as AgentStatus) ?? 'ready';
     const isProcessing =
       typeof cronBusyGuard.isProcessing === 'function' ? cronBusyGuard.isProcessing(conversationId) : false;
 

@@ -430,7 +430,7 @@ export class GeminiAgentManager extends BaseAgentManager<
   }) {
     if (data.silent) {
       await this.refreshWorkerIfMcpChanged();
-      this.status = 'pending';
+      this.status = 'idle';
       cronBusyGuard.setProcessing(this.conversation_id, true);
       await this.bootstrap
         .catch((e) => {
@@ -491,7 +491,7 @@ export class GeminiAgentManager extends BaseAgentManager<
     // 检查 MCP 配置是否在 worker 初始化后发生变更
     // 若变更则终止旧 worker 并使用最新配置重新初始化
     await this.refreshWorkerIfMcpChanged();
-    this.status = 'pending';
+    this.status = 'idle';
     cronBusyGuard.setProcessing(this.conversation_id, true);
 
     const result = await this.bootstrap
@@ -770,7 +770,7 @@ export class GeminiAgentManager extends BaseAgentManager<
       // Gemini uses: content, tool_group
       const contentTypes = ['content', 'tool_group'];
       if (contentTypes.includes(data.type)) {
-        this.status = 'finished';
+        this.status = 'ready';
       }
 
       if (data.type === 'finish') {

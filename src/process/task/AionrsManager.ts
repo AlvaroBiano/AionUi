@@ -230,7 +230,7 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
       // Conversation might not exist in DB yet
     }
     cronBusyGuard.setProcessing(this.conversation_id, true);
-    this.status = 'pending';
+    this.status = 'idle';
     this._lastActivityAt = Date.now();
     // Wait for agent bootstrap to complete before sending
     await this.agentReady;
@@ -419,7 +419,7 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
 
   private notifyTurnCompletion(): void {
     void ConversationTurnCompletionService.getInstance().notifyPotentialCompletion(this.conversation_id, {
-      status: this.status ?? 'finished',
+      status: this.status ?? 'ready',
       workspace: this.workspace,
       backend: 'aionrs',
       pendingConfirmations: this.getConfirmations().length,
@@ -475,7 +475,7 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
       `Turn became idle without finish signal; synthesizing finish for ${this.conversation_id}`
     );
 
-    this.status = 'finished';
+    this.status = 'ready';
     void this.handleTurnEnd();
 
     const fallbackFinish: IResponseMessage = {
@@ -522,7 +522,7 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
 
       const contentTypes = ['content', 'tool_group'];
       if (contentTypes.includes(data.type)) {
-        this.status = 'finished';
+        this.status = 'ready';
       }
 
       if (data.type === 'start') {

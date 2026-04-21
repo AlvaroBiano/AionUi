@@ -37,7 +37,7 @@ class RemoteAgentManager extends BaseAgentManager<RemoteAgentManagerData> {
     this.conversation_id = data.conversation_id;
     this.workspace = data.workspace ?? '';
     this.options = data;
-    this.status = 'pending';
+    this.status = 'idle';
 
     this.bootstrap = this.initCore(data);
     // Prevent unhandled promise rejection when remote agent fails to initialize.
@@ -78,7 +78,7 @@ class RemoteAgentManager extends BaseAgentManager<RemoteAgentManagerData> {
 
     const contentTypes = ['content', 'agent_status', 'acp_tool_call', 'plan'];
     if (contentTypes.includes(msg.type)) {
-      this.status = 'finished';
+      this.status = 'ready';
     }
 
     const tMessage = transformMessage(msg);
@@ -211,7 +211,7 @@ class RemoteAgentManager extends BaseAgentManager<RemoteAgentManagerData> {
       return result;
     } catch (error) {
       cronBusyGuard.setProcessing(this.conversation_id, false);
-      this.status = 'finished';
+      this.status = 'ready';
 
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.emitErrorMessage(`Failed to send message: ${errorMsg}`);

@@ -7,7 +7,7 @@
 // src/process/task/agentTypes.ts
 
 export type AgentType = 'gemini' | 'acp' | 'openclaw-gateway' | 'nanobot' | 'remote' | 'aionrs';
-export type AgentStatus = 'pending' | 'running' | 'finished';
+export type AgentStatus = 'idle' | 'running' | 'ready' | 'error';
 
 export interface BuildConversationOptions {
   /** Force yolo mode (auto-approve all tool calls) */

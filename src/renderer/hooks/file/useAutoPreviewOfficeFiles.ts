@@ -123,7 +123,7 @@ export const useAutoPreviewOfficeFiles = (
 
     const unsubscribeTurnCompleted = ipcBridge.conversation.turnCompleted.on((event) => {
       if (event.sessionId !== conversationId) return;
-      if (event.status !== 'finished') return;
+      if (event.status !== 'ready') return;
 
       scheduleOfficeScan();
     });

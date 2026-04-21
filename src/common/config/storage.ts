@@ -220,7 +220,7 @@ interface IChatConversation<T, Extra> {
   type: T;
   extra: Extra;
   model: TProviderWithModel;
-  status?: 'pending' | 'running' | 'finished' | undefined;
+  status?: 'idle' | 'running' | 'ready' | 'error' | undefined;
   /** 会话来源，默认为 aionui / Conversation source, defaults to aionui */
   source?: ConversationSource;
   /** Channel chat isolation ID (e.g. user:xxx, group:xxx) */

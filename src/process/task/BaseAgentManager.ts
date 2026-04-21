@@ -25,7 +25,7 @@ class BaseAgentManager<Data, ConfirmationOption extends any = any>
   workspace: string = '';
   conversation_id: string = '';
   protected confirmations: Array<IConfirmation<ConfirmationOption>> = [];
-  status: AgentStatus | undefined;
+  status: AgentStatus = 'idle';
   protected _lastActivityAt: number = Date.now();
   get lastActivityAt(): number {
     return this._lastActivityAt;

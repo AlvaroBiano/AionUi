@@ -375,7 +375,7 @@ export function initConversationBridge(
       if (conversation) {
         // Found in database, update status and return
         const task = workerTaskManager.getTask(id);
-        return { ...conversation, status: task?.status || 'finished' };
+        return { ...conversation, status: task?.status || 'ready' };
       }
 
       // Not in database, try to load from file storage and migrate
@@ -388,7 +388,7 @@ export function initConversationBridge(
         // Lazy migrate this conversation to database in background
         void migrateConversationToDatabase(fileConversation);
 
-        return { ...fileConversation, status: task?.status || 'finished' };
+        return { ...fileConversation, status: task?.status || 'ready' };
       }
 
       return undefined;

@@ -1016,7 +1016,7 @@ export interface IResponseMessage {
 
 export interface IConversationTurnCompletedEvent {
   sessionId: string;
-  status: 'pending' | 'running' | 'finished';
+  status: 'idle' | 'running' | 'ready' | 'error';
   state:
     | 'ai_generating'
     | 'ai_waiting_input'
@@ -1029,10 +1029,10 @@ export interface IConversationTurnCompletedEvent {
   canSendMessage: boolean;
   runtime: {
     hasTask: boolean;
-    taskStatus?: 'pending' | 'running' | 'finished';
+    taskStatus?: 'idle' | 'running' | 'ready' | 'error';
     isProcessing: boolean;
     pendingConfirmations: number;
-    dbStatus?: 'pending' | 'running' | 'finished';
+    dbStatus?: 'idle' | 'running' | 'ready' | 'error';
   };
   workspace: string;
   model: {
@@ -1140,7 +1140,7 @@ export interface IExtensionAgentActivityItem {
   backend: string;
   agentName: string;
   state: AgentActivityState;
-  runtimeStatus: 'pending' | 'running' | 'finished' | 'unknown';
+  runtimeStatus: 'idle' | 'running' | 'ready' | 'error' | 'unknown';
   conversations: number;
   activeConversations: number;
   lastActiveAt: number;

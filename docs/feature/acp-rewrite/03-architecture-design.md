@@ -600,71 +600,69 @@ stateDiagram-v2
     starting --> starting : 握手失败(可重试, 指数退避)
     starting --> error : 握手失败(不可重试 / 重试超限)
 
-    active --> prompting : drainLoop 出队执行
-    active --> suspended : suspend() [队列为空]
+    active --> prompting : sendMessage()
+    active --> suspended : suspend() / 进程意外退出
     active --> idle : stop()
-    active --> suspended : 进程意外退出(非 prompt 期间)
 
-    prompting --> active : prompt 完成 [队列为空]
-    prompting --> prompting : prompt 完成 [队列非空, 继续 drain]
-    prompting --> active : cancelPrompt()
-    prompting --> active : cancelAll()
+    prompting --> active : prompt 完成 / 可恢复错误
     prompting --> resuming : 进程 crash [自动恢复]
-    prompting --> error : 不可恢复错误
+    prompting --> error : 不可恢复错误 / AUTH_REQUIRED
     prompting --> idle : stop()
 
-    suspended --> resuming : sendMessage() / resume()
+    suspended --> resuming : sendMessage()
     suspended --> idle : stop()
 
     resuming --> active : 恢复成功
     resuming --> resuming : 恢复失败(可重试)
     resuming --> error : 恢复失败(重试超限)
 
-    error --> starting : 用户手动重试
+    error --> starting : start() / retryAuth()
     error --> idle : stop()
 ```
 
 #### 完整状态转换表
 
-| #   | 当前状态  | 触发             | 目标状态  | 条件               | 动作                                                                                                                                                                       |
-| --- | --------- | ---------------- | --------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| T1  | idle      | `start()`        | starting  | --                 | 创建连接, 开始握手                                                                                                                                                         |
-| T2  | starting  | 握手成功         | active    | --                 | 同步配置, reassert, 通知 UI, 开始 drain                                                                                                                                    |
-| T3  | starting  | 握手失败         | starting  | 可重试且未超限     | 指数退避重试 (1s/2s/4s)                                                                                                                                                    |
-| T4  | starting  | 握手失败         | error     | 不可重试或重试超限 | 通知 UI 错误                                                                                                                                                               |
-| T5  | active    | drainLoop 出队   | prompting | 队列非空           | 执行 prompt                                                                                                                                                                |
-| T6  | active    | `suspend()`      | suspended | 队列为空           | 保存 sessionId, 关闭连接                                                                                                                                                   |
-| T7  | active    | `stop()`         | idle      | --                 | 关闭连接, 清理资源                                                                                                                                                         |
-| T8  | active    | 进程意外退出     | suspended | 非 prompt 期间     | 静默挂起, 等下次操作                                                                                                                                                       |
-| T9  | prompting | prompt 完成      | active    | 队列为空           | onTurnEnd 清理                                                                                                                                                             |
-| T10 | prompting | prompt 完成      | prompting | 队列非空           | drain 下一个（逻辑简化：实际路径为 T9 setStatus('active') 后 drainLoop 立即出队走 T5，快速经过 active 再回到 prompting。T10 是对这个 drain loop 内部快速序列的等效描述。） |
-| T11 | prompting | `cancelPrompt()` | active    | --                 | cancel 当前 prompt，drainLoop 继续出队下一条                                                                                                                               |
-| T12 | prompting | `cancelAll()`    | active    | --                 | cancel 当前 + 清空队列，drainLoop 循环因队列空而终止                                                                                                                       |
-| T13 | prompting | 进程 crash       | resuming  | --                 | 自动 resume, queuePaused=true                                                                                                                                              |
-| T14 | prompting | 不可恢复错误     | error     | --                 | 清空队列, 通知 UI                                                                                                                                                          |
-| T15 | prompting | `stop()`         | idle      | --                 | cancel + 关闭                                                                                                                                                              |
-| T16 | suspended | `sendMessage()`  | resuming  | --                 | 入队 + 开始恢复                                                                                                                                                            |
-| T17 | suspended | `stop()`         | idle      | --                 | 清理（无进程需杀）                                                                                                                                                         |
-| T18 | resuming  | 恢复成功         | active    | --                 | 同步配置, reassert, drain                                                                                                                                                  |
-| T19 | resuming  | 恢复失败         | resuming  | 可重试且未超限     | 指数退避重试                                                                                                                                                               |
-| T20 | resuming  | 恢复失败         | error     | 重试超限           | 通知 UI                                                                                                                                                                    |
-| T21 | error     | 用户手动重试     | starting  | --                 | 重置重试计数                                                                                                                                                               |
-| T22 | error     | `stop()`         | idle      | --                 | 清理                                                                                                                                                                       |
+| #   | 当前状态  | 触发              | 目标状态  | 条件               | 动作                                                           |
+| --- | --------- | ----------------- | --------- | ------------------ | -------------------------------------------------------------- |
+| T1  | idle      | `start()`         | starting  | --                 | 创建连接, 开始握手                                             |
+| T2  | starting  | 握手成功          | active    | --                 | 同步配置, reassert, 通知 UI, flush pending                     |
+| T3  | starting  | 握手失败          | starting  | 可重试且未超限     | teardown + 指数退避重试 (1s/2s/4s)                             |
+| T4  | starting  | 握手失败          | error     | 不可重试或重试超限 | teardown + 通知 UI 错误                                        |
+| T5  | active    | `sendMessage()`   | prompting | --                 | preprocess + reassertConfig + execute prompt                   |
+| T6  | active    | `suspend()`       | suspended | --                 | teardown(关闭进程), 保留 sessionId                             |
+| T7  | active    | `stop()`          | idle      | --                 | teardown + 清理资源                                            |
+| T8  | active    | 进程意外退出      | suspended | --                 | 静默挂起, 等下次 sendMessage 触发 resume                       |
+| T9  | prompting | prompt 完成       | active    | --                 | onTurnEnd, 发送 turn_finished 信号                             |
+| T10 | prompting | 可恢复错误        | active    | retryable          | 发送 recoverable error 信号, re-throw                          |
+| T11 | prompting | AUTH_REQUIRED     | error     | --                 | 保存 pending prompt, teardown, 发送 auth_required 信号         |
+| T12 | prompting | 不可恢复错误      | error     | !retryable         | clearPending + rejectAll + 通知 UI                             |
+| T13 | prompting | 进程 crash        | resuming  | --                 | stopTimer + rejectAll permissions + 自动 resume                |
+| T14 | prompting | `stop()`          | idle      | --                 | cancel + teardown                                              |
+| T15 | suspended | `sendMessage()`   | resuming  | --                 | setPending + spawn 新进程 + loadSession                        |
+| T16 | suspended | `stop()`          | idle      | --                 | 清理（无进程需杀）                                             |
+| T17 | resuming  | 恢复成功          | active    | --                 | reassertConfig + flush pending prompt                          |
+| T18 | resuming  | 恢复失败          | resuming  | 可重试且未超限     | teardown + 指数退避重试                                        |
+| T19 | resuming  | 恢复失败          | error     | 重试超限           | teardown + 通知 UI                                             |
+| T20 | error     | `start()` / `retryAuth()` | starting | --          | 重置重试计数, 开始新的 start 流程                              |
+| T21 | error     | `stop()`          | idle      | --                 | 清理                                                           |
 
 #### 命令 x 状态矩阵
 
-| 命令 \ 状态      | idle    | starting       | active      | prompting    | suspended   | resuming       | error          |
-| ---------------- | ------- | -------------- | ----------- | ------------ | ----------- | -------------- | -------------- |
-| **start**        | 执行    | reject         | reject      | reject       | reject      | reject         | 执行(重置重试) |
-| **sendMessage**  | throw   | 入队           | 入队+drain  | 入队         | 入队+resume | 入队           | throw          |
-| **cancelPrompt** | no-op   | no-op          | no-op       | cancel 当前  | no-op       | no-op          | no-op          |
-| **cancelAll**    | no-op   | 清空队列       | 清空队列    | cancel+清空  | no-op       | 清空队列       | no-op          |
-| **setModel**     | throw   | 缓存意图       | 立即 apply  | 缓存意图     | 缓存意图    | 缓存意图       | throw          |
-| **setMode**      | throw   | 缓存意图       | 立即 apply  | 缓存意图     | 缓存意图    | 缓存意图       | throw          |
-| **confirmPerm**  | no-op   | no-op          | no-op       | resolve      | no-op       | no-op          | no-op          |
-| **retryAuth**    | no-op   | teardown+start | no-op       | no-op        | no-op       | teardown+start | no-op          |
-| **suspend**      | no-op   | reject         | 执行        | reject       | already     | reject         | no-op          |
-| **stop**         | cleanup | abort+clean    | close+clean | cancel+close | cleanup     | abort+clean    | cleanup        |
+| 命令 \ 状态        | idle     | starting              | active          | prompting        | suspended       | resuming              | error                 |
+| ------------------- | -------- | --------------------- | --------------- | ---------------- | --------------- | --------------------- | --------------------- |
+| **start**           | 执行     | no-op                 | no-op           | no-op            | no-op           | no-op                 | 执行                  |
+| **sendMessage**     | throw    | throw                 | 直接执行 prompt | throw            | setPending+resume | throw               | throw                 |
+| **cancelPrompt**    | no-op    | no-op                 | no-op           | cancel 当前      | no-op           | no-op                 | no-op                 |
+| **cancelAll**       | no-op    | clear pending         | clear pending   | cancel+clear     | clear pending   | clear pending         | no-op                 |
+| **setModel**        | throw    | 缓存意图              | 缓存+立即 apply | 缓存意图         | 缓存意图        | 缓存意图              | throw                 |
+| **setMode**         | throw    | 缓存意图              | 缓存+立即 apply | 缓存意图         | 缓存意图        | 缓存意图              | throw                 |
+| **setConfigOption** | 缓存意图 | 缓存意图              | 缓存+立即 apply | 缓存意图         | 缓存意图        | 缓存意图              | 缓存意图              |
+| **confirmPerm**     | no-op    | no-op                 | no-op           | resolve          | no-op           | no-op                 | no-op                 |
+| **retryAuth**       | no-op    | 执行(if authPending)  | no-op           | no-op            | no-op           | no-op                 | 执行(if authPending)  |
+| **suspend**         | no-op    | no-op                 | 执行            | no-op            | already         | no-op                 | no-op                 |
+| **stop**            | cleanup  | teardown(注1)         | teardown+idle   | cancel+teardown+idle | cleanup+idle | teardown(注1)         | cleanup+idle          |
+
+> **注1**: `stop()` 从 `starting` / `resuming` 调用时，会执行 teardown 清理资源，但 `VALID_TRANSITIONS` 表中这两个状态不允许转换到 `idle`，`setStatus('idle')` 会被静默忽略。实际进程已被杀死但状态未变更——这是一个已知的 transition table 缺口。
 
 ### 4.3 AcpSession 内部结构
 

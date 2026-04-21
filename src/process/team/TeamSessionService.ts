@@ -382,7 +382,7 @@ export class TeamSessionService {
     switch (status) {
       case 'running':
         return 'active';
-      case 'finished':
+      case 'ready':
         return 'idle';
       default:
         return 'pending';

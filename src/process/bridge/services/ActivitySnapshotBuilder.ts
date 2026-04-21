@@ -17,23 +17,28 @@ import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
 
 const STATUS_TO_SYNCING = new Set(['connecting', 'connected', 'authenticated']);
 
-const normalizeRuntimeStatus = (status?: string): 'pending' | 'running' | 'finished' | 'unknown' => {
-  if (status === 'pending' || status === 'running' || status === 'finished') return status;
+const normalizeRuntimeStatus = (status?: string): 'idle' | 'running' | 'ready' | 'error' | 'unknown' => {
+  if (status === 'idle' || status === 'running' || status === 'ready' || status === 'error') return status;
   return 'unknown';
 };
 
 const mapStatusToState = (
-  runtimeStatus: 'pending' | 'running' | 'finished' | 'unknown',
+  runtimeStatus: 'idle' | 'running' | 'ready' | 'error' | 'unknown',
   lastStatus?: string,
   recentEvents: IExtensionAgentActivityEvent[] = []
 ): AgentActivityState => {
-  if (lastStatus === 'error' || recentEvents.some((e) => /error|失败|异常/i.test(e.text))) return 'error';
+  if (
+    runtimeStatus === 'error' ||
+    lastStatus === 'error' ||
+    recentEvents.some((e) => /error|失败|异常/i.test(e.text))
+  )
+    return 'error';
 
   const hasWriteEvent = recentEvents.some((e) => /write|patch|edit|写入|修改|生成文件/i.test(e.text));
   const hasResearchEvent = recentEvents.some((e) => /search|web|fetch|crawl|调研|检索|搜索/i.test(e.text));
   const hasToolEvent = recentEvents.some((e) => e.kind === 'tool');
 
-  if (runtimeStatus === 'pending' || (lastStatus && STATUS_TO_SYNCING.has(lastStatus))) return 'syncing';
+  if (runtimeStatus === 'idle' || (lastStatus && STATUS_TO_SYNCING.has(lastStatus))) return 'syncing';
   if (runtimeStatus === 'running' && hasWriteEvent) return 'writing';
   if (runtimeStatus === 'running' && hasResearchEvent) return 'researching';
   if (runtimeStatus === 'running' && hasToolEvent) return 'executing';
@@ -119,7 +124,7 @@ export class ActivitySnapshotBuilder {
       const { backend, agentName } = resolveAgentIdentity(conversation);
       const task = this.taskManager.getTask(conversation.id);
       const runtimeStatus = normalizeRuntimeStatus(task?.status || conversation.status);
-      if (runtimeStatus === 'running' || runtimeStatus === 'pending') {
+      if (runtimeStatus === 'running' || runtimeStatus === 'idle') {
         runningConversations += 1;
       }
 
@@ -163,7 +168,7 @@ export class ActivitySnapshotBuilder {
           state,
           runtimeStatus,
           conversations: 1,
-          activeConversations: runtimeStatus === 'running' || runtimeStatus === 'pending' ? 1 : 0,
+          activeConversations: runtimeStatus === 'running' || runtimeStatus === 'idle' ? 1 : 0,
           lastActiveAt: latestEventAt,
           lastStatus: lastStatus?.status,
           currentTask: events[0]?.text || (runtimeStatus === 'running' ? '执行中' : '空闲'),
@@ -173,7 +178,7 @@ export class ActivitySnapshotBuilder {
       }
 
       existing.conversations += 1;
-      if (runtimeStatus === 'running' || runtimeStatus === 'pending') {
+      if (runtimeStatus === 'running' || runtimeStatus === 'idle') {
         existing.activeConversations += 1;
       }
       if (latestEventAt > existing.lastActiveAt) {
@@ -184,10 +189,10 @@ export class ActivitySnapshotBuilder {
 
       if (runtimeStatus === 'running') {
         existing.runtimeStatus = 'running';
-      } else if (runtimeStatus === 'pending' && existing.runtimeStatus !== 'running') {
-        existing.runtimeStatus = 'pending';
-      } else if (runtimeStatus === 'finished' && existing.runtimeStatus === 'unknown') {
-        existing.runtimeStatus = 'finished';
+      } else if (runtimeStatus === 'idle' && existing.runtimeStatus !== 'running') {
+        existing.runtimeStatus = 'idle';
+      } else if (runtimeStatus === 'ready' && existing.runtimeStatus === 'unknown') {
+        existing.runtimeStatus = 'ready';
       }
 
       if (rankedState[state] > rankedState[existing.state]) {

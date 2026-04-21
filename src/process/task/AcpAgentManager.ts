@@ -123,7 +123,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
     this.options = data;
     this.currentMode = data.sessionMode || 'default';
     this.persistedModelId = data.currentModelId || null;
-    this.status = 'pending';
+    this.status = 'idle';
     // Sync yoloMode from sessionMode so addConfirmation auto-approves when Full Auto is selected
     this.yoloMode = this.yoloMode || this.isYoloMode(this.currentMode);
   }
@@ -302,7 +302,7 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
     this.flushBufferedStreamTextMessages();
 
     cronBusyGuard.setProcessing(this.conversation_id, false);
-    this.status = 'finished';
+    this.status = 'ready';
 
     if (this.thinkingMsgId) {
       this.emitThinkingMessage('', 'done');
@@ -354,7 +354,7 @@ ${collectedResponses.join('\n')}`;
     channelEventBus.emitAgentMessage(this.conversation_id, finishMessage);
 
     void ConversationTurnCompletionService.getInstance().notifyPotentialCompletion(this.conversation_id, {
-      status: this.status ?? 'finished',
+      status: this.status ?? 'ready',
       workspace: this.workspace,
       backend: this.options.backend,
       pendingConfirmations: this.getConfirmations().length,
@@ -629,7 +629,7 @@ ${collectedResponses.join('\n')}`;
     // Mark as finished when content is output (visible to user)
     const contentTypes = ['content', 'agent_status', 'acp_tool_call', 'plan'];
     if (contentTypes.includes(message.type)) {
-      this.status = 'finished';
+      this.status = 'ready';
     }
 
     // Emit request trace on each model generation start
@@ -1473,7 +1473,7 @@ ${collectedResponses.join('\n')}`;
    */
   private clearBusyState(): void {
     cronBusyGuard.setProcessing(this.conversation_id, false);
-    this.status = 'finished';
+    this.status = 'ready';
   }
 
   private async saveContextUsage(usage: { used: number; size: number }): Promise<void> {

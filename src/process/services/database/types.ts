@@ -73,7 +73,7 @@ export interface IConversationRow {
   type: string;
   extra: string; // JSON string of extra data
   model?: string; // JSON string of TProviderWithModel (gemini type has this)
-  status?: 'pending' | 'running' | 'finished';
+  status?: 'idle' | 'running' | 'ready' | 'error';
   source?: ConversationSource; // 会话来源 / Conversation source
   channel_chat_id?: string; // Channel chat isolation ID (e.g. user:xxx or group:xxx)
   created_at: number;

@@ -16,7 +16,7 @@ export interface IAgentManager {
   /**
    * readonly on interface; the implementation class mutates its own this.status.
    */
-  readonly status: AgentStatus | undefined;
+  readonly status: AgentStatus;
   readonly workspace: string;
   readonly conversation_id: string;
   /** Timestamp of the last sendMessage call. Used for idle-timeout cleanup. */

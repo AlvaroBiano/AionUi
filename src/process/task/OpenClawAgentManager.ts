@@ -51,7 +51,7 @@ class OpenClawAgentManager extends BaseAgentManager<OpenClawAgentManagerData> {
     this.conversation_id = data.conversation_id;
     this.workspace = data.workspace ?? '';
     this.options = data;
-    this.status = 'pending';
+    this.status = 'idle';
 
     this.bootstrap = this.initAgent(data);
     // Prevent unhandled promise rejection when gateway fails to start (e.g. binary not found).
@@ -98,7 +98,7 @@ class OpenClawAgentManager extends BaseAgentManager<OpenClawAgentManagerData> {
     // OpenClaw uses: content, agent_status, acp_tool_call, plan
     const contentTypes = ['content', 'agent_status', 'acp_tool_call', 'plan'];
     if (contentTypes.includes(msg.type)) {
-      this.status = 'finished';
+      this.status = 'ready';
     }
 
     // Persist messages to database
@@ -242,7 +242,7 @@ class OpenClawAgentManager extends BaseAgentManager<OpenClawAgentManagerData> {
       return result;
     } catch (error) {
       cronBusyGuard.setProcessing(this.conversation_id, false);
-      this.status = 'finished';
+      this.status = 'ready';
 
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.emitErrorMessage(`Failed to send message: ${errorMsg}`);
