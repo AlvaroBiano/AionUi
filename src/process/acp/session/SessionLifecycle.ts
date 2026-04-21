@@ -7,7 +7,6 @@ import type { AcpMetrics } from '@process/acp/metrics/AcpMetrics';
 import { AuthNegotiator } from '@process/acp/session/AuthNegotiator';
 import type { ConfigTracker } from '@process/acp/session/ConfigTracker';
 import { McpConfig } from '@process/acp/session/McpConfig';
-import type { MessageTranslator } from '@process/acp/session/MessageTranslator';
 import type { AgentConfig, ProtocolHandlers, SessionCallbacks, SessionStatus } from '@process/acp/types';
 
 // ─── YOLO mode resolution ──────────────────────────────────────
@@ -29,7 +28,6 @@ function resolveYoloModeId(backend: string, availableModes: ReadonlyArray<{ id: 
 export type LifecycleHost = {
   readonly agentConfig: AgentConfig;
   readonly configTracker: ConfigTracker;
-  readonly messageTranslator: MessageTranslator;
   readonly callbacks: SessionCallbacks;
   readonly metrics: AcpMetrics;
 
@@ -252,7 +250,6 @@ export class SessionLifecycle {
     this.host.callbacks.onModelUpdate(this.host.configTracker.modelSnapshot());
     this.host.callbacks.onModeUpdate(this.host.configTracker.modeSnapshot());
 
-    this.host.messageTranslator.reset();
     this.host.setStatus('active');
 
     // Apply YOLO mode: tell the agent to enter full-auto mode so it stops

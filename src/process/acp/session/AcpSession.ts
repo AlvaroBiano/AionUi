@@ -9,14 +9,13 @@ import { AcpError } from '@process/acp/errors/AcpError';
 import type { ClientFactory, DisconnectInfo } from '@process/acp/infra/IAcpClient';
 import { noopMetrics, type AcpMetrics } from '@process/acp/metrics/AcpMetrics';
 import { ConfigTracker } from '@process/acp/session/ConfigTracker';
-import { InputPreprocessor } from '@process/acp/session/InputPreprocessor';
-import { MessageTranslator } from '@process/acp/session/MessageTranslator';
 import { PermissionResolver } from '@process/acp/session/PermissionResolver';
 import { PromptExecutor } from '@process/acp/session/PromptExecutor';
 import { SessionLifecycle } from '@process/acp/session/SessionLifecycle';
 import type {
   AgentConfig,
   InitialDesiredConfig,
+  PromptContent,
   ProtocolHandlers,
   SessionCallbacks,
   SessionStatus,
@@ -82,12 +81,10 @@ export class AcpSession {
 
   // components (exposed as readonly for host interfaces)
   readonly configTracker: ConfigTracker;
-  readonly messageTranslator: MessageTranslator;
   readonly callbacks: SessionCallbacks;
   readonly metrics: AcpMetrics;
 
   private readonly permissionResolver: PermissionResolver;
-  private readonly inputPreprocessor: InputPreprocessor;
   private readonly lifecycle: SessionLifecycle;
   private readonly promptExecutor: PromptExecutor;
 
@@ -101,8 +98,6 @@ export class AcpSession {
     this.callbacks = wrapCallbacks(callbacks);
 
     this.configTracker = new ConfigTracker(options?.initialDesired);
-    this.messageTranslator = new MessageTranslator(agentConfig.agentId);
-    this.inputPreprocessor = new InputPreprocessor((filePath) => fs.readFileSync(filePath, 'utf-8'), agentConfig.cwd);
     this.permissionResolver = new PermissionResolver({
       autoApproveAll: agentConfig.yoloMode ?? false,
       cacheMaxSize: options?.approvalCacheMaxSize,
@@ -112,7 +107,6 @@ export class AcpSession {
       {
         agentConfig: agentConfig,
         configTracker: this.configTracker,
-        messageTranslator: this.messageTranslator,
         callbacks: this.callbacks,
         metrics: this.metrics,
         setStatus: (s) => this.setStatus(s),
@@ -137,7 +131,6 @@ export class AcpSession {
           return self.status;
         },
         lifecycle: this.lifecycle,
-        messageTranslator: this.messageTranslator,
         authNegotiator: this.lifecycle.authNegotiator,
         callbacks: this.callbacks,
         metrics: this.metrics,
@@ -196,8 +189,7 @@ export class AcpSession {
     this.lifecycle.retryAuth(credentials);
   }
 
-  async sendMessage(text: string, files?: string[]): Promise<void> {
-    const content = this.inputPreprocessor.process(text, files);
+  async sendMessage(content: PromptContent): Promise<void> {
     switch (this._status) {
       case 'active':
         await this.promptExecutor.execute(content);
@@ -353,11 +345,10 @@ export class AcpSession {
       }
     }
 
+    // Non-config notifications: forward raw SDK notification to upper layer.
+    // The upper layer (OutputPipeline) handles translation to TMessage.
     this.promptExecutor.resetTimer();
-    const messages = this.messageTranslator.translate(notification);
-    for (const msg of messages) {
-      this.callbacks.onMessage(msg);
-    }
+    this.callbacks.onNotification(notification);
   }
 
   private async handlePermissionRequest(request: RequestPermissionRequest): Promise<RequestPermissionResponse> {

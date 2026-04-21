@@ -210,8 +210,9 @@ export class AcpRuntime {
 
   private buildCallbacks(convId: string): SessionCallbacks {
     return {
-      onMessage: (message) => {
-        this.onStreamEvent(convId, message);
+      onNotification: (notification) => {
+        // TODO: Will be replaced by OutputPipeline in 2.1
+        void notification;
       },
       onSessionId: (_sessionId) => {
         // TODO(ACP Discovery): Re-enable after fixing agent_id.

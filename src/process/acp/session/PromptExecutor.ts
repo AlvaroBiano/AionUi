@@ -1,7 +1,6 @@
 import { normalizeError } from '@process/acp/errors/errorNormalize';
 import type { AcpMetrics } from '@process/acp/metrics/AcpMetrics';
 import type { AuthNegotiator } from '@process/acp/session/AuthNegotiator';
-import type { MessageTranslator } from '@process/acp/session/MessageTranslator';
 import { PromptTimer } from '@process/acp/session/PromptTimer';
 import type { SessionLifecycle } from '@process/acp/session/SessionLifecycle';
 import type { AgentConfig, PromptContent, SessionCallbacks, SessionStatus } from '@process/acp/types';
@@ -10,7 +9,6 @@ import type { AgentConfig, PromptContent, SessionCallbacks, SessionStatus } from
 export type PromptHost = {
   readonly status: SessionStatus;
   readonly lifecycle: SessionLifecycle;
-  readonly messageTranslator: MessageTranslator;
   readonly authNegotiator: AuthNegotiator;
   readonly callbacks: SessionCallbacks;
   readonly metrics: AcpMetrics;
@@ -83,12 +81,12 @@ export class PromptExecutor {
       }
     } catch (err) {
       this.timer.stop();
-      this.host.messageTranslator.onTurnEnd();
+      this.host.callbacks.onTurnEnd?.();
       this.handlePromptError(err, content);
       return;
     }
 
-    this.host.messageTranslator.onTurnEnd();
+    this.host.callbacks.onTurnEnd?.();
     this.host.setStatus('active');
     this.host.callbacks.onSignal({ type: 'turn_finished' });
   }

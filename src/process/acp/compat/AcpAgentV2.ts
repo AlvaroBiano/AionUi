@@ -35,8 +35,10 @@ import type {
 } from '@process/acp/types';
 import { ProcessConfig } from '@process/utils/initStorage';
 import { getEnhancedEnv } from '@process/utils/shellEnv';
+import type { SessionNotification } from '@agentclientprotocol/sdk';
 import { spawn } from 'node:child_process';
 import { McpConfig } from '../session/McpConfig';
+import { MessageTranslator } from '../session/MessageTranslator';
 
 /**
  * Temporary: backend-specific CLI login arguments.
@@ -117,6 +119,8 @@ export class AcpAgentV2 {
 
   // Tool call merge state (compat concern — MessageTranslator is stateless)
   private activeToolCalls = new Map<string, IMessageAcpToolCall>();
+  // Compat: translate SessionNotification → TMessage (moved out of AcpSession)
+  private messageTranslator: MessageTranslator | null = null;
   // Auth retry guard — prevent infinite auth loops
   private authRetryAttempted = false;
   // Serialize concurrent capability cache writes across backends
@@ -207,6 +211,7 @@ export class AcpAgentV2 {
       initialDesired: this.agentConfig.initialDesired,
     };
 
+    this.messageTranslator = new MessageTranslator(this.conversationId);
     this.session = new AcpSession(this.agentConfig, clientFactory, callbacks, sessionOptions);
 
     // Wait for team MCP tools to complete handshake before allowing messages.
@@ -236,21 +241,29 @@ export class AcpAgentV2 {
         });
       },
 
-      onMessage: (message: TMessage) => {
-        // Merge tool call updates with their original tool_call before emitting
-        const resolved =
-          message.type === 'acp_tool_call' ? this.mergeToolCall(message as IMessageAcpToolCall) : message;
+      onNotification: (notification: SessionNotification) => {
+        // Compat: translate SDK notification → TMessage, then merge tool calls
+        if (!this.messageTranslator) return;
+        const messages = this.messageTranslator.translate(notification);
+        for (const message of messages) {
+          const resolved =
+            message.type === 'acp_tool_call' ? this.mergeToolCall(message as IMessageAcpToolCall) : message;
 
-        const oldMsg = toResponseMessage(resolved, this.conversationId);
-        // Skip empty messages (e.g., filtered available_commands)
-        if (oldMsg.type) {
-          this.onStreamEvent(oldMsg);
-        }
+          const oldMsg = toResponseMessage(resolved, this.conversationId);
+          // Skip empty messages (e.g., filtered available_commands)
+          if (oldMsg.type) {
+            this.onStreamEvent(oldMsg);
+          }
 
-        // Intercept navigation tools → emit preview_open for chrome-devtools preview
-        if (message.type === 'acp_tool_call') {
-          this.emitPreviewIfNavigation(message as IMessageAcpToolCall);
+          // Intercept navigation tools → emit preview_open for chrome-devtools preview
+          if (message.type === 'acp_tool_call') {
+            this.emitPreviewIfNavigation(message as IMessageAcpToolCall);
+          }
         }
+      },
+
+      onTurnEnd: () => {
+        this.messageTranslator?.onTurnEnd();
       },
 
       onSessionId: (sessionId: string) => {

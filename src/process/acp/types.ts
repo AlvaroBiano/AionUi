@@ -157,7 +157,7 @@ export type SessionSignal =
 
 export type SessionCallbacks = {
   onInitialize?: (result: unknown) => void;
-  onMessage: (message: TMessage) => void;
+  onNotification: (notification: SessionNotification) => void;
   onSessionId: (sessionId: string) => void;
   onStatusChange: (status: SessionStatus) => void;
   onConfigUpdate: (config: ConfigSnapshot) => void;
@@ -166,6 +166,8 @@ export type SessionCallbacks = {
   onContextUsage: (usage: ContextUsage) => void;
   onPermissionRequest: (data: PermissionUIData) => void;
   onSignal: (event: SessionSignal) => void;
+  /** Called when a turn ends (prompt completes or errors). Upper layer uses this to clear output state. */
+  onTurnEnd?: () => void;
 };
 
 // ─── Application Layer ──────────────────────────────────────────
