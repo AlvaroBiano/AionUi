@@ -8,9 +8,15 @@ import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 import type { TMessage } from '@/common/chat/chatLib';
 import type { ClientFactory } from '@process/acp/infra/IAcpClient';
 import { AcpSession, type SessionOptions } from '@process/acp/session/AcpSession';
-import type { AgentConfig, PermissionUIData, SessionCallbacks, SessionSignal, SessionStatus } from '@process/acp/types';
+import type {
+  AgentConfig,
+  AgentStatus,
+  PermissionUIData,
+  SessionCallbacks,
+  SessionSignal,
+  SessionStatus,
+} from '@process/acp/types';
 import type { AgentKillReason, IAgentManager } from '@process/task/IAgentManager';
-import type { AgentStatus } from '@process/task/agentTypes';
 import { createBackendPolicy, type BackendPolicy } from './BackendPolicy';
 import { InputPipeline, type InjectionContext } from './InputPipeline';
 import { OutputPipeline } from './OutputPipeline';
@@ -268,8 +274,9 @@ export class AcpRuntime implements IAgentManager {
         // TODO: PersistenceSubscriber (Phase 3)
       },
 
-      onStatusChange: (status: SessionStatus) => {
-        this.mapSessionStatus(status);
+      onStatusChange: (status: AgentStatus) => {
+        // AcpSession already maps 7-state → 4-state and deduplicates.
+        this._status = status;
       },
 
       onConfigUpdate: (_config) => {
@@ -403,31 +410,5 @@ export class AcpRuntime implements IAgentManager {
       msg_id: `finish_fallback_${Date.now()}`,
       data: null,
     });
-  }
-
-  private mapSessionStatus(status: SessionStatus): void {
-    switch (status) {
-      case 'idle':
-        this._status = 'idle';
-        break;
-      case 'starting':
-      case 'resuming':
-        this._status = 'running';
-        break;
-      case 'active':
-        if (this._status !== 'running') {
-          this._status = 'ready';
-        }
-        break;
-      case 'prompting':
-        this._status = 'running';
-        break;
-      case 'suspended':
-        this._status = 'ready';
-        break;
-      case 'error':
-        this._status = 'error';
-        break;
-    }
   }
 }

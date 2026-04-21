@@ -29,9 +29,9 @@ import type {
   ConfigSnapshot,
   ContextUsage,
   ModelSnapshot,
+  AgentStatus,
   ModeSnapshot,
   SessionCallbacks,
-  SessionStatus,
 } from '@process/acp/types';
 import { ProcessConfig } from '@process/utils/initStorage';
 import { getEnhancedEnv } from '@process/utils/shellEnv';
@@ -109,7 +109,7 @@ export class AcpAgentV2 {
   private cachedConfigOptions: AcpSessionConfigOption[] = [];
   private cachedModes: ModeSnapshot | null = null;
   private lastSessionId: string | null = null;
-  private lastStatus: SessionStatus = 'idle';
+  private lastStatus: AgentStatus = 'idle';
 
   // Promise bridges for async methods (Tasks 4-6)
   private startOp: PendingOp<void> | null = null;
@@ -273,12 +273,12 @@ export class AcpAgentV2 {
         }
       },
 
-      onStatusChange: (status: SessionStatus) => {
+      onStatusChange: (status) => {
         this.lastStatus = status;
         this.persistStatus(status);
 
-        // Resolve startOp when reaching active/error
-        if (status === 'active' && this.startOp) {
+        // Resolve startOp when reaching ready/error
+        if (status === 'ready' && this.startOp) {
           this.resolveOp(this.startOp, undefined);
           this.startOp = null;
         } else if (status === 'error' && this.startOp) {
@@ -287,8 +287,8 @@ export class AcpAgentV2 {
         }
 
         // Emit old-style agent_status event
-        if (['active', 'suspended', 'error'].includes(status)) {
-          const oldStatusName = this.mapStatusToOldName(status);
+        const oldStatusName = this.mapStatusToOldName(status);
+        if (oldStatusName) {
           this.onStreamEvent({
             type: 'agent_status',
             conversation_id: this.conversationId,
@@ -502,7 +502,7 @@ export class AcpAgentV2 {
    * Map new 7-state FSM to old status names
    */
   /** Persist status: 7 in-memory states → 4 stable DB states. */
-  private persistStatus(_status: SessionStatus): void {
+  private persistStatus(_status: AgentStatus): void {
     // TODO(ACP Discovery): Re-enable after fixing agent_id.
     // const stable = this.toStableStatus(status);
     // const suspendedAt = status === 'suspended' ? Date.now() : null;
@@ -525,25 +525,18 @@ export class AcpAgentV2 {
     }
   }
 
-  private mapStatusToOldName(status: SessionStatus): string {
+  private mapStatusToOldName(status: AgentStatus): string | null {
     switch (status) {
       case 'idle':
         return 'disconnected';
-      case 'starting':
-        return 'connecting';
-      case 'active':
+      case 'ready':
         return 'session_active';
-      case 'prompting':
-        return 'session_active';
-      case 'suspended':
-        return 'disconnected';
-      case 'resuming':
-        return 'connecting';
+      case 'running':
+        return null; // transitional, don't emit
       case 'error':
         return 'error';
       default:
-        console.warn(`[AcpAgentV2] Unrecognized status: ${status}`);
-        return 'disconnected';
+        return null;
     }
   }
 
@@ -554,7 +547,7 @@ export class AcpAgentV2 {
   }
 
   get hasActiveSession(): boolean {
-    return this.lastStatus === 'active' || this.lastStatus === 'prompting';
+    return this.lastStatus === 'ready' || this.lastStatus === 'running';
   }
 
   get currentSessionId(): string | null {
@@ -609,14 +602,14 @@ export class AcpAgentV2 {
       }
 
       // Reject while session is still booting — caller should retry after
-      // the status transitions to active (onStatusChange fires agent_status).
-      if (this.lastStatus === 'starting' || this.lastStatus === 'resuming') {
+      // the status transitions to ready (onStatusChange fires agent_status).
+      if (this.lastStatus === 'running') {
         return {
           success: false,
           error: {
             type: AcpErrorType.CONNECTION_NOT_READY,
             code: 'SESSION_NOT_READY',
-            message: `Session is ${this.lastStatus}, please retry shortly`,
+            message: `Session is busy (running), please retry shortly`,
             retryable: true,
           },
         };

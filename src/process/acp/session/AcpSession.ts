@@ -14,6 +14,7 @@ import { PromptExecutor } from '@process/acp/session/PromptExecutor';
 import { SessionLifecycle } from '@process/acp/session/SessionLifecycle';
 import type {
   AgentConfig,
+  AgentStatus,
   InitialDesiredConfig,
   PromptContent,
   ProtocolHandlers,
@@ -41,6 +42,23 @@ const VALID_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
   resuming: ['active', 'resuming', 'error', 'idle'],
   error: ['starting', 'idle'],
 };
+
+/** Map internal 7-state FSM to stable 4-state AgentStatus. */
+function toExternalStatus(status: SessionStatus): AgentStatus {
+  switch (status) {
+    case 'idle':
+      return 'idle';
+    case 'starting':
+    case 'prompting':
+    case 'resuming':
+      return 'running';
+    case 'active':
+    case 'suspended':
+      return 'ready';
+    case 'error':
+      return 'error';
+  }
+}
 
 /**
  * Wrap all SessionCallbacks methods with try/catch to prevent callback
@@ -78,6 +96,7 @@ export function buildCrashMessage(info?: DisconnectInfo): string | null {
 
 export class AcpSession {
   private _status: SessionStatus = 'idle';
+  private _lastExternalStatus: AgentStatus = 'idle';
 
   // components (exposed as readonly for host interfaces)
   readonly configTracker: ConfigTracker;
@@ -159,7 +178,14 @@ export class AcpSession {
       return;
     }
     this._status = newStatus;
-    this.callbacks.onStatusChange(newStatus);
+
+    // Only emit when the external (stable) status actually changes.
+    // Internal transitions (starting/prompting/resuming) are hidden from consumers.
+    const external = toExternalStatus(newStatus);
+    if (external !== this._lastExternalStatus) {
+      this._lastExternalStatus = external;
+      this.callbacks.onStatusChange(external);
+    }
   }
 
   // ─── Public API ───────────────────────────────────────────────

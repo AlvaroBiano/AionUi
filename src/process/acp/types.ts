@@ -66,6 +66,11 @@ export type AgentConfig = {
 
 export type SessionStatus = 'idle' | 'starting' | 'active' | 'prompting' | 'suspended' | 'resuming' | 'error';
 
+// Re-export AgentStatus as the stable external status for session callbacks.
+// AgentStatus ('idle'|'running'|'ready'|'error') is the 4-state subset that
+// consumers see. Internal transitions (starting/prompting/resuming) are hidden.
+export type { AgentStatus } from '@process/task/agentTypes';
+
 // ─── Initial Desired Config ─────────────────────────────────────
 
 /** User selections made before session creation (e.g., from the Guid page). */
@@ -159,7 +164,7 @@ export type SessionCallbacks = {
   onInitialize?: (result: unknown) => void;
   onNotification: (notification: SessionNotification) => void;
   onSessionId: (sessionId: string) => void;
-  onStatusChange: (status: SessionStatus) => void;
+  onStatusChange: (status: AgentStatus) => void;
   onConfigUpdate: (config: ConfigSnapshot) => void;
   onModelUpdate: (model: ModelSnapshot) => void;
   onModeUpdate: (mode: ModeSnapshot) => void;
@@ -173,7 +178,7 @@ export type SessionCallbacks = {
 // ─── Application Layer ──────────────────────────────────────────
 
 export type SignalEvent =
-  | { type: 'status_change'; status: SessionStatus }
+  | { type: 'status_change'; status: AgentStatus }
   | { type: 'session_id_update'; sessionId: string }
   | { type: 'model_update'; model: ModelSnapshot }
   | { type: 'mode_update'; mode: ModeSnapshot }

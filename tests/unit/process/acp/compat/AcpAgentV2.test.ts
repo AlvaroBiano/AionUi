@@ -94,7 +94,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
   async function createStartedAgent(overrides?: Partial<OldAcpAgentConfig>): Promise<AcpAgentV2> {
     const agent = createAgent(overrides);
     mockSessionMethods.start.mockImplementation(() => {
-      setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+      setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
     });
     await agent.start();
     mockSessionMethods.start.mockReset();
@@ -107,7 +107,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
 
       // Mock start to trigger status change after a tick
       mockSessionMethods.start.mockImplementation(() => {
-        setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+        setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
       });
 
       const promise = agent.start();
@@ -155,7 +155,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
       const agent = createAgent();
 
       mockSessionMethods.start.mockImplementation(() => {
-        setTimeout(() => capturedCallbacks.onStatusChange('active'), 100);
+        setTimeout(() => capturedCallbacks.onStatusChange('ready'), 100);
       });
 
       const promise = agent.start();
@@ -201,8 +201,8 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
 
       mockSessionMethods.start.mockImplementation(() => {
         setTimeout(() => {
-          capturedCallbacks.onStatusChange('starting');
-          capturedCallbacks.onStatusChange('active');
+          capturedCallbacks.onStatusChange('running');
+          capturedCallbacks.onStatusChange('ready');
         }, 0);
       });
 
@@ -275,7 +275,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return true after status becomes starting', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('starting');
+      capturedCallbacks.onStatusChange('running');
 
       expect(agent.isConnected).toBe(true);
     });
@@ -283,7 +283,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return true when status is active', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('active');
+      capturedCallbacks.onStatusChange('ready');
 
       expect(agent.isConnected).toBe(true);
     });
@@ -291,7 +291,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return true when status is prompting', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('prompting');
+      capturedCallbacks.onStatusChange('running');
 
       expect(agent.isConnected).toBe(true);
     });
@@ -299,7 +299,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return true when status is suspended', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('suspended');
+      capturedCallbacks.onStatusChange('ready');
 
       expect(agent.isConnected).toBe(true);
     });
@@ -307,7 +307,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return true when status is resuming', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('resuming');
+      capturedCallbacks.onStatusChange('running');
 
       expect(agent.isConnected).toBe(true);
     });
@@ -323,7 +323,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return false when status returns to idle', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('active');
+      capturedCallbacks.onStatusChange('ready');
       expect(agent.isConnected).toBe(true);
 
       capturedCallbacks.onStatusChange('idle');
@@ -341,7 +341,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return false when status is starting', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('starting');
+      capturedCallbacks.onStatusChange('running');
 
       expect(agent.hasActiveSession).toBe(false);
     });
@@ -349,7 +349,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return true when status is active', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('active');
+      capturedCallbacks.onStatusChange('ready');
 
       expect(agent.hasActiveSession).toBe(true);
     });
@@ -357,7 +357,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return true when status is prompting', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('prompting');
+      capturedCallbacks.onStatusChange('running');
 
       expect(agent.hasActiveSession).toBe(true);
     });
@@ -365,7 +365,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return false when status is suspended', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('suspended');
+      capturedCallbacks.onStatusChange('ready');
 
       expect(agent.hasActiveSession).toBe(false);
     });
@@ -373,7 +373,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should return false when status is resuming', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('resuming');
+      capturedCallbacks.onStatusChange('running');
 
       expect(agent.hasActiveSession).toBe(false);
     });
@@ -401,7 +401,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
 
       // Start and activate
       mockSessionMethods.start.mockImplementation(() => {
-        setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+        setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
       });
 
       await agent.start();
@@ -428,7 +428,7 @@ describe('AcpAgentV2 - Lifecycle Methods', () => {
     it('should handle cancelPrompt during active session', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('prompting');
+      capturedCallbacks.onStatusChange('running');
 
       agent.cancelPrompt();
 
@@ -475,7 +475,7 @@ describe('AcpAgentV2 - Messaging + Permission Methods', () => {
   async function createStartedAgentWithSignalCapture() {
     const result = createAgentWithSignalCapture();
     mockSessionMethods.start.mockImplementation(() => {
-      setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+      setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
     });
     await result.agent.start();
     mockSessionMethods.start.mockReset();
@@ -548,7 +548,7 @@ describe('AcpAgentV2 - Messaging + Permission Methods', () => {
       };
       const agent = new AcpAgentV2(config);
       mockSessionMethods.start.mockImplementation(() => {
-        setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+        setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
       });
       await agent.start();
       mockSessionMethods.start.mockReset();
@@ -633,7 +633,7 @@ describe('AcpAgentV2 - Config/Model/Mode Methods', () => {
   async function createStartedAgent(overrides?: Partial<OldAcpAgentConfig>): Promise<AcpAgentV2> {
     const agent = createAgent(overrides);
     mockSessionMethods.start.mockImplementation(() => {
-      setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+      setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
     });
     await agent.start();
     mockSessionMethods.start.mockReset();
@@ -1121,7 +1121,7 @@ describe('AcpAgentV2 - Config/Model/Mode Methods', () => {
 
       // Mock start to succeed (drives back to active)
       mockSessionMethods.start.mockImplementation(() => {
-        setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+        setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
       });
       mockSessionMethods.sendMessage.mockResolvedValue(undefined);
 
@@ -1139,7 +1139,7 @@ describe('AcpAgentV2 - Config/Model/Mode Methods', () => {
       capturedCallbacks.onStatusChange('idle');
 
       mockSessionMethods.start.mockImplementation(() => {
-        setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+        setTimeout(() => capturedCallbacks.onStatusChange('ready'), 0);
       });
       mockSessionMethods.sendMessage.mockResolvedValue(undefined);
 
@@ -1171,7 +1171,7 @@ describe('AcpAgentV2 - Config/Model/Mode Methods', () => {
     it('should return retryable error during starting/resuming states', async () => {
       const agent = await createStartedAgent();
 
-      capturedCallbacks.onStatusChange('starting');
+      capturedCallbacks.onStatusChange('running');
 
       const result = await agent.sendMessage({ content: 'hello' });
 
