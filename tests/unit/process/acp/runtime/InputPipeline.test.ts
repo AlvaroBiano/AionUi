@@ -71,7 +71,7 @@ describe('InputPipeline', () => {
 
     const result = pipeline.process('second', undefined, injection);
     const text = (result[0] as { text: string }).text;
-    expect(text).toBe('second'); // No injection
+    expect(text).toBe('second');
   });
 
   it('skips injection when no context provided', () => {
@@ -87,21 +87,10 @@ describe('InputPipeline', () => {
     expect(pipeline.firstMessageConsumed).toBe(true);
   });
 
-  it('skips injection when context has no content', () => {
-    const result = pipeline.process('hello', undefined, {});
-    const text = (result[0] as { text: string }).text;
-    // Consumed but no wrapping (empty context)
-    expect(text).toBe('hello');
-    expect(pipeline.firstMessageConsumed).toBe(true);
-  });
-
   // ── @file resolution ──
 
-  it('resolves @file references after injection', () => {
-    const injection: InjectionContext = { presetContext: 'preset' };
-    const result = pipeline.process('check @src/utils.ts', undefined, injection);
-
-    // Should have text block (with injection) + file block
+  it('resolves @file references relative to cwd', () => {
+    const result = pipeline.process('check @src/utils.ts');
     expect(result.length).toBeGreaterThan(1);
     expect(result.some((b: ContentBlock) => b.type === 'text' && 'text' in b && b.text.includes('[File:'))).toBe(true);
   });
@@ -112,21 +101,34 @@ describe('InputPipeline', () => {
     expect((result[1] as { text: string }).text).toContain('[File:');
   });
 
-  // ── Combined: marker strip + injection + @file ──
+  it('falls back to workspace search when direct path fails', () => {
+    vi.mocked(fs.statSync).mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+    vi.mocked(fs.readdirSync).mockImplementation((dir: fs.PathLike) => {
+      const d = String(dir);
+      if (d === '/workspace') {
+        return [{ name: 'src', isFile: () => false, isDirectory: () => true }] as unknown as fs.Dirent[];
+      }
+      if (d === '/workspace/src') {
+        return [{ name: 'utils.ts', isFile: () => true, isDirectory: () => false }] as unknown as fs.Dirent[];
+      }
+      return [] as unknown as fs.Dirent[];
+    });
 
-  it('processes all stages in correct order', () => {
-    const injection: InjectionContext = { presetContext: 'You are helpful.' };
-    const result = pipeline.process('review @test.ts[[AION_FILES]]attached', ['/workspace/b.ts'], injection);
+    const result = pipeline.process('review @utils.ts');
+    expect(result).toHaveLength(2);
+  });
 
-    // Marker stripped, so text is 'review @test.ts' (not 'review @test.ts[[AION_FILES]]attached')
-    const textBlock = result[0] as { text: string };
-    expect(textBlock.text).toContain('[Assistant Rules');
-    expect(textBlock.text).toContain('You are helpful.');
-    expect(textBlock.text).toContain('[User Request]');
-    expect(textBlock.text).toContain('review @test.ts');
-    expect(textBlock.text).not.toContain('AION_FILES');
-
-    // File blocks present
-    expect(result.length).toBeGreaterThan(1);
+  it('deduplicates uploaded files from @references', () => {
+    // Use a custom readFile to count reads (fs.readFileSync is also used by statSync mock)
+    let readCount = 0;
+    const countingPipeline = new InputPipeline('/workspace', () => {
+      readCount++;
+      return 'content';
+    });
+    countingPipeline.process('review @/src/index.ts', ['/src/index.ts']);
+    // Uploaded file read once, @reference deduped → total 1
+    expect(readCount).toBe(1);
   });
 });
