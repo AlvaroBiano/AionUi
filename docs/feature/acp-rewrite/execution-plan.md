@@ -12,8 +12,8 @@
 前置: 无
 目标: AcpSession 可靠, AcpRuntime 可以放心委托
 
-- [ ] **1.1** agentCrash flag (P0) — disconnect 时标记 crash, team 崩溃检测依赖此
-- [ ] **1.2** sendMessage 断连恢复 (P1) — active 态发消息时断连需处理
+- [x] **1.1** agentCrash flag (P0) — `process_crash` signal type, 消除 keyword 耦合
+- [x] **1.2** sendMessage 断连恢复 (P1) — AcpAgentV2 已有 reconnect (error/idle → kill+start), 补测试验证, 更新审计文档
 - [ ] **1.3** @file 引用增强 (P1) — 引号路径, 去重, workspace 搜索, binary 警告
 
 验证: 现有测试 + 手动测 team mode crash recovery

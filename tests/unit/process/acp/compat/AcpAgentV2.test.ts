@@ -1111,4 +1111,73 @@ describe('AcpAgentV2 - Config/Model/Mode Methods', () => {
       expect(signalEvents.find((e) => e.type === 'finish')).toBeUndefined();
     });
   });
+
+  describe('sendMessage auto-reconnect', () => {
+    it('should reconnect from error state before sending', async () => {
+      const agent = await createStartedAgent();
+
+      // Drive to error state
+      capturedCallbacks.onStatusChange('error');
+
+      // Mock start to succeed (drives back to active)
+      mockSessionMethods.start.mockImplementation(() => {
+        setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+      });
+      mockSessionMethods.sendMessage.mockResolvedValue(undefined);
+
+      const result = await agent.sendMessage({ content: 'hello' });
+
+      expect(result.success).toBe(true);
+      expect(mockSessionMethods.start).toHaveBeenCalled();
+      expect(mockSessionMethods.sendMessage).toHaveBeenCalled();
+    });
+
+    it('should reconnect from idle state before sending', async () => {
+      const agent = await createStartedAgent();
+
+      // Drive to idle state
+      capturedCallbacks.onStatusChange('idle');
+
+      mockSessionMethods.start.mockImplementation(() => {
+        setTimeout(() => capturedCallbacks.onStatusChange('active'), 0);
+      });
+      mockSessionMethods.sendMessage.mockResolvedValue(undefined);
+
+      const result = await agent.sendMessage({ content: 'hello' });
+
+      expect(result.success).toBe(true);
+      expect(mockSessionMethods.start).toHaveBeenCalled();
+    });
+
+    it('should return retryable error when reconnect fails', async () => {
+      const agent = await createStartedAgent();
+
+      capturedCallbacks.onStatusChange('error');
+
+      // kill() calls session.stop() internally — must resolve
+      mockSessionMethods.stop.mockResolvedValue(undefined);
+      // start() fails on reconnect attempt
+      mockSessionMethods.start.mockImplementation(() => {
+        setTimeout(() => capturedCallbacks.onStatusChange('error'), 0);
+      });
+
+      const result = await agent.sendMessage({ content: 'hello' });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.retryable).toBe(true);
+      expect(result.error?.message).toContain('reconnect');
+    });
+
+    it('should return retryable error during starting/resuming states', async () => {
+      const agent = await createStartedAgent();
+
+      capturedCallbacks.onStatusChange('starting');
+
+      const result = await agent.sendMessage({ content: 'hello' });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.retryable).toBe(true);
+      expect(result.error?.code).toBe('SESSION_NOT_READY');
+    });
+  });
 });
