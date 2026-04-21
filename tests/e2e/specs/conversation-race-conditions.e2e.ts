@@ -124,18 +124,30 @@ test.describe('R1: workspace 面板在会话切换后保持稳定 (useWorkspaceE
 
     // workspace loading spinner 不应卡住：等待 spinner 消失（给最多 6s）
     // 若 6s 后仍有 spinner，说明 workspace 刷新死循环——这是 R1 风险表现
-    await page.waitForFunction(
-      () => !document.querySelector('[class*="workspace"][class*="loading"], .workspace-panel .arco-spin-loading'),
-      { timeout: 6_000 },
-    ).catch(() => {
-      // 超时说明 loading 卡住了
-    });
-    const stillLoading = await page.locator(WORKSPACE_LOADING).first().isVisible().catch(() => false);
-    expect(stillLoading, 'R1: workspace should not be stuck loading after conversation switch (>6s means loop)').toBe(false);
+    await page
+      .waitForFunction(
+        () => !document.querySelector('[class*="workspace"][class*="loading"], .workspace-panel .arco-spin-loading'),
+        { timeout: 6_000 }
+      )
+      .catch(() => {
+        // 超时说明 loading 卡住了
+      });
+    const stillLoading = await page
+      .locator(WORKSPACE_LOADING)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    expect(stillLoading, 'R1: workspace should not be stuck loading after conversation switch (>6s means loop)').toBe(
+      false
+    );
 
     // sendbox 和 header 应正常渲染
-    await expect(page.locator(CHAT_LAYOUT_HEADER).first(), 'R1: header should render after switch').toBeVisible({ timeout: 5_000 });
-    await expect(page.locator(SENDBOX_PANEL).first(), 'R1: sendbox should render after switch').toBeVisible({ timeout: 8_000 });
+    await expect(page.locator(CHAT_LAYOUT_HEADER).first(), 'R1: header should render after switch').toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.locator(SENDBOX_PANEL).first(), 'R1: sendbox should render after switch').toBeVisible({
+      timeout: 8_000,
+    });
   });
 
   test('3 次连续会话切换后 workspace 区域不出现 JS 错误', async ({ page }) => {
@@ -153,7 +165,7 @@ test.describe('R1: workspace 面板在会话切换后保持稳定 (useWorkspaceE
 
     // 没有 JS 错误
     const relevantErrors = errors.filter(
-      (e) => !e.includes('ResizeObserver') && !e.includes('Non-Error promise rejection'),
+      (e) => !e.includes('ResizeObserver') && !e.includes('Non-Error promise rejection')
     );
     expect(relevantErrors, 'R1: no JS errors during rapid workspace switching').toHaveLength(0);
 
@@ -167,7 +179,7 @@ test.describe('R1: workspace 面板在会话切换后保持稳定 (useWorkspaceE
       expect(wsStillVisible, 'R1: workspace panel should not disappear 1s after switch').toBe(true);
     } else {
       // conv_c 是空会话，workspace 面板不应出现——这是正确行为，不是 bug
-      const wsPanelAttached = await wsPanel.isAttached ? await wsPanel.count() > 0 : false;
+      const wsPanelAttached = (await wsPanel.isAttached) ? (await wsPanel.count()) > 0 : false;
       // 只要没有 JS 错误（上面已验证），空会话无 workspace 面板是合理的
       expect(relevantErrors, 'R1: no JS errors even when workspace panel is absent').toHaveLength(0);
     }
@@ -201,7 +213,9 @@ test.describe('R2: 快速多会话切换后消息列表不串台 (useMessageLstC
 
     // 等待 D 稳定（把 convD ID 作为参数传入，避免浏览器端无法访问模块变量）
     const convDId = _convD;
-    await page.waitForFunction((id) => window.location.hash.includes(`/conversation/${id}`), convDId, { timeout: 8_000 });
+    await page.waitForFunction((id) => window.location.hash.includes(`/conversation/${id}`), convDId, {
+      timeout: 8_000,
+    });
     await page.waitForTimeout(2_000); // 比 DB 查询慢的场景足够等待
 
     // D 是空会话，消息列表应为 0
@@ -217,11 +231,9 @@ test.describe('R2: 快速多会话切换后消息列表不串台 (useMessageLstC
 
     // 立即跳 B（不等待 A settle）
     await page.evaluate((h) => window.location.assign(h), `#/conversation/${_convB}`);
-    await page.waitForFunction(
-      (id) => window.location.hash.includes(`/conversation/${id}`),
-      _convB,
-      { timeout: 8_000 },
-    );
+    await page.waitForFunction((id) => window.location.hash.includes(`/conversation/${id}`), _convB, {
+      timeout: 8_000,
+    });
     await waitForSettle(page);
     await page.waitForTimeout(1_000);
 
@@ -256,7 +268,7 @@ test.describe('R2: 快速多会话切换后消息列表不串台 (useMessageLstC
       const count = await page.locator(MESSAGE_ITEM).count();
       expect(
         count,
-        `R2: conv_a message count should be stable on round ${i + 1} (base=${baseCount}, now=${count}) — stale DB update() must not run after navigate-away`,
+        `R2: conv_a message count should be stable on round ${i + 1} (base=${baseCount}, now=${count}) — stale DB update() must not run after navigate-away`
       ).toBe(baseCount);
     }
   });
@@ -279,7 +291,11 @@ test.describe('R5: running 状态在会话切换后正确归零 (useAcpMessage)'
     await page.waitForTimeout(1_000); // 给 conversation.get hydration 足够时间
 
     // stop 按钮不应显示（B 没有 running 状态）
-    const stopVisible = await page.locator(SENDBOX_STOP_BTN).first().isVisible({ timeout: 2_000 }).catch(() => false);
+    const stopVisible = await page
+      .locator(SENDBOX_STOP_BTN)
+      .first()
+      .isVisible({ timeout: 2_000 })
+      .catch(() => false);
     expect(stopVisible, 'R5: stop button should NOT be visible on idle empty conversation').toBe(false);
   });
 
@@ -296,7 +312,11 @@ test.describe('R5: running 状态在会话切换后正确归零 (useAcpMessage)'
       await waitForSettle(page);
       await page.waitForTimeout(800);
 
-      const stopVisible = await page.locator(SENDBOX_STOP_BTN).first().isVisible({ timeout: 2_000 }).catch(() => false);
+      const stopVisible = await page
+        .locator(SENDBOX_STOP_BTN)
+        .first()
+        .isVisible({ timeout: 2_000 })
+        .catch(() => false);
       expect(stopVisible, `R5: stop button state incorrect on conv "${id}"`).toBe(shouldHaveStop);
     }
   });
@@ -307,7 +327,9 @@ test.describe('R5: running 状态在会话切换后正确归零 (useAcpMessage)'
     await navTo(page, _convA, false);
     await navTo(page, _convB, false);
     await navTo(page, _convC, false);
-    await page.waitForFunction((id) => window.location.hash.includes(`/conversation/${id}`), convCId, { timeout: 8_000 });
+    await page.waitForFunction((id) => window.location.hash.includes(`/conversation/${id}`), convCId, {
+      timeout: 8_000,
+    });
     await waitForSettle(page);
     await page.waitForTimeout(1_000);
 
@@ -333,9 +355,12 @@ test.describe('R5: running 状态在会话切换后正确归零 (useAcpMessage)'
 // TODO: re-enable when workspace-panel.e2e.ts fixture strategy is shared here.
 test.describe('R7: 快速关闭多 tab 后活跃 tab 正确 (ConversationTabsContext)', () => {
   test('快速关闭非活跃 tab 后当前 tab 不变', async ({ page: _page }) => {
-    test.skip(true, 'R7: ConversationTabs only renders in workspace-mode sessions. ' +
-      'Selector discovery requires a workspace fixture. ' +
-      'TODO: add workspace-session beforeAll and confirm tab DOM structure via CDP screenshot.');
+    test.skip(
+      true,
+      'R7: ConversationTabs only renders in workspace-mode sessions. ' +
+        'Selector discovery requires a workspace fixture. ' +
+        'TODO: add workspace-session beforeAll and confirm tab DOM structure via CDP screenshot.'
+    );
   });
 
   test('关闭当前 tab 后跳转到有效会话', async ({ page: _page }) => {

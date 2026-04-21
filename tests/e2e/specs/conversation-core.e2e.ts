@@ -5,6 +5,7 @@
  *  AC1   – sending from Guid page navigates to /conversation/:uuid
  *  AC2   – conversation header shows a non-empty title
  *  AC3   – header shows current agent logo and name (AgentModeSelector)
+ *  AC3g  – settings gear button in header (next to agent name), click opens popover from below
  *  AC4   – conversation page has a visible SendBox; user can type in it
  *  AC5   – message list renders at least 1 user message and 1 agent reply
  *  AC3a  – minimap trigger button visible + click opens search panel
@@ -26,10 +27,11 @@
  *  AC17  – ACP session badge shows session_active
  *  AC18  – permission confirm dialog with Allow/Deny buttons
  *  AC19  – single-click title enters edit mode; Enter saves; Esc cancels
- *  AC20  – history dropdown opens with a conversation list
+ *  AC20  – history dropdown opens with a conversation list + visual layer (bg, shadow, border)
  *  AC21  – each history row shows a non-empty conversation title
  *  AC22  – each history row shows a formatted timestamp
- *  AC23  – delete button on history row (skip: 功能待实现)
+ *  AC23  – history row hover → delete icon (DeleteOne) → Popconfirm → confirm → removed + redirect
+ *  AC23a – history row hover → pin icon (Pushpin) → click → pinned to top + extra.historyPinned persisted + unpin
  *  AC24  – clicking a history row navigates to that conversation (/conversation/:otherId)
  *  AC25  – clicking "新会话" creates a new conversation and navigates to /conversation/:newId
  *  AC26a – pressing Escape closes the history dropdown
@@ -58,6 +60,8 @@ import {
   HISTORY_PANEL_BTN,
   HISTORY_PANEL_DROPDOWN,
   SENDBOX_PANEL,
+  SENDBOX_SETTINGS_BTN,
+  SENDBOX_SETTINGS_POPUP,
   invokeBridge,
 } from '../helpers';
 
@@ -180,9 +184,9 @@ async function goToConversation(page: import('@playwright/test').Page, id: strin
   await waitForSettle(page);
 }
 
-// ── 1. Page structure (AC1, AC2, AC3) ────────────────────────────────────────
+// ── 1. Page structure (AC1, AC2, AC3, AC3g) ──────────────────────────────────
 
-test.describe('Page structure (AC1, AC2, AC3)', () => {
+test.describe('Page structure (AC1, AC2, AC3, AC3g)', () => {
   test('AC1: sending a message from Guid page navigates to /conversation/:uuid', async ({ page }) => {
     await goToGuid(page);
     await waitForSettle(page);
@@ -233,6 +237,48 @@ test.describe('Page structure (AC1, AC2, AC3)', () => {
 
     const selectorText = await agentSelector.textContent();
     expect(selectorText?.trim().length).toBeGreaterThan(0);
+  });
+
+  test('AC3g: header has settings gear button next to agent name, click opens popover below', async ({ page }) => {
+    await goToConversation(page, _testConversationId);
+
+    // AC3g requirement: gear button (Setting icon) in header-left area, next to the Agent name.
+    // The button should use data-testid="sendbox-settings-btn" and live inside chat-layout-header.
+    const headerGearBtn = page.locator(`${CHAT_LAYOUT_HEADER} ${SENDBOX_SETTINGS_BTN}`).first();
+    await expect(headerGearBtn, 'AC3g: 标题栏应包含设置齿轮按钮').toBeVisible({ timeout: 5_000 });
+
+    // Verify spatial: gear button is in the left area (near agent name), not right area
+    const gearRect = await headerGearBtn.boundingBox();
+    const headerRect = await page.locator(CHAT_LAYOUT_HEADER).first().boundingBox();
+    expect(gearRect, 'AC3g: 齿轮按钮应有有效位置').toBeTruthy();
+    expect(headerRect, 'AC3g: 标题栏应有有效位置').toBeTruthy();
+    if (gearRect && headerRect) {
+      const headerMidX = headerRect.x + headerRect.width / 2;
+      expect(gearRect.x < headerMidX, 'AC3g: 齿轮按钮应在标题栏左半区域（Agent 名称旁）').toBe(true);
+    }
+
+    // Click gear → popover opens below the button
+    await headerGearBtn.click();
+    await page.waitForTimeout(300);
+
+    const popup = page.locator(SENDBOX_SETTINGS_POPUP).first();
+    await expect(popup, 'AC3g: 点击齿轮按钮后应弹出设置浮层').toBeVisible({ timeout: 3_000 });
+
+    // Verify popup is positioned below the gear button (popup.top >= gear.bottom)
+    const popupRect = await popup.boundingBox();
+    if (popupRect && gearRect) {
+      expect(popupRect.y >= gearRect.y + gearRect.height - 2, 'AC3g: 设置浮层应从齿轮按钮下方弹出').toBe(true);
+    }
+
+    // Verify popup has at least one settings section (model/permission/config)
+    const sections = popup.locator('.flex.items-center.justify-between');
+    const sectionCount = await sections.count();
+    expect(sectionCount, 'AC3g: 设置浮层应包含至少一个配置项').toBeGreaterThan(0);
+
+    // Close by clicking outside
+    await page.locator('.fixed.inset-0').first().click();
+    await page.waitForTimeout(300);
+    await expect(popup, 'AC3g: 点击外部后浮层应关闭').toBeHidden({ timeout: 3_000 });
   });
 });
 
@@ -961,7 +1007,7 @@ test.describe('History panel interactions (AC20–AC26)', () => {
     await page.waitForTimeout(250);
   });
 
-  test('AC20: history button click opens history dropdown', async ({ page }) => {
+  test('AC20: history dropdown has visual layer distinction, max-height, and scrollable overflow', async ({ page }) => {
     await goToConversation(page, _testConversationId);
 
     const historyBtn = page.locator(HISTORY_PANEL_BTN).first();
@@ -971,6 +1017,46 @@ test.describe('History panel interactions (AC20–AC26)', () => {
 
     const dropdown = page.locator(HISTORY_PANEL_DROPDOWN).first();
     await expect(dropdown).toBeVisible({ timeout: 5_000 });
+
+    // AC20: visual layer distinction — bg, shadow, border (inline styles on dropdown div)
+    const styles = await dropdown.evaluate((el) => {
+      const cs = window.getComputedStyle(el);
+      const computedShadow = cs.boxShadow;
+      const inlineShadow = el.style.boxShadow;
+      const computedBorder = cs.border;
+      const inlineBorder = el.style.border;
+      return {
+        hasBg: cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent',
+        hasShadow:
+          (computedShadow !== 'none' && computedShadow !== '') || (inlineShadow !== '' && inlineShadow !== 'none'),
+        hasBorder:
+          (computedBorder !== '' && computedBorder !== 'none' && !computedBorder.includes('0px')) ||
+          (inlineBorder !== '' && inlineBorder !== 'none'),
+      };
+    });
+    expect(styles.hasBg, 'AC20: dropdown should have a non-transparent background color').toBe(true);
+    expect(styles.hasShadow, 'AC20: dropdown should have box-shadow').toBe(true);
+    expect(styles.hasBorder, 'AC20: dropdown should have border').toBe(true);
+
+    // AC20: scrollable list container with max-height + overflow-y: auto
+    const scrollInfo = await dropdown.evaluate((el) => {
+      // The scrollable wrapper is a child div with max-height and overflow-y: auto
+      const children = Array.from(el.children) as HTMLElement[];
+      for (const child of children) {
+        const cs = window.getComputedStyle(child);
+        if (cs.maxHeight && cs.maxHeight !== 'none' && cs.overflowY === 'auto') {
+          return { found: true, maxHeight: cs.maxHeight, overflowY: cs.overflowY };
+        }
+      }
+      // Fallback: check the dropdown root itself
+      const rootCs = window.getComputedStyle(el);
+      return {
+        found: rootCs.maxHeight !== 'none' && rootCs.maxHeight !== '' && rootCs.overflowY === 'auto',
+        maxHeight: rootCs.maxHeight,
+        overflowY: rootCs.overflowY,
+      };
+    });
+    expect(scrollInfo.found, 'AC20: dropdown list should have a scrollable container with max-height + overflow-y: auto').toBe(true);
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
@@ -995,7 +1081,7 @@ test.describe('History panel interactions (AC20–AC26)', () => {
     await page.waitForTimeout(300);
   });
 
-  test('AC22: history rows show conversation name, timestamp, and current row is highlighted', async ({ page }) => {
+  test('AC22: history rows show name, timestamp, current row highlighted, pinned sorted first', async ({ page }) => {
     await goToConversation(page, _testConversationId);
 
     await page.locator(HISTORY_PANEL_BTN).first().click();
@@ -1003,28 +1089,283 @@ test.describe('History panel interactions (AC20–AC26)', () => {
     const dropdown = page.locator(HISTORY_PANEL_DROPDOWN).first();
     await expect(dropdown).toBeVisible({ timeout: 5_000 });
 
+    // Verify timestamp is visible
     const timeEl = dropdown.locator('.text-11px.text-t-tertiary').first();
     await expect(timeEl).toBeVisible({ timeout: 3_000 });
-
     const timeText = await timeEl.textContent();
     expect(timeText?.trim().length).toBeGreaterThan(0);
 
     // Current conversation row must have highlight background
-    const hasActiveRow = await dropdown.evaluate((el) => {
-      const rows = el.querySelectorAll('.flex.items-center.gap-8px.px-12px.py-6px.cursor-pointer');
-      return Array.from(rows).some((r) => r.className.includes('bg-[var(--color-fill-2)]'));
-    });
-    expect(hasActiveRow).toBe(true);
+    const HISTORY_ROW = '.flex.items-center.gap-8px.px-12px.py-6px.cursor-pointer';
+    const hasActiveRow = await dropdown.evaluate(
+      (el, sel) => {
+        const rows = el.querySelectorAll(sel);
+        return Array.from(rows).some((r) => r.className.includes('bg-[var(--color-fill-2)]'));
+      },
+      HISTORY_ROW
+    );
+    expect(hasActiveRow, 'AC22: 当前会话行应有高亮背景').toBe(true);
+
+    // Verify sorting: pinned conversations first, then by modifyTime desc.
+    // Pin a conversation via IPC, re-open dropdown, verify it appears first.
+    const rows = dropdown.locator(HISTORY_ROW);
+    const rowCount = await rows.count();
+    if (rowCount >= 2) {
+      // Pin the test conversation (historyPinned is the history-panel-specific pin field)
+      await invokeBridge(page, 'update-conversation', {
+        id: _testConversationId!,
+        updates: { extra: { historyPinned: true, historyPinnedAt: Date.now() } },
+        mergeExtra: true,
+      });
+      // Close and re-open to refresh
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+      await goToConversation(page, _testConversationId);
+      await page.locator(HISTORY_PANEL_BTN).first().click();
+      await page.waitForTimeout(400);
+      await expect(dropdown).toBeVisible({ timeout: 5_000 });
+
+      // First row should be our pinned conversation
+      const firstName = await dropdown.locator(HISTORY_ROW).first().locator('span.truncate').first().textContent();
+      const testConvData = await invokeBridge<{ name: string }>(page, 'get-conversation', {
+        id: _testConversationId!,
+      }).catch(() => null);
+      if (testConvData?.name) {
+        expect(firstName, 'AC22: 置顶会话应排在列表第一位').toBe(testConvData.name);
+      }
+
+      // Cleanup: unpin
+      await invokeBridge(page, 'update-conversation', {
+        id: _testConversationId!,
+        updates: { extra: { historyPinned: false, historyPinnedAt: undefined } },
+        mergeExtra: true,
+      });
+    }
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
   });
 
-  test('AC23: history row has delete button (待实现)', async ({ page: _page }) => {
-    test.skip(
-      true,
-      '功能待实现 — ConversationHistoryPanel 目前无删除按钮；待后端实现删除接口和前端确认弹窗后启用此测试'
-    );
+  test('AC23: hover history row → delete icon → Popconfirm → confirm → row removed', async ({ page }) => {
+    // Create a disposable conversation for delete testing (avoid destroying shared test data)
+    type TChatConv = { id: string; [k: string]: unknown };
+    const disposableConv = await invokeBridge<TChatConv>(page, 'create-conversation', {
+      type: 'acp' as const,
+      name: 'E2E AC23 Delete Target (conversation-core)',
+      model: { id: 'builtin-claude', useModel: 'claude-3-5-haiku-20241022' },
+      extra: { backend: 'claude', agentName: 'claude' },
+    }).catch(() => null);
+    expect(disposableConv?.id, 'AC23: 应成功创建临时会话').toBeTruthy();
+    const disposableId = disposableConv!.id;
+
+    try {
+      // Navigate to the disposable conversation so it appears in history
+      await goToConversation(page, disposableId);
+
+      // Open history panel
+      await page.locator(HISTORY_PANEL_BTN).first().click();
+      await page.waitForTimeout(400);
+      const dropdown = page.locator(HISTORY_PANEL_DROPDOWN).first();
+      await expect(dropdown, 'AC23: 历史面板应打开').toBeVisible({ timeout: 5_000 });
+
+      // Find the row for our disposable conversation
+      const HISTORY_ROW = '.flex.items-center.gap-8px.px-12px.py-6px.cursor-pointer';
+      const rows = dropdown.locator(HISTORY_ROW);
+      const rowCount = await rows.count();
+      expect(rowCount, 'AC23: 历史面板应有会话行').toBeGreaterThan(0);
+
+      // Hover first row (active = disposable conv) to reveal action buttons.
+      // The action container uses `hidden group-hover:flex`, which is CSS-only hover.
+      // Playwright hover doesn't always trigger CSS :hover, so programmatically reveal it.
+      const targetRow = rows.first();
+      await targetRow.hover();
+      await page.waitForTimeout(200);
+      await targetRow.evaluate((el) => {
+        const container = el.querySelector('.hidden.group-hover\\:flex, [class*="hidden"][class*="group-hover"]');
+        if (container) (container as HTMLElement).style.display = 'flex';
+      });
+
+      // AC23: icon order from left to right should be: Delete (DeleteOne), Pin (Pushpin)
+      const deleteBtn = dropdown.locator('span[title*="删除"], span[title*="Delete"]').first();
+      await expect(deleteBtn, 'AC23: hover 后应出现删除图标按钮').toBeVisible({ timeout: 3_000 });
+
+      const pinBtnInRow = dropdown.locator('span[title*="置顶"], span[title*="Pin"], span[title*="Unpin"]').first();
+      await expect(pinBtnInRow, 'AC23: hover 后应出现置顶图标按钮').toBeVisible({ timeout: 3_000 });
+
+      // Verify icon order: delete should be to the left of pin
+      const deleteBox = await deleteBtn.boundingBox();
+      const pinBox = await pinBtnInRow.boundingBox();
+      if (deleteBox && pinBox) {
+        expect(deleteBox.x < pinBox.x, 'AC23: 删除图标应在置顶图标左侧').toBe(true);
+      }
+
+      // Click delete → Popconfirm should appear
+      await deleteBtn.click();
+      await page.waitForTimeout(300);
+
+      // Popconfirm renders in a portal on document.body
+      const popconfirm = page.locator('.arco-popconfirm').first();
+      await expect(popconfirm, 'AC23: 点击删除后应弹出确认框 (Popconfirm)').toBeVisible({ timeout: 3_000 });
+
+      // Click confirm button in Popconfirm (okText = "删除" / "Delete")
+      const confirmBtn = popconfirm
+        .locator('button')
+        .filter({ hasText: /删除|delete/i })
+        .first();
+      await expect(confirmBtn, 'AC23: 确认框应有确认按钮').toBeVisible({ timeout: 2_000 });
+
+      await confirmBtn.click();
+      await page.waitForTimeout(800);
+
+      // After deletion: the disposable conversation should no longer exist in the DB
+      type TConvCheck = { id: string } | null | undefined;
+      const deletedConv = await invokeBridge<TConvCheck>(page, 'get-conversation', {
+        id: disposableId,
+      }).catch(() => null);
+      expect(!deletedConv || !deletedConv.id, 'AC23: 确认删除后该会话应已从数据库移除').toBe(true);
+
+      // If we deleted the current conversation, page should redirect away from /conversation/:disposableId
+      await page
+        .waitForFunction((id) => !window.location.hash.includes(`/conversation/${id}`), disposableId, {
+          timeout: 5_000,
+        })
+        .catch(() => {});
+      const currentUrl = page.url();
+      expect(currentUrl.includes(`/conversation/${disposableId}`), 'AC23: 删除当前会话后不应停留在该会话页').toBe(
+        false
+      );
+    } finally {
+      // Cleanup: ensure disposable conversation is deleted even if test assertions fail
+      await invokeBridge(page, 'remove-conversation', { id: disposableId }).catch(() => {});
+    }
+  });
+
+  test('AC23a: pin icon on hover, pinned row pin icon always visible, pin/unpin round-trip', async ({ page }) => {
+    await goToConversation(page, _testConversationId);
+
+    // Open history panel
+    await page.locator(HISTORY_PANEL_BTN).first().click();
+    await page.waitForTimeout(400);
+    const dropdown = page.locator(HISTORY_PANEL_DROPDOWN).first();
+    await expect(dropdown, 'AC23a: 历史面板应打开').toBeVisible({ timeout: 5_000 });
+
+    const HISTORY_ROW = '.flex.items-center.gap-8px.px-12px.py-6px.cursor-pointer';
+    const rows = dropdown.locator(HISTORY_ROW);
+    const rowCount = await rows.count();
+    expect(rowCount, 'AC23a: 历史面板应有会话行').toBeGreaterThan(0);
+
+    // Inject CSS to force-show hover action buttons (Playwright CSS hover unreliable in Electron)
+    await page.addStyleTag({
+      content: `[data-history-dropdown="true"] .group > div[class*="hidden"] { display: flex !important; }`,
+    });
+    await page.waitForTimeout(200);
+
+    // Verify pin button is visible on hover for un-pinned row
+    const pinBtn = dropdown.locator('span[title*="置顶"], span[title*="Pin"], span[title*="Unpin"]').first();
+    await expect(pinBtn, 'AC23a: hover 后应出现置顶图标按钮').toBeVisible({ timeout: 3_000 });
+
+    // Pin via IPC to test the pinned state rendering (historyPinned for history-panel pin)
+    await invokeBridge(page, 'update-conversation', {
+      id: _testConversationId!,
+      updates: { extra: { historyPinned: true, historyPinnedAt: Date.now() } },
+      mergeExtra: true,
+    });
+    await page.waitForTimeout(500);
+
+    // Verify: conversation.extra.historyPinned persisted
+    type TConvExtra = { id: string; extra?: Record<string, unknown> };
+    const conv = await invokeBridge<TConvExtra>(page, 'get-conversation', {
+      id: _testConversationId!,
+    }).catch(() => null);
+    expect(conv?.extra?.historyPinned, 'AC23a: conversation.extra.historyPinned 应为 true').toBe(true);
+
+    // Isolation check: extra.pinned should NOT be set (history pin is separate from sidebar pin)
+    expect(
+      conv?.extra?.pinned === undefined || conv?.extra?.pinned === false,
+      'AC23a: 历史面板置顶不应影响 extra.pinned（侧边栏置顶独立）'
+    ).toBe(true);
+
+    // Close and re-open dropdown to pick up the pin state
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await goToConversation(page, _testConversationId);
+    await page.locator(HISTORY_PANEL_BTN).first().click();
+    await page.waitForTimeout(400);
+    await expect(dropdown).toBeVisible({ timeout: 5_000 });
+
+    // AC23a key requirement: pinned row's pin icon (Pushpin filled, title="取消置顶"/"Unpin")
+    // should be ALWAYS VISIBLE without hover (no CSS injection needed).
+    // Do NOT inject CSS here — verify the icon is visible by default.
+    const unpinBtn = dropdown.locator('span[title*="取消置顶"], span[title*="Unpin"]').first();
+    await expect(
+      unpinBtn,
+      'AC23a: 已置顶会话的置顶图标应始终可见（无需 hover）'
+    ).toBeVisible({ timeout: 3_000 });
+
+    // Cleanup: unpin via IPC
+    await invokeBridge(page, 'update-conversation', {
+      id: _testConversationId!,
+      updates: { extra: { historyPinned: false, historyPinnedAt: undefined } },
+      mergeExtra: true,
+    });
+    await page.waitForTimeout(300);
+
+    // Verify cleanup
+    const convAfter = await invokeBridge<TConvExtra>(page, 'get-conversation', {
+      id: _testConversationId!,
+    }).catch(() => null);
+    expect(
+      !convAfter?.extra?.historyPinned,
+      'AC23a: cleanup 后 historyPinned 应为 false 或 undefined'
+    ).toBe(true);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('AC23a-isolation: history pin does not cause sidebar pinned section to show conversation', async ({ page }) => {
+    // Pin via historyPinned (history-panel only) and verify sidebar is NOT affected
+    await invokeBridge(page, 'update-conversation', {
+      id: _testConversationId!,
+      updates: { extra: { historyPinned: true, historyPinnedAt: Date.now() } },
+      mergeExtra: true,
+    });
+    await page.waitForTimeout(500);
+
+    // Verify: extra.pinned remains unset (sidebar pin is separate from history pin)
+    type TConvExtra = { id: string; extra?: Record<string, unknown> };
+    const conv = await invokeBridge<TConvExtra>(page, 'get-conversation', {
+      id: _testConversationId!,
+    }).catch(() => null);
+    expect(
+      conv?.extra?.pinned === undefined || conv?.extra?.pinned === false,
+      'AC23a-isolation: historyPinned 不应设置 extra.pinned'
+    ).toBe(true);
+    expect(conv?.extra?.historyPinned, 'AC23a-isolation: historyPinned 应为 true').toBe(true);
+
+    // Navigate to page and check sidebar does not show pinned section for this conversation
+    await goToConversation(page, _testConversationId);
+
+    // The sidebar pinned section uses PinnedSiderSection which reads dm-pinned-agent-keys localStorage.
+    // History pin (historyPinned) should NOT add the agent to dm-pinned-agent-keys.
+    const sidebarHasPinnedRow = await page.evaluate((convId) => {
+      // Check if the conversation appears in a sidebar pinned section
+      const pinnedSection = document.querySelector('[class*="pinned"], [data-testid*="pinned"]');
+      if (!pinnedSection) return false;
+      return pinnedSection.innerHTML.includes(convId);
+    }, _testConversationId);
+    expect(
+      sidebarHasPinnedRow,
+      'AC23a-isolation: 侧边栏不应因 historyPinned 出现该会话的置顶行'
+    ).toBe(false);
+
+    // Cleanup: unpin
+    await invokeBridge(page, 'update-conversation', {
+      id: _testConversationId!,
+      updates: { extra: { historyPinned: false, historyPinnedAt: undefined } },
+      mergeExtra: true,
+    });
+    await page.waitForTimeout(300);
   });
 
   test('AC24: clicking a history row navigates to that conversation', async ({ page }) => {
@@ -1308,7 +1649,10 @@ test.describe('AC7 攻击性：剪贴板真实内容 + 图标恢复计时', () =
       .catch(() => null);
 
     // 剪贴板必须可读——null 表示权限被拒或 API 完全失败，属于 P2 bug
-    expect(clipboardText, 'AC7: clipboard should be readable — check navigator.clipboard permissions grant').not.toBeNull();
+    expect(
+      clipboardText,
+      'AC7: clipboard should be readable — check navigator.clipboard permissions grant'
+    ).not.toBeNull();
     if (clipboardText !== null) {
       // 剪贴板内容必须与消息文本相关（精确内容对比，不能只断言非空）
       // targetMsg.textContent() 包含完整气泡文字（用户名+消息+时间戳），
@@ -1320,7 +1664,7 @@ test.describe('AC7 攻击性：剪贴板真实内容 + 图标恢复计时', () =
         const clipContainsMsg = clipped.includes(msgText);
         expect(
           msgContainsClip || clipContainsMsg,
-          `AC7: clipboard content must be a substring of (or contain) the message text.\n  Message: "${msgText.slice(0, 80)}"\n  Clipboard: "${clipped.slice(0, 80)}"`,
+          `AC7: clipboard content must be a substring of (or contain) the message text.\n  Message: "${msgText.slice(0, 80)}"\n  Clipboard: "${clipped.slice(0, 80)}"`
         ).toBe(true);
       } else {
         expect(clipboardText.trim().length, 'AC7: copied content should not be empty whitespace').toBeGreaterThan(2);
@@ -1494,8 +1838,7 @@ test.describe('AC25 攻击性：快速连点新会话', () => {
     await page.waitForTimeout(50);
     // 第2/3次：在按钮 DOM 消失前立即触发 click（evaluate 不等待 visibility）
     await page.evaluate(() => {
-      const btn = document.querySelector('[data-history-dropdown="true"]')
-        ?.querySelector('button, [role="button"]');
+      const btn = document.querySelector('[data-history-dropdown="true"]')?.querySelector('button, [role="button"]');
       if (btn) {
         (btn as HTMLElement).click();
         (btn as HTMLElement).click();
@@ -1542,7 +1885,7 @@ test.describe('AC25 攻击性：快速连点新会话', () => {
       // 如果是 2 或 3 个 → bug（连点创建了重复会话）
       expect(
         newlyCreated.length,
-        `AC25: rapid triple-click should create exactly 1 new conversation, but got ${newlyCreated.length} — possible duplicate creation bug`,
+        `AC25: rapid triple-click should create exactly 1 new conversation, but got ${newlyCreated.length} — possible duplicate creation bug`
       ).toBe(1);
 
       if (newlyCreated.length > 0) {
@@ -1553,9 +1896,8 @@ test.describe('AC25 攻击性：快速连点新会话', () => {
     await page.keyboard.press('Escape').catch(() => {});
 
     // 清理：删除所有新创建的会话（包括可能的重复创建）
-    const idsToClean = newlyCreated.length > 0
-      ? newlyCreated.map((c) => c.id)
-      : [finalId].filter(Boolean) as string[];
+    const idsToClean =
+      newlyCreated.length > 0 ? newlyCreated.map((c) => c.id) : ([finalId].filter(Boolean) as string[]);
     for (const id of idsToClean) {
       await invokeBridge(page, 'remove-conversation', { id }).catch(() => {});
     }

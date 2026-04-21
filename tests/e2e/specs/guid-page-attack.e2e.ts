@@ -198,7 +198,11 @@ test.describe('M1-A2: AC12 连续快速点击不同快速启动卡片', () => {
     await goToGuid(page);
     await waitForSettle(page);
     // beforeAll 注入了 isPreset:true agents，等待 cards 渲染完成（useCustomAgentsLoader async useEffect）
-    await page.locator(QUICK_START_CARD).first().waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});
+    await page
+      .locator(QUICK_START_CARD)
+      .first()
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .catch(() => {});
 
     // beforeAll 保证 ≥2 agents，cards 必须存在
     const cards = page.locator(QUICK_START_CARD);
@@ -261,7 +265,11 @@ test.describe('M1-A2: AC12 连续快速点击不同快速启动卡片', () => {
   test('连续点击不同卡片后，页面无 JS 错误', async ({ page }) => {
     await goToGuid(page);
     await waitForSettle(page);
-    await page.locator(QUICK_START_CARD).first().waitFor({ state: 'visible', timeout: 8_000 }).catch(() => {});
+    await page
+      .locator(QUICK_START_CARD)
+      .first()
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .catch(() => {});
 
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
