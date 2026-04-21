@@ -150,6 +150,7 @@ export type SessionSignal =
   | { type: 'turn_finished' }
   | { type: 'session_expired' }
   | { type: 'auth_required'; auth: AuthRequiredData }
+  | { type: 'process_crash'; exitCode: number | null; signal: string | null }
   | { type: 'error'; message: string; recoverable: boolean };
 
 // ─── Callbacks (Session → Application) ──────────────────────────

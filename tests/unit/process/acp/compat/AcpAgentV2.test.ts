@@ -1068,4 +1068,47 @@ describe('AcpAgentV2 - Config/Model/Mode Methods', () => {
       await expect(promise).resolves.toBeUndefined();
     });
   });
+
+  describe('process_crash signal', () => {
+    it('should emit finish with agentCrash:true on process_crash signal', async () => {
+      const agent = await createStartedAgent();
+      const signalEvents: Array<{ type: string; data: unknown }> = [];
+      agent.onSignalEvent = (msg) => signalEvents.push({ type: msg.type, data: msg.data });
+
+      capturedCallbacks.onSignal({ type: 'process_crash', exitCode: 1, signal: null });
+
+      expect(signalEvents).toHaveLength(2);
+      expect(signalEvents[0]).toMatchObject({ type: 'error' });
+      expect(signalEvents[1]).toMatchObject({
+        type: 'finish',
+        data: { agentCrash: true },
+      });
+    });
+
+    it('should include exit code and signal in error message', async () => {
+      const agent = await createStartedAgent();
+      const signalEvents: Array<{ type: string; data: unknown }> = [];
+      agent.onSignalEvent = (msg) => signalEvents.push({ type: msg.type, data: msg.data });
+
+      capturedCallbacks.onSignal({ type: 'process_crash', exitCode: 137, signal: 'SIGKILL' });
+
+      const errorData = signalEvents[1]?.data as { error: string; agentCrash: boolean };
+      expect(errorData.error).toContain('137');
+      expect(errorData.error).toContain('SIGKILL');
+      expect(errorData.agentCrash).toBe(true);
+    });
+
+    it('should not emit agentCrash for regular error signals', async () => {
+      const agent = await createStartedAgent();
+      const signalEvents: Array<{ type: string; data: unknown }> = [];
+      agent.onSignalEvent = (msg) => signalEvents.push({ type: msg.type, data: msg.data });
+
+      capturedCallbacks.onSignal({ type: 'error', message: 'some error', recoverable: true });
+
+      expect(signalEvents).toHaveLength(1);
+      expect(signalEvents[0]).toMatchObject({ type: 'error' });
+      // No finish with agentCrash
+      expect(signalEvents.find((e) => e.type === 'finish')).toBeUndefined();
+    });
+  });
 });

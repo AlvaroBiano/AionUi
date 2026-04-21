@@ -406,31 +406,32 @@ export class AcpAgentV2 {
             break;
 
           case 'error': {
-            // Detect process crash from error message keywords to emit agentCrash
-            // flag that TeammateManager.handleResponseStream relies on (V1 parity).
-            const isCrash =
-              event.message.includes('process exited unexpectedly') ||
-              event.message.includes('PROCESS_CRASHED') ||
-              event.message.includes('Process disconnected');
-
             this.onSignalEvent({
               type: 'error',
               conversation_id: this.conversationId,
               msg_id: `signal_${Date.now()}`,
               data: event.message,
             });
+            break;
+          }
 
-            if (isCrash) {
-              this.onSignalEvent({
-                type: 'finish',
-                conversation_id: this.conversationId,
-                msg_id: `finish_crash_${Date.now()}`,
-                data: {
-                  error: event.message,
-                  agentCrash: true,
-                },
-              });
-            }
+          case 'process_crash': {
+            const errorMsg = `process exited unexpectedly (code: ${event.exitCode ?? 'unknown'}, signal: ${event.signal ?? 'none'})`;
+            this.onSignalEvent({
+              type: 'error',
+              conversation_id: this.conversationId,
+              msg_id: `signal_${Date.now()}`,
+              data: errorMsg,
+            });
+            this.onSignalEvent({
+              type: 'finish',
+              conversation_id: this.conversationId,
+              msg_id: `finish_crash_${Date.now()}`,
+              data: {
+                error: errorMsg,
+                agentCrash: true,
+              },
+            });
             break;
           }
         }

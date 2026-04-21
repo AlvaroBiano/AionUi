@@ -397,11 +397,14 @@ export class AcpSession {
     }
   }
 
-  /** Emit error signal with exit info so TeammateManager can detect agent crash. */
+  /** Emit crash signal with exit info so upper layers can detect agent crash. */
   private emitCrashSignalIfProcessDied(info?: DisconnectInfo): void {
-    const msg = buildCrashMessage(info);
-    if (!msg) return;
-    this.callbacks.onSignal({ type: 'error', message: msg, recoverable: true });
+    if (!buildCrashMessage(info)) return;
+    this.callbacks.onSignal({
+      type: 'process_crash',
+      exitCode: info!.exitCode,
+      signal: info!.signal,
+    });
   }
 
   enterError(message: string): void {
