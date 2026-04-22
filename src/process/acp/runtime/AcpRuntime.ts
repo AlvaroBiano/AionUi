@@ -148,6 +148,13 @@ export class AcpRuntime implements IAgentManager {
     this._bootstrapping = false;
     this._status = 'running';
 
+    // Auto-start session if not yet started (warmup may have been skipped)
+    if (this.session.status === 'idle' || this.session.status === 'error') {
+      this.session.start();
+      // Wait for session to reach active state before sending
+      await this.waitForSessionReady();
+    }
+
     // 1. Persist user message immediately (UI sees it before agent init)
     this.persister.persist({
       msgId: data.msg_id ?? '',
@@ -511,5 +518,35 @@ export class AcpRuntime implements IAgentManager {
       },
     });
     this.dispatcher.emit('turn:completed', { ...ctx, backend: this.config.backend });
+  }
+
+  /**
+   * Wait for session to reach 'active' state (or fail).
+   * Used when sendMessage auto-starts a session that wasn't warmed up.
+   */
+  private waitForSessionReady(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Session failed to start within timeout'));
+      }, 60_000);
+
+      const check = () => {
+        const s = this.session.status;
+        switch (s) {
+          case 'active':
+          case 'prompting':
+            clearTimeout(timeout);
+            resolve();
+            break;
+          case 'error':
+            clearTimeout(timeout);
+            reject(new Error('Session entered error state during startup'));
+            break;
+          default:
+            setTimeout(check, 100);
+        }
+      };
+      check();
+    });
   }
 }
