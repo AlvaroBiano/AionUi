@@ -1,6 +1,5 @@
 // src/process/acp/types.ts
 
-import type { TMessage } from '@/common/chat/chatLib';
 import type {
   AuthMethod,
   ContentBlock,

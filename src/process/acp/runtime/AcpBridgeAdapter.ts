@@ -14,8 +14,8 @@
  */
 
 import type { AcpModelInfo, AcpSessionConfigOption } from '@/common/types/acpTypes';
-import { toAcpModelInfo, toAcpConfigOptions } from '@process/acp/compat/typeBridge';
-import type { AcpRuntime } from './AcpRuntime';
+import { toAcpConfigOptions, toAcpModelInfo } from '@process/acp/compat/typeBridge';
+import type { AcpRuntime } from '@process/acp/runtime/AcpRuntime';
 
 // ─── AcpBridgeAdapter ───────────────────────────────────────────────
 

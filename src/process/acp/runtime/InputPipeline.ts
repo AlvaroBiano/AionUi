@@ -1,9 +1,9 @@
 // src/process/acp/runtime/InputPipeline.ts
 
-import type { PromptContent } from '@process/acp/types';
 import type { ContentBlock } from '@agentclientprotocol/sdk';
-import * as path from 'path';
+import type { PromptContent } from '@process/acp/types';
 import * as fs from 'fs';
+import * as path from 'path';
 
 const AIONUI_FILES_MARKER = '[[AION_FILES]]';
 

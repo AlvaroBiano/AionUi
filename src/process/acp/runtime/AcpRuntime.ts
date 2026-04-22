@@ -17,12 +17,12 @@ import type {
 import type { AgentEventPayloadMap } from '@process/events/AgentEvents';
 import type { EventDispatcher } from '@process/events/EventDispatcher';
 import type { AgentKillReason, IAgentManager } from '@process/task/IAgentManager';
-import { createBackendPolicy, type BackendPolicy } from './BackendPolicy';
-import { InputPipeline, type InjectionContext } from './InputPipeline';
-import { OutputPipeline } from './OutputPipeline';
-import { PermissionGate, type PermissionGateCallbacks } from './PermissionGate';
-import { TurnTracker } from './TurnTracker';
-import { UserMessagePersister, type PersisterDeps } from './UserMessagePersister';
+import { createBackendPolicy, type BackendPolicy } from '@process/acp/runtime/BackendPolicy';
+import { InputPipeline, type InjectionContext } from '@process/acp/runtime/InputPipeline';
+import { OutputPipeline } from '@process/acp/runtime/OutputPipeline';
+import { PermissionGate, type PermissionGateCallbacks } from '@process/acp/runtime/PermissionGate';
+import { TurnTracker } from '@process/acp/runtime/TurnTracker';
+import { UserMessagePersister, type PersisterDeps } from '@process/acp/runtime/UserMessagePersister';
 
 // ─── TMessage → IResponseMessage bridge ─────────────────────────
 

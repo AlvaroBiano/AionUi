@@ -8,6 +8,7 @@ import type {
   TMessage,
 } from '@/common/chat/chatLib';
 import type { ToolCallContentItem, ToolCallLocationItem } from '@/common/types/acpTypes';
+import { uuid } from '@/common/utils';
 import type {
   ContentChunk,
   Plan,
@@ -20,7 +21,6 @@ import type {
   ToolKind,
 } from '@agentclientprotocol/sdk';
 import { extractAndStripThinkTags } from '@process/task/ThinkTagDetector';
-import { uuid } from '@/common/utils';
 
 // ─── SDK → Application type mappers ─────────────────────────────
 
