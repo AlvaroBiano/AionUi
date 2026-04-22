@@ -15,8 +15,8 @@
  */
 
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
-import type { EventDispatcher } from './EventDispatcher';
-import type { AgentEventMap } from './AgentEvents';
+import type { AgentEventPayloadMap } from '@process/events/AgentEvents';
+import type { EventDispatcher } from '@process/events/EventDispatcher';
 
 // ─── Dependency interfaces (injected, not imported) ─────────────
 
@@ -52,7 +52,7 @@ export type SkillWatcher = {
  * Replaces direct `ipcBridge.*.responseStream.emit(msg)` calls in AgentManagers.
  */
 export function registerBridgeSubscriber(
-  dispatcher: EventDispatcher<AgentEventMap>,
+  dispatcher: EventDispatcher<AgentEventPayloadMap>,
   ipcStream: IpcStreamEmitter
 ): void {
   dispatcher.on('agent:stream', (p) => ipcStream.emit(p.message), 'BridgeSubscriber:stream');
@@ -64,7 +64,7 @@ export function registerBridgeSubscriber(
  * Team subscriber: forwards terminal events (finish/error) to TeammateManager.
  * Replaces `teamEventBus.emit('responseStream', msg)` — only finish and error.
  */
-export function registerTeamSubscriber(dispatcher: EventDispatcher<AgentEventMap>, teamBus: TeamBus): void {
+export function registerTeamSubscriber(dispatcher: EventDispatcher<AgentEventPayloadMap>, teamBus: TeamBus): void {
   dispatcher.on('agent:finish', (p) => teamBus.emit('responseStream', p.message), 'TeamSubscriber:finish');
   dispatcher.on('agent:error', (p) => teamBus.emit('responseStream', p.message), 'TeamSubscriber:error');
 }
@@ -73,7 +73,10 @@ export function registerTeamSubscriber(dispatcher: EventDispatcher<AgentEventMap
  * Channel subscriber: forwards all agent events to ChannelMessageService.
  * Replaces `channelEventBus.emitAgentMessage(conversationId, msg)`.
  */
-export function registerChannelSubscriber(dispatcher: EventDispatcher<AgentEventMap>, channelBus: ChannelBus): void {
+export function registerChannelSubscriber(
+  dispatcher: EventDispatcher<AgentEventPayloadMap>,
+  channelBus: ChannelBus
+): void {
   dispatcher.on(
     'agent:stream',
     (p) => channelBus.emitAgentMessage(p.conversationId, p.message),
@@ -95,7 +98,7 @@ export function registerChannelSubscriber(dispatcher: EventDispatcher<AgentEvent
  * Cron subscriber: tracks conversation processing state for cron service.
  * Replaces `cronBusyGuard.setProcessing(id, true/false)` in AgentManagers.
  */
-export function registerCronSubscriber(dispatcher: EventDispatcher<AgentEventMap>, cronGuard: CronGuard): void {
+export function registerCronSubscriber(dispatcher: EventDispatcher<AgentEventPayloadMap>, cronGuard: CronGuard): void {
   dispatcher.on('turn:started', (p) => cronGuard.setProcessing(p.conversationId, true), 'CronSubscriber:started');
   dispatcher.on('turn:completed', (p) => cronGuard.setProcessing(p.conversationId, false), 'CronSubscriber:completed');
 }
@@ -105,7 +108,7 @@ export function registerCronSubscriber(dispatcher: EventDispatcher<AgentEventMap
  * Replaces `skillSuggestWatcher.onFinish(conversationId)` in AgentManagers.
  */
 export function registerSkillSuggestSubscriber(
-  dispatcher: EventDispatcher<AgentEventMap>,
+  dispatcher: EventDispatcher<AgentEventPayloadMap>,
   skillWatcher: SkillWatcher
 ): void {
   dispatcher.on('turn:completed', (p) => skillWatcher.onFinish(p.conversationId), 'SkillSuggestSubscriber');

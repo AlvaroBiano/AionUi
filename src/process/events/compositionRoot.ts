@@ -10,30 +10,30 @@
  * To see all active subscribers: read this file top to bottom.
  */
 
-import { EventDispatcher } from './EventDispatcher';
-import type { AgentEventMap } from './AgentEvents';
+import type { AgentEventPayloadMap } from '@process/events/AgentEvents';
+import { registerTeamGuideConfiguringHandler, registerUserMcpConfiguringHandler } from '@process/events/configuringHandlers';
+import { EventDispatcher } from '@process/events/EventDispatcher';
 import {
   registerBridgeSubscriber,
-  registerTeamSubscriber,
   registerChannelSubscriber,
   registerCronSubscriber,
   registerSkillSuggestSubscriber,
-} from './subscribers';
-import { registerTeamGuideConfiguringHandler, registerUserMcpConfiguringHandler } from './configuringHandlers';
+  registerTeamSubscriber,
+} from '@process/events/subscribers';
 
 // Lazy imports to avoid circular dependencies at module scope.
 // These are resolved once when createAgentEventDispatcher() is called.
 
-let _dispatcher: EventDispatcher<AgentEventMap> | null = null;
+let _dispatcher: EventDispatcher<AgentEventPayloadMap> | null = null;
 
 /**
  * Create and configure the shared agent event dispatcher.
  * Returns the same instance on subsequent calls (singleton).
  */
-export function getAgentEventDispatcher(): EventDispatcher<AgentEventMap> {
+export function getAgentEventDispatcher(): EventDispatcher<AgentEventPayloadMap> {
   if (_dispatcher) return _dispatcher;
 
-  _dispatcher = new EventDispatcher<AgentEventMap>();
+  _dispatcher = new EventDispatcher<AgentEventPayloadMap>();
 
   // ── Register subscribers ──────────────────────────────────────
 

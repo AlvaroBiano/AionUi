@@ -1,10 +1,9 @@
 // src/process/acp/runtime/AcpRuntime.ts
 
-import type { IConfirmation } from '@/common/chat/chatLib';
-import type { AcpPermissionOption } from '@/common/types/acpTypes';
-import type { CronMessageMeta } from '@/common/chat/chatLib';
-import type { SessionNotification } from '@agentclientprotocol/sdk';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
+import type { CronMessageMeta, IConfirmation } from '@/common/chat/chatLib';
+import type { AcpPermissionOption } from '@/common/types/acpTypes';
+import type { SessionNotification } from '@agentclientprotocol/sdk';
 import type { ClientFactory } from '@process/acp/infra/IAcpClient';
 import { AcpSession, type SessionOptions } from '@process/acp/session/AcpSession';
 import type {
@@ -15,9 +14,9 @@ import type {
   SessionSignal,
   SessionStatus,
 } from '@process/acp/types';
-import type { AgentKillReason, IAgentManager } from '@process/task/IAgentManager';
+import type { AgentEventPayloadMap } from '@process/events/AgentEvents';
 import type { EventDispatcher } from '@process/events/EventDispatcher';
-import type { AgentEventMap } from '@process/events/AgentEvents';
+import type { AgentKillReason, IAgentManager } from '@process/task/IAgentManager';
 import { createBackendPolicy, type BackendPolicy } from './BackendPolicy';
 import { InputPipeline, type InjectionContext } from './InputPipeline';
 import { OutputPipeline } from './OutputPipeline';
@@ -66,7 +65,7 @@ export type AcpRuntimeConfig = {
   permissionCallbacks: PermissionGateCallbacks;
 
   // EventDispatcher — all fan-out goes through here
-  dispatcher: EventDispatcher<AgentEventMap>;
+  dispatcher: EventDispatcher<AgentEventPayloadMap>;
 };
 
 // ─── AcpRuntime ─────────────────────────────────────────────────
@@ -96,7 +95,7 @@ export class AcpRuntime implements IAgentManager {
   private readonly backendPolicy: BackendPolicy;
   private readonly permissionGate: PermissionGate;
   private readonly persister: UserMessagePersister;
-  private readonly dispatcher: EventDispatcher<AgentEventMap>;
+  private readonly dispatcher: EventDispatcher<AgentEventPayloadMap>;
 
   private readonly config: AcpRuntimeConfig;
 

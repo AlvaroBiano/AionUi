@@ -100,7 +100,7 @@ export type AgentConfiguringPayload = AgentEventContext & {
  * - context:*  — context usage
  * - session:*  — session lifecycle
  */
-export type AgentEventMap = {
+export type AgentEventPayloadMap = {
   // ── Output (agent → consumers) ──
   // Every stream message (content, tool_call, thinking, plan, status, etc.)
   'agent:stream': AgentStreamPayload;

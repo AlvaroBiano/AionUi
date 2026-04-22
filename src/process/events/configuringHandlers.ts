@@ -9,8 +9,8 @@
  * Replaces hardcoded MCP injection in the old AcpRuntime.createConversation().
  */
 
-import type { EventDispatcher } from './EventDispatcher';
-import type { AgentConfiguringPayload, AgentEventMap } from './AgentEvents';
+import type { AgentConfiguringPayload, AgentEventPayloadMap } from '@process/events/AgentEvents';
+import type { EventDispatcher } from '@process/events/EventDispatcher';
 
 // ─── Dependency interfaces ──────────────────────────────────────
 
@@ -39,7 +39,7 @@ export type UserMcpProvider = {
  * Gives the agent access to the aion_create_team tool.
  */
 export function registerTeamGuideConfiguringHandler(
-  dispatcher: EventDispatcher<AgentEventMap>,
+  dispatcher: EventDispatcher<AgentEventPayloadMap>,
   provider: TeamGuideProvider
 ): void {
   dispatcher.onWaterfall(
@@ -73,7 +73,7 @@ export function registerTeamGuideConfiguringHandler(
  * Filtered by cached agent MCP capabilities.
  */
 export function registerUserMcpConfiguringHandler(
-  dispatcher: EventDispatcher<AgentEventMap>,
+  dispatcher: EventDispatcher<AgentEventPayloadMap>,
   provider: UserMcpProvider
 ): void {
   dispatcher.onWaterfall(
