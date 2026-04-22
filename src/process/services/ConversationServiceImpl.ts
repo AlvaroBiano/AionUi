@@ -57,6 +57,9 @@ export class ConversationServiceImpl implements IConversationService {
 
   async createWithMigration(params: MigrateConversationParams): Promise<TChatConversation> {
     const { conversation, sourceConversationId, migrateCron } = params;
+    if (!conversation.id) {
+      throw new Error('createWithMigration: conversation.id is required');
+    }
     const conv: TChatConversation = {
       ...conversation,
       createTime: conversation.createTime ?? Date.now(),

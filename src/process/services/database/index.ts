@@ -538,6 +538,12 @@ export class AionUIDatabase {
 
   createConversation(conversation: TChatConversation, userId?: string): IQueryResult<TChatConversation> {
     try {
+      if (!conversation.id) {
+        return {
+          success: false,
+          error: 'createConversation: conversation.id is required',
+        };
+      }
       const row = conversationToRow(conversation, userId || this.defaultUserId);
 
       const stmt = this.db.prepare(`

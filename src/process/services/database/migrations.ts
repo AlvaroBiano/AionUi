@@ -1214,6 +1214,61 @@ const migration_v26: IMigration = {
 };
 
 /**
+ * Migration v26 -> v27: Enforce NOT NULL on conversations.id
+ *
+ * SQLite historically allows NULL in a `TEXT PRIMARY KEY` column (only
+ * `INTEGER PRIMARY KEY` enforces NOT NULL implicitly). A defect in the upper
+ * service layer was able to insert a row with id = NULL, which then poisoned
+ * queries that look up conversations by id. This migration rebuilds the table
+ * with an explicit `NOT NULL` on id and drops any pre-existing NULL rows.
+ */
+const migration_v27: IMigration = {
+  version: 27,
+  name: 'Enforce NOT NULL on conversations.id',
+  up: (db) => {
+    db.exec(`CREATE TABLE IF NOT EXISTS conversations_new (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        extra TEXT NOT NULL,
+        model TEXT,
+        status TEXT,
+        source TEXT,
+        channel_chat_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`);
+    const orphanCount = (db.prepare('SELECT COUNT(*) AS n FROM conversations WHERE id IS NULL').get() as { n: number })
+      .n;
+    if (orphanCount > 0) {
+      console.warn(`[Migration v27] Dropping ${orphanCount} conversation row(s) with NULL id`);
+    }
+    db.exec(`INSERT INTO conversations_new (id, user_id, name, type, extra, model, status, source, channel_chat_id, created_at, updated_at)
+      SELECT id, user_id, name, type, extra, model, status, source, channel_chat_id, created_at, updated_at FROM conversations WHERE id IS NOT NULL`);
+    db.exec('DROP TABLE conversations');
+    db.exec('ALTER TABLE conversations_new RENAME TO conversations');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_source ON conversations(source)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_source_updated ON conversations(source, updated_at DESC)');
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_conversations_source_chat ON conversations(source, channel_chat_id, updated_at DESC)'
+    );
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_conversations_cron_job_id ON conversations(json_extract(extra, '$.cronJobId'))`
+    );
+    console.log('[Migration v27] Enforced NOT NULL on conversations.id');
+  },
+  down: (_db) => {
+    console.warn('[Migration v27] Rollback skipped: removing NOT NULL would reintroduce the defect.');
+  },
+};
+
+/**
  * All migrations in order
  */
 // prettier-ignore
@@ -1222,7 +1277,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12,
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
-  migration_v25, migration_v26,
+  migration_v25, migration_v26, migration_v27,
 ];
 
 /**
