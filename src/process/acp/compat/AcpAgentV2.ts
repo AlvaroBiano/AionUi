@@ -5,7 +5,7 @@ import { NavigationInterceptor } from '@/common/chat/navigation';
 import type { AcpModelInfo, AcpResult, AcpSessionConfigOption } from '@/common/types/acpTypes';
 import { AcpErrorType, parseInitializeResult } from '@/common/types/acpTypes';
 import { getFullAutoMode } from '@/common/types/agentModes';
-import { LegacyConnectorFactory } from '@process/acp/compat/LegacyConnectorFactory';
+import { AcpClientFactory } from '@process/acp/infra/AcpClientFactory';
 import {
   loadAuthCredentials,
   mapAcpErrorCodeToType,
@@ -195,7 +195,7 @@ export class AcpAgentV2 {
     }
 
     const callbacks: SessionCallbacks = this.buildCallbacks();
-    const clientFactory = new LegacyConnectorFactory();
+    const clientFactory = new AcpClientFactory();
 
     // Resolve prompt timeout: per-backend → global → default (300s)
     const acpConfig = (await ProcessConfig.get('acp.config')) as Record<string, { promptTimeout?: number }> | undefined;

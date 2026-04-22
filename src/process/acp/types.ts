@@ -69,7 +69,8 @@ export type SessionStatus = 'idle' | 'starting' | 'active' | 'prompting' | 'susp
 // Re-export AgentStatus as the stable external status for session callbacks.
 // AgentStatus ('idle'|'running'|'ready'|'error') is the 4-state subset that
 // consumers see. Internal transitions (starting/prompting/resuming) are hidden.
-export type { AgentStatus } from '@process/task/agentTypes';
+import type { AgentStatus as _AgentStatus } from '@process/task/agentTypes';
+export type AgentStatus = _AgentStatus;
 
 // ─── Initial Desired Config ─────────────────────────────────────
 

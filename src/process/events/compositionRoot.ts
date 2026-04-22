@@ -44,7 +44,7 @@ export function getAgentEventDispatcher(): EventDispatcher<AgentEventPayloadMap>
   //    Lazy-imported because ipcBridge has side effects at import time.
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { ipcBridge } = require('@/common/adapter/ipcBridge');
+    const ipcBridge = require('@/common/adapter/ipcBridge');
     registerBridgeSubscriber(_dispatcher, ipcBridge.conversation.responseStream);
   } catch {
     console.warn('[compositionRoot] ipcBridge not available — BridgeSubscriber skipped');

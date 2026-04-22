@@ -10,7 +10,7 @@ import type { TChatConversation } from '@/common/config/storage';
 import type { AcpBackend } from '@/common/types/acpTypes';
 import { ACP_BACKENDS_ALL } from '@/common/types/acpTypes';
 import type { AcpClient } from '@process/acp/infra/IAcpClient';
-import { LegacyConnectorFactory } from '@process/acp/compat/LegacyConnectorFactory';
+import { AcpClientFactory } from '@process/acp/infra/AcpClientFactory';
 import type { IConversationService } from '@process/services/IConversationService';
 import { ProcessConfig } from '@process/utils/initStorage';
 
@@ -84,7 +84,7 @@ export class ConversationSideQuestionService {
     // Reference to client, captured by handlers below and set after creation.
     let clientRef: AcpClient | null = null;
 
-    const factory = new LegacyConnectorFactory();
+    const factory = new AcpClientFactory();
     const client = factory.create(
       {
         agentBackend: context.backend,

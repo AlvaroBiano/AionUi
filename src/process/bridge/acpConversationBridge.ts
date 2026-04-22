@@ -13,7 +13,7 @@ import { GeminiAgentManager } from '@process/task/GeminiAgentManager';
 import { AionrsManager } from '@process/task/AionrsManager';
 import { mcpService } from '@/process/services/mcpServices/McpService';
 import { ipcBridge } from '@/common';
-import { LegacyConnectorFactory } from '@process/acp/compat/LegacyConnectorFactory';
+import { AcpClientFactory } from '@process/acp/infra/AcpClientFactory';
 import { noopProtocolHandlers } from '@process/acp/types';
 import * as os from 'os';
 
@@ -108,7 +108,7 @@ export function initAcpConversationBridge(workerTaskManager: IWorkerTaskManager)
     const acpArgs = acpAgent?.acpArgs;
 
     // Step 2: For ACP-based agents (claude, codex, gemini, qwen, etc.)
-    const factory = new LegacyConnectorFactory();
+    const factory = new AcpClientFactory();
     const client = factory.create(
       {
         agentBackend: backend,

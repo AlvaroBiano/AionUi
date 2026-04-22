@@ -18,11 +18,12 @@ import NanoBotAgentManager from './NanoBotAgentManager';
 import RemoteAgentManager from './RemoteAgentManager';
 import { AionrsManager } from './AionrsManager';
 import { AcpRuntime } from '@process/acp/runtime/AcpRuntime';
-import { LegacyConnectorFactory } from '@process/acp/compat/LegacyConnectorFactory';
-import { toAgentConfig } from '@process/acp/compat/typeBridge';
+import { AcpClientFactory } from '@process/acp/infra/AcpClientFactory';
 import { getAgentEventDispatcher } from '@process/events/compositionRoot';
-import { ipcBridge } from '@/common/adapter/ipcBridge';
 import { getDatabase } from '@process/services/database/export';
+import { ipcBridge } from '@/common';
+import type { AgentConfig, InitialDesiredConfig } from '@process/acp/types';
+import type { McpServer } from '@agentclientprotocol/sdk';
 
 const agentFactory = new AgentFactory();
 
@@ -41,53 +42,65 @@ agentFactory.register('acp', (conv, opts) => {
   const extra = c.extra ?? {};
   const backend = extra.backend ?? 'claude';
   const conversationId = c.id;
+  const workspace = extra.workspace ?? process.cwd();
 
-  // Build AgentConfig from conversation.extra (same mapping as old AcpAgentManager)
-  const agentConfig = toAgentConfig({
-    id: conversationId,
-    backend,
-    cliPath: extra.cliPath,
-    workingDir: extra.workspace ?? process.cwd(),
-    customArgs: extra.customArgs,
-    customEnv: extra.customEnv,
-    extra: {
-      ...extra,
-      yoloMode: opts?.yoloMode ?? extra.yoloMode,
-      currentModelId: extra.currentModelId ?? (backend === 'gemini' ? c.model?.useModel : undefined),
-    },
-    onStreamEvent: () => {},
-  });
+  // Build AgentConfig directly from conversation.extra
+  const initialDesired: InitialDesiredConfig = {};
+  if (extra.currentModelId) initialDesired.model = extra.currentModelId;
+  if (extra.sessionMode) initialDesired.mode = extra.sessionMode;
+  if (extra.pendingConfigOptions && Object.keys(extra.pendingConfigOptions).length > 0) {
+    initialDesired.configOptions = extra.pendingConfigOptions;
+  }
 
-  const dispatcher = getAgentEventDispatcher();
+  let teamMcpConfig: McpServer | undefined;
+  if (extra.teamMcpStdioConfig) {
+    teamMcpConfig = {
+      name: extra.teamMcpStdioConfig.name,
+      command: extra.teamMcpStdioConfig.command,
+      args: extra.teamMcpStdioConfig.args,
+      env: extra.teamMcpStdioConfig.env,
+    };
+  }
+
+  const agentConfig: AgentConfig = {
+    agentBackend: backend,
+    agentSource: 'extension',
+    agentId: conversationId,
+    command: extra.cliPath,
+    args: extra.customArgs,
+    env: extra.customEnv,
+    cwd: workspace,
+    teamMcpConfig,
+    resumeSessionId: extra.acpSessionId,
+    initialDesired: Object.keys(initialDesired).length > 0 ? initialDesired : undefined,
+    yoloMode: opts?.yoloMode ?? extra.yoloMode,
+  };
 
   const runtime = new AcpRuntime({
     conversation_id: conversationId,
-    workspace: extra.workspace ?? process.cwd(),
+    workspace,
     agentConfig,
-    clientFactory: new LegacyConnectorFactory(),
+    clientFactory: new AcpClientFactory(),
     backend,
     yoloMode: opts?.yoloMode ?? extra.yoloMode,
     presetContext: extra.presetContext,
     enabledSkills: extra.enabledSkills,
     excludeBuiltinSkills: extra.excludeBuiltinSkills,
-    isInTeam: !!extra.teamMcpStdioConfig,
-
-    dispatcher,
-
+    isInTeam: !!teamMcpConfig,
+    dispatcher: getAgentEventDispatcher(),
     persisterDeps: {
       addMessage: (cid, msg) => {
         void getDatabase()
-          .then((db) => db.addMessage(cid, msg))
+          .then((db) => db.insertMessage({ ...msg, conversation_id: cid }))
           .catch(() => {});
       },
-      updateConversation: async (_cid) => {
-        // Touch conversation for sidebar sorting — deferred to PersistenceSubscriber
+      updateConversation: async () => {
+        // Sidebar sorting touch — deferred to PersistenceSubscriber
       },
       emitToRenderer: (msg) => {
         ipcBridge.conversation.responseStream.emit(msg);
       },
     },
-
     permissionCallbacks: {
       onConfirmationAdded: (cid, confirmation) => {
         ipcBridge.conversation.responseStream.emit({

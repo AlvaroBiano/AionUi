@@ -1,18 +1,11 @@
-// src/process/acp/compat/LegacyConnectorFactory.ts
+// src/process/acp/infra/AcpClientFactory.ts
 
 /**
- * Bridges old backend-specific connector logic (acpConnectors.ts) into
- * the new ClientFactory interface used by AcpSession.
+ * CLI process spawner for ACP agent backends.
  *
- * For npx-based backends (claude, codex, codebuddy) this reuses the
- * battle-tested connect*() functions which handle:
- *  - Full shell environment loading (API keys from .zshrc)
- *  - npx resolution and Node.js version checking
- *  - Phase 1 (prefer-offline) / Phase 2 (fresh) retry
- *  - Cached binary resolution (codex)
- *  - detached process spawning on Unix
- *
- * For all other backends this delegates to spawnGenericBackend().
+ * For npx-based backends (claude, codex, codebuddy): uses battle-tested
+ * connect*() functions with full shell env, npx resolution, retry logic.
+ * For all other backends: delegates to spawnGenericBackend().
  */
 
 import type { AcpClient, ClientFactory } from '@process/acp/infra/IAcpClient';
@@ -37,7 +30,7 @@ const NPX_BACKENDS: Record<string, BuiltinConnectFn> = {
   codebuddy: connectCodebuddy,
 };
 
-export class LegacyConnectorFactory implements ClientFactory {
+export class AcpClientFactory implements ClientFactory {
   create(config: AgentConfig, handlers: ProtocolHandlers): AcpClient {
     const spawnFn = () => spawnLegacyChild(config);
     return new ProcessAcpClient(spawnFn, { backend: config.agentBackend, handlers });
