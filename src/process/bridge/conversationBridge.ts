@@ -20,6 +20,8 @@ import {
   ProcessConfig,
 } from '@process/utils/initStorage';
 import type AcpAgentManager from '../task/AcpAgentManager';
+import { AcpBridgeAdapter } from '@process/acp/runtime/AcpBridgeAdapter';
+import type { AcpRuntime } from '@process/acp/runtime/AcpRuntime';
 import type { GeminiAgentManager } from '../task/GeminiAgentManager';
 import { AionrsApprovalStore, type AionrsManager } from '../task/AionrsManager';
 import type OpenClawAgentManager from '../task/OpenClawAgentManager';
@@ -352,7 +354,8 @@ export function initConversationBridge(
       }
       const task = await workerTaskManager.getOrBuildTask(conversation_id);
       if (task && task.type === 'acp') {
-        await (task as unknown as AcpAgentManager).initAgent();
+        const adapter = new AcpBridgeAdapter(task as AcpRuntime);
+        adapter.initAgent();
       }
     } catch {
       // Ignore errors — warmup is best-effort
@@ -457,12 +460,13 @@ export function initConversationBridge(
       }
 
       // Use getTask (cache-only) to avoid spawning a worker process on read-only queries
-      const task = workerTaskManager.getTask(conversation_id) as unknown as AcpAgentManager | undefined;
+      const task = workerTaskManager.getTask(conversation_id);
       if (!task || task.type !== 'acp') {
         return { success: true, data: { commands: [] } };
       }
 
-      const commands = await task.loadAcpSlashCommands();
+      const adapter = new AcpBridgeAdapter(task as AcpRuntime);
+      const commands = adapter.loadAcpSlashCommands();
       return { success: true, data: { commands } };
     } catch (error) {
       return {

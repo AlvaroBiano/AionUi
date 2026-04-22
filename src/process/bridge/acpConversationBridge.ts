@@ -7,7 +7,8 @@
 import { agentRegistry } from '@process/agent/AgentRegistry';
 import { isAgentKind } from '@/common/types/detectedAgent';
 import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
-import AcpAgentManager from '@process/task/AcpAgentManager';
+import { AcpBridgeAdapter } from '@process/acp/runtime/AcpBridgeAdapter';
+import type { AcpRuntime } from '@process/acp/runtime/AcpRuntime';
 import { GeminiAgentManager } from '@process/task/GeminiAgentManager';
 import { AionrsManager } from '@process/task/AionrsManager';
 import { mcpService } from '@/process/services/mcpServices/McpService';
@@ -167,26 +168,34 @@ export function initAcpConversationBridge(workerTaskManager: IWorkerTaskManager)
 
   ipcBridge.acpConversation.getMode.provider(({ conversationId }) => {
     const task = workerTaskManager.getTask(conversationId);
-    if (
-      !task ||
-      !(task instanceof AcpAgentManager || task instanceof GeminiAgentManager || task instanceof AionrsManager)
-    ) {
+    if (!task) {
       return Promise.resolve({
         success: true,
         data: { mode: 'default', initialized: false },
       });
     }
-    return Promise.resolve({ success: true, data: task.getMode() });
+    if (task.type === 'acp') {
+      const adapter = new AcpBridgeAdapter(task as AcpRuntime);
+      return Promise.resolve({ success: true, data: adapter.getMode() });
+    }
+    if (task instanceof GeminiAgentManager || task instanceof AionrsManager) {
+      return Promise.resolve({ success: true, data: task.getMode() });
+    }
+    return Promise.resolve({
+      success: true,
+      data: { mode: 'default', initialized: false },
+    });
   });
 
   ipcBridge.acpConversation.getModelInfo.provider(({ conversationId }) => {
     const task = workerTaskManager.getTask(conversationId);
-    if (!task || !(task instanceof AcpAgentManager)) {
+    if (!task || task.type !== 'acp') {
       return Promise.resolve({ success: true, data: { modelInfo: null } });
     }
+    const adapter = new AcpBridgeAdapter(task as AcpRuntime);
     return Promise.resolve({
       success: true,
-      data: { modelInfo: task.getModelInfo() },
+      data: { modelInfo: adapter.getModelInfo() },
     });
   });
 
@@ -195,15 +204,16 @@ export function initAcpConversationBridge(workerTaskManager: IWorkerTaskManager)
   ipcBridge.acpConversation.setModel.provider(async ({ conversationId, modelId }) => {
     try {
       const task = await workerTaskManager.getOrBuildTask(conversationId);
-      if (!task || !(task instanceof AcpAgentManager)) {
+      if (!task || task.type !== 'acp') {
         return {
           success: false,
           msg: 'Conversation not found or not an ACP agent',
         };
       }
+      const adapter = new AcpBridgeAdapter(task as AcpRuntime);
       return {
         success: true,
-        data: { modelInfo: await task.setModel(modelId) },
+        data: { modelInfo: await adapter.setModel(modelId) },
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -217,13 +227,17 @@ export function initAcpConversationBridge(workerTaskManager: IWorkerTaskManager)
       if (!task) {
         return { success: false, msg: 'Conversation not found' };
       }
-      if (!(task instanceof AcpAgentManager || task instanceof GeminiAgentManager || task instanceof AionrsManager)) {
-        return {
-          success: false,
-          msg: 'Mode switching not supported for this agent type',
-        };
+      if (task.type === 'acp') {
+        const adapter = new AcpBridgeAdapter(task as AcpRuntime);
+        return await adapter.setMode(mode);
       }
-      return await task.setMode(mode);
+      if (task instanceof GeminiAgentManager || task instanceof AionrsManager) {
+        return await task.setMode(mode);
+      }
+      return {
+        success: false,
+        msg: 'Mode switching not supported for this agent type',
+      };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       return { success: false, msg: errorMsg };
@@ -232,25 +246,27 @@ export function initAcpConversationBridge(workerTaskManager: IWorkerTaskManager)
 
   ipcBridge.acpConversation.getConfigOptions.provider(({ conversationId }) => {
     const task = workerTaskManager.getTask(conversationId);
-    if (!task || !(task instanceof AcpAgentManager)) {
+    if (!task || task.type !== 'acp') {
       return Promise.resolve({ success: true, data: { configOptions: [] } });
     }
+    const adapter = new AcpBridgeAdapter(task as AcpRuntime);
     return Promise.resolve({
       success: true,
-      data: { configOptions: task.getConfigOptions() },
+      data: { configOptions: adapter.getConfigOptions() },
     });
   });
 
   ipcBridge.acpConversation.setConfigOption.provider(async ({ conversationId, configId, value }) => {
     try {
       const task = await workerTaskManager.getOrBuildTask(conversationId);
-      if (!task || !(task instanceof AcpAgentManager)) {
+      if (!task || task.type !== 'acp') {
         return {
           success: false,
           msg: 'Conversation not found or not an ACP agent',
         };
       }
-      const configOptions = await task.setConfigOption(configId, value);
+      const adapter = new AcpBridgeAdapter(task as AcpRuntime);
+      const configOptions = await adapter.setConfigOption(configId, value);
       return { success: true, data: { configOptions } };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
