@@ -11,7 +11,10 @@
  */
 
 import type { AgentEventPayloadMap } from '@process/events/AgentEvents';
-import { registerTeamGuideConfiguringHandler, registerUserMcpConfiguringHandler } from '@process/events/configuringHandlers';
+import {
+  registerTeamGuideConfiguringHandler,
+  registerUserMcpConfiguringHandler,
+} from '@process/events/configuringHandlers';
 import { EventDispatcher } from '@process/events/EventDispatcher';
 import {
   registerBridgeSubscriber,

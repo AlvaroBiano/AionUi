@@ -283,6 +283,25 @@ export class AcpRuntime implements IAgentManager {
     return this.session.status;
   }
 
+  // ─── Snapshot access (for BridgeCompat) ───────────────────────
+
+  /** Read-only access to current model/mode/config snapshots. */
+  getModelSnapshot() {
+    return this.session.configTracker.modelSnapshot();
+  }
+
+  getModeSnapshot() {
+    return this.session.configTracker.modeSnapshot();
+  }
+
+  getConfigSnapshot() {
+    return this.session.configTracker.configSnapshot();
+  }
+
+  getAvailableCommands() {
+    return this.session.configTracker.configSnapshot().availableCommands;
+  }
+
   // ─── Session callbacks ────────────────────────────────────────
 
   private buildSessionCallbacks(): SessionCallbacks {
