@@ -140,10 +140,6 @@ function registerWellnessStateListener(): void {
   wellnessStateListener = (state: PetState) => {
     if (wellnessPending && WELLNESS_READY_STATES.has(state)) {
       wellnessPending = false;
-      // User finally sees the reminder → count this as shown (one ignore tick).
-      // Without it, a reminder surfaced after a long busy stretch would skip the
-      // backoff and re-fire at the base interval as if nothing happened.
-      wellnessConsecutiveIgnores++;
       applyThirstyState();
       scheduleNextWellnessReminder();
     }
@@ -166,8 +162,11 @@ function stopWellnessTimer(): void {
 
 function scheduleNextWellnessReminder(): void {
   if (!wellnessActive) return;
+  // Attempt late registration in case stateMachine was null when startWellnessTimer ran.
+  registerWellnessStateListener();
   const backoffMs = Math.min(wellnessIntervalMs * Math.pow(2, wellnessConsecutiveIgnores), MAX_WATER_INTERVAL_MS);
   wellnessTimer = setTimeout(() => {
+    registerWellnessStateListener();
     fireWellnessReminder();
   }, backoffMs);
 }
@@ -178,9 +177,6 @@ function fireWellnessReminder(): void {
   const current = stateMachine.getCurrentState();
   if (WELLNESS_READY_STATES.has(current)) {
     applyThirstyState();
-    // User actually saw the reminder — count as an ignore tick that factors into
-    // the backoff if they don't interact. The listener path does this itself.
-    wellnessConsecutiveIgnores++;
     scheduleNextWellnessReminder();
     return;
   }
@@ -196,6 +192,7 @@ function fireWellnessReminder(): void {
 function applyThirstyState(): void {
   if (!stateMachine || !idleTicker) return;
   idleTicker.resetIdle();
+  wellnessConsecutiveIgnores++;
   stateMachine.requestState('thirsty');
 }
 

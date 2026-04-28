@@ -166,23 +166,21 @@ const PetSettings: React.FC = () => {
       key: 'wellnessWater',
       label: t('pet.wellnessWater'),
       description: t('pet.wellnessWaterDescription'),
-      component: <Switch checked={waterEnabled} onChange={handleWaterEnabledChange} disabled={!enabled} />,
-    },
-    {
-      key: 'wellnessWaterInterval',
-      label: t('pet.wellnessWaterInterval'),
       component: (
-        <Select
-          value={waterInterval}
-          onChange={handleWaterIntervalChange}
-          disabled={!enabled || !waterEnabled}
-          style={{ width: 140 }}
-        >
-          <Select.Option value={30 * 60_000}>{t('pet.wellnessInterval30')}</Select.Option>
-          <Select.Option value={45 * 60_000}>{t('pet.wellnessInterval45')}</Select.Option>
-          <Select.Option value={60 * 60_000}>{t('pet.wellnessInterval60')}</Select.Option>
-          <Select.Option value={90 * 60_000}>{t('pet.wellnessInterval90')}</Select.Option>
-        </Select>
+        <div className='flex flex-wrap items-center justify-end gap-8px'>
+          <Select
+            value={waterInterval}
+            onChange={handleWaterIntervalChange}
+            disabled={!enabled || !waterEnabled}
+            style={{ width: 120 }}
+          >
+            <Select.Option value={30 * 60_000}>{t('pet.wellnessInterval30')}</Select.Option>
+            <Select.Option value={45 * 60_000}>{t('pet.wellnessInterval45')}</Select.Option>
+            <Select.Option value={60 * 60_000}>{t('pet.wellnessInterval60')}</Select.Option>
+            <Select.Option value={90 * 60_000}>{t('pet.wellnessInterval90')}</Select.Option>
+          </Select>
+          <Switch checked={waterEnabled} onChange={handleWaterEnabledChange} disabled={!enabled} />
+        </div>
       ),
     },
   ];
