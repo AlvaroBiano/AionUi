@@ -90,7 +90,7 @@ function resolveCodexAcpPlatformPackage(): string | null {
 }
 
 function resolveCodexAcpPlatformPackageSpecifier(packageName: string): string {
-  return process.platform === 'win32' ? `${packageName}@${CODEX_ACP_BRIDGE_VERSION}` : packageName;
+  return `${packageName}@${CODEX_ACP_BRIDGE_VERSION}`;
 }
 
 function resolvePreferredCodexAcpPlatformPackage(): string | null {
@@ -372,6 +372,17 @@ export function clearBunxCache(stderr: string): string | null {
   }
 }
 
+/**
+ * Detect bun "moving to cache dir" EPERM failures.
+ * On Windows, antivirus (Windows Defender) locks files during scanning,
+ * causing NtSetInformationFile EPERM when bun tries to rename packages
+ * into the cache directory. A short delay and retry usually succeeds
+ * once the scanner releases the file handle.
+ */
+export function isBunCacheMoveFailed(stderr: string): boolean {
+  return /moving\s+"[^"]+"\s+to cache dir failed[\s\S]*EPERM/i.test(stderr);
+}
+
 // ── Backend-specific connectors ─────────────────────────────────────
 
 /**
@@ -422,14 +433,12 @@ export function spawnNpxBackend(
 async function prepareClaude(): Promise<NpxPrepareResult> {
   const cleanEnv = await prepareCleanEnv();
   Object.assign(cleanEnv, readClaudeProviderEnvFromCcSwitch());
-  ensureMinNodeVersion(cleanEnv, 20, 10, 'Claude ACP bridge');
   return { cleanEnv, npxCommand: resolveNpxPath(cleanEnv) };
 }
 
 /** Prepare clean env + resolve npx + run diagnostics for Codex ACP bridge. */
 async function prepareCodex(codexAcpPackage: string = CODEX_ACP_NPX_PACKAGE): Promise<NpxPrepareResult> {
   const cleanEnv = await prepareCleanEnv();
-  ensureMinNodeVersion(cleanEnv, 20, 10, 'Codex ACP bridge');
 
   const diagStart = Date.now();
   const codexCommand = process.platform === 'win32' ? 'codex.cmd' : 'codex';
@@ -480,7 +489,6 @@ async function prepareCodex(codexAcpPackage: string = CODEX_ACP_NPX_PACKAGE): Pr
 /** Prepare clean env + resolve npx + load MCP config for CodeBuddy. */
 async function prepareCodebuddy(): Promise<NpxPrepareResult> {
   const cleanEnv = await prepareCleanEnv();
-  ensureMinNodeVersion(cleanEnv, 20, 10, 'CodeBuddy ACP');
 
   // Load user's MCP config if available (~/.codebuddy/mcp.json)
   // CodeBuddy CLI in --acp mode does not auto-load mcp.json, so we pass it explicitly
@@ -587,12 +595,36 @@ async function connectNpxBackend(config: {
     // transitive deps (known bun issue). Clearing the cache and retrying once
     // forces a fresh install with complete dependencies.
     const errMsg = error instanceof Error ? error.message : '';
+
+    // Retry 1: bunx cache corruption (missing transitive dependencies)
     if (isBunxCacheCorruption(errMsg)) {
       const cleared = clearBunxCache(errMsg);
       if (cleared) {
         console.log(`[ACP ${backend}] Cleared corrupted bunx cache: ${cleared}, retrying...`);
         await setup(spawnNpxBackend(backend, npxPackage, npxCommand, cleanEnv, workingDir, isWindows, false, opts));
         return;
+      }
+    }
+
+    // Retry 2: Windows Defender EPERM on cache move.
+    // Antivirus releases file handles after scanning completes; a short
+    // delay lets the lock clear before the second attempt.
+    if (isBunCacheMoveFailed(errMsg)) {
+      console.warn(`[ACP ${backend}] Bun cache move EPERM (likely antivirus), waiting 2s before retry...`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        await setup(spawnNpxBackend(backend, npxPackage, npxCommand, cleanEnv, workingDir, isWindows, false, opts));
+        return;
+      } catch (retryError) {
+        await cleanup();
+        const retryMsg = retryError instanceof Error ? retryError.message : '';
+        if (isBunCacheMoveFailed(retryMsg)) {
+          console.error(
+            `[ACP ${backend}] Bun cache move EPERM persists after retry.`,
+            'User may need to add bun-cache directory to antivirus exclusions.'
+          );
+        }
+        throw retryError;
       }
     }
 

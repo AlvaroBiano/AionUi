@@ -13,7 +13,7 @@ import { teamEventBus } from '@process/team/teamEventBus';
 import type { TProviderWithModel } from '@/common/config/storage';
 import { BaseApprovalStore, type IApprovalKey } from '@/common/chat/approval';
 import { ToolConfirmationOutcome } from '../agent/gemini/cli/tools/tools';
-import { AionrsAgent } from '@process/agent/aionrs';
+import { AionrsAgent, type StdioMcpOption } from '@process/agent/aionrs';
 import type { AionrsCapabilities } from '@process/agent/aionrs/protocol';
 import { getDatabase } from '@process/services/database';
 import { addMessage, addOrUpdateMessage } from '@process/utils/message';
@@ -88,9 +88,12 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
   private currentMsgId: string | null = null;
   private currentMsgContent: string = '';
 
-  // Finish fallback state
-  private missingFinishFallbackTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly missingFinishFallbackDelayMs = 15000;
+  // Heartbeat state
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly heartbeatIntervalMs = 30_000;
+  private readonly heartbeatMaxMissed = 3;
+  private heartbeatMissedCount = 0;
+  private heartbeatActive = false;
 
   // Thinking state
   private thinkingMsgId: string | null = null;
@@ -138,6 +141,18 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
 
     const mergedData = { ...this.data.data, ...sessionArgs };
 
+    // Collect stdio MCP servers to inject. In-team sessions get the team_*
+    // coordination MCP (with slot handshake). Solo sessions get the team-guide
+    // MCP so aion_create_team / aion_list_models are available. Mirrors
+    // GeminiAgentManager's solo branch.
+    const stdioMcpServers: StdioMcpOption[] = [];
+    if (mergedData.teamMcpStdioConfig) {
+      stdioMcpServers.push({ ...mergedData.teamMcpStdioConfig, awaitReady: true });
+    } else {
+      const teamGuide = await this.buildTeamGuideMcpStdioConfig();
+      if (teamGuide) stdioMcpServers.push(teamGuide);
+    }
+
     const agent = new AionrsAgent({
       workspace: mergedData.workspace,
       model: mergedData.model,
@@ -148,13 +163,16 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
       maxTurns: mergedData.maxTurns,
       sessionId: mergedData.sessionId,
       resume: mergedData.resume,
-      teamMcpStdioConfig: mergedData.teamMcpStdioConfig,
+      stdioMcpServers,
       onStreamEvent: (event) => this.emit('aionrs.message', event),
+      onProcessExit: (code, activeMsgId) => this.handleProcessExit(code, activeMsgId),
+      onPong: () => this.handlePong(),
     });
 
     await agent.start();
     this.agent = agent;
     this._capabilities = agent.capabilities ?? null;
+    this.startHeartbeat();
 
     if (this.data.data.teamMcpStdioConfig) {
       const { notifyMcpReady } = await import('@process/team/mcpReadiness');
@@ -165,8 +183,36 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
     }
   }
 
+  /**
+   * Build the team-guide MCP stdio config for a solo aionrs session, or return
+   * undefined when the agent is in a team (team_* MCP takes precedence) or when
+   * the team-guide service hasn't started.
+   */
+  private async buildTeamGuideMcpStdioConfig(): Promise<
+    { name: string; command: string; args: string[]; env: Array<{ name: string; value: string }> } | undefined
+  > {
+    if (this.data.data.teamMcpStdioConfig) return undefined;
+    const [{ shouldInjectTeamGuideMcp }, { getTeamGuideStdioConfig }] = await Promise.all([
+      import('@process/team/prompts/teamGuideCapability'),
+      import('@process/team/mcp/guide/teamGuideSingleton'),
+    ]);
+    if (!(await shouldInjectTeamGuideMcp('aionrs'))) return undefined;
+    const base = getTeamGuideStdioConfig();
+    if (!base) return undefined;
+    return {
+      name: base.name,
+      command: base.command,
+      args: base.args,
+      env: [
+        ...base.env,
+        { name: 'AION_MCP_BACKEND', value: 'aionrs' },
+        { name: 'AION_MCP_CONVERSATION_ID', value: this.conversation_id },
+      ],
+    };
+  }
+
   async stop() {
-    this.clearMissingFinishFallback();
+    this.stopHeartbeat();
     this.flushAllBufferedStreamTexts();
     cronBusyGuard.setProcessing(this.conversation_id, false);
     this.confirmations = [];
@@ -409,43 +455,66 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
     })();
   }
 
-  private scheduleMissingFinishFallback(): void {
-    this.clearMissingFinishFallback();
-    this.missingFinishFallbackTimer = setTimeout(() => {
-      this.handleMissingFinishFallback();
-    }, this.missingFinishFallbackDelayMs);
-  }
-
-  private clearMissingFinishFallback(): void {
-    if (this.missingFinishFallbackTimer) {
-      clearTimeout(this.missingFinishFallbackTimer);
-      this.missingFinishFallbackTimer = null;
-    }
-  }
-
-  private handleMissingFinishFallback(): void {
-    this.clearMissingFinishFallback();
-
-    if (this.getConfirmations().length > 0) {
-      return;
-    }
-
-    mainWarn(
-      '[AionrsManager]',
-      `Turn became idle without finish signal; synthesizing finish for ${this.conversation_id}`
-    );
+  private handleProcessExit(code: number | null, activeMsgId: string): void {
+    mainError('[AionrsManager]', `aionrs process exited unexpectedly (code=${code}) during active turn ${activeMsgId}`);
 
     this.status = 'finished';
     void this.handleTurnEnd();
 
-    const fallbackFinish: IResponseMessage = {
+    const errorMessage: IResponseMessage = {
+      type: 'error',
+      conversation_id: this.conversation_id,
+      msg_id: activeMsgId,
+      data: `Agent process exited unexpectedly (code ${code})`,
+    };
+    ipcBridge.conversation.responseStream.emit(errorMessage);
+    this.emitToEventBuses(errorMessage);
+
+    const finishMessage: IResponseMessage = {
       type: 'finish',
       conversation_id: this.conversation_id,
       msg_id: uuid(),
       data: null,
     };
-    ipcBridge.conversation.responseStream.emit(fallbackFinish);
-    this.emitToEventBuses(fallbackFinish);
+    ipcBridge.conversation.responseStream.emit(finishMessage);
+    this.emitToEventBuses(finishMessage);
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      this.checkHeartbeat();
+    }, this.heartbeatIntervalMs);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.heartbeatMissedCount = 0;
+    this.heartbeatActive = false;
+  }
+
+  private handlePong(): void {
+    this.heartbeatMissedCount = 0;
+  }
+
+  private checkHeartbeat(): void {
+    if (!this.heartbeatActive || !this.agent?.isAlive) return;
+
+    this.heartbeatMissedCount++;
+
+    if (this.heartbeatMissedCount >= this.heartbeatMaxMissed) {
+      mainError(
+        '[AionrsManager]',
+        `aionrs process unresponsive after ${this.heartbeatMaxMissed} missed pongs, killing`
+      );
+      this.agent?.kill();
+      return;
+    }
+
+    this.agent?.ping();
   }
 
   init() {
@@ -475,10 +544,9 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
       // Skip stream processing to avoid false-positive running state and fallback timer.
       if (!data.msg_id) return;
 
-      // Restart fallback timer on every non-finish event (activity heartbeat)
-      if (data.type !== 'finish') {
-        this.scheduleMissingFinishFallback();
-      }
+      // Any stream event with msg_id counts as activity — reset heartbeat missed count.
+      // This provides backward compat with aionrs binaries that don't yet support pong.
+      this.heartbeatMissedCount = 0;
 
       const contentTypes = ['content', 'tool_group'];
       if (contentTypes.includes(data.type)) {
@@ -489,6 +557,8 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
         const ttft = this._messageSentAt ? `${Date.now() - this._messageSentAt}ms` : 'n/a';
         mainLog('[AionrsManager]', `stream_start: msg_id=${data.msg_id}, TTFT=${ttft}`);
         this.status = 'running';
+        this.heartbeatActive = true;
+        this.heartbeatMissedCount = 0;
         this.currentMsgId = data.msg_id ?? null;
         this.currentMsgContent = '';
 
@@ -553,7 +623,8 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
         const total = this._messageSentAt ? `${Date.now() - this._messageSentAt}ms` : 'n/a';
         mainLog('[AionrsManager]', `stream_end: msg_id=${processedData.msg_id}, total=${total}`, processedData.data);
         this._messageSentAt = null;
-        this.clearMissingFinishFallback();
+        this.heartbeatActive = false;
+        this.heartbeatMissedCount = 0;
         this.saveContextUsage(processedData.data);
         void this.handleTurnEnd();
       }

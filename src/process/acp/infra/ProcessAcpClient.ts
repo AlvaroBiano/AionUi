@@ -13,7 +13,7 @@
  *   - NdjsonTransport
  *   - Graceful 3-phase shutdown
  *
- * See docs/feature/acp-rewrite/02-reference-implementation.md §6.1-6.2
+ * See docs/specs/acp-rewrite/02-reference-implementation.md §6.1-6.2
  */
 
 import type {
@@ -375,6 +375,16 @@ export class ProcessAcpClient implements AcpClient {
     signal: NodeJS.Signals | string | null
   ): void {
     if (this._lastExit) return;
+
+    if (signal) {
+      console.warn(
+        `[ACP ${this.options.backend}] Process killed by signal: ${signal}` +
+          (exitCode !== null ? ` (exit code: ${exitCode})` : '') +
+          ` [reason: ${reason}]`
+      );
+    } else if (exitCode !== null && exitCode !== 0) {
+      console.warn(`[ACP ${this.options.backend}] Process exited with code ${exitCode} [reason: ${reason}]`);
+    }
 
     this._lastExit = {
       exitCode,

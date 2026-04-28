@@ -52,6 +52,8 @@ interface AcpAgentManagerData {
   customWorkspace?: boolean;
   conversation_id: string;
   customAgentId?: string; // 用于标识特定自定义代理的 UUID / UUID for identifying specific custom agent
+  /** Preset assistant id (builtin or custom) shown in the conversation header / 预设助手 ID */
+  presetAssistantId?: string;
   /** Display name for the agent (from extension or custom config) / Agent 显示名称（来自扩展或自定义配置） */
   agentName?: string;
   presetContext?: string; // 智能助手的预设规则/提示词 / Preset context from smart assistant
@@ -113,6 +115,11 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   private missingFinishFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private missingFinishFallbackTurnId: number | null = null;
   private readonly missingFinishFallbackDelayMs = 15000;
+  /** True while `agent.sendMessage()` is awaiting (prompt in flight).
+   *  The idle-finish fallback timer is suppressed during this window because
+   *  long tool-call gaps (>15 s) between stream events are normal and do not
+   *  indicate a missing finish signal. */
+  private promptInFlight: boolean = false;
 
   constructor(data: AcpAgentManagerData) {
     super('acp', data, new IpcAgentEventEmitter(), false);
@@ -249,6 +256,14 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
       return;
     }
 
+    // While the prompt is still awaiting (`agent.sendMessage()` hasn't resolved),
+    // don't schedule the idle timer.  Long gaps between stream events are normal
+    // during tool-call execution (e.g. Codex running shell commands).  The timer
+    // is only meaningful *after* sendMessage resolves without a finish signal.
+    if (this.promptInFlight) {
+      return;
+    }
+
     this.clearMissingFinishFallback();
     this.missingFinishFallbackTurnId = turnId;
     this.missingFinishFallbackTimer = setTimeout(() => {
@@ -364,14 +379,21 @@ ${collectedResponses.join('\n')}`;
     data: Parameters<AcpAgent['sendMessage']>[0] & Record<string, unknown>
   ): Promise<AcpResult> {
     const turnId = this.beginTrackedTurn();
+    this.promptInFlight = true;
 
     try {
       const result = await this.agent.sendMessage(data);
+      this.promptInFlight = false;
+
       if (this.consumeTrackedTurnFinished(turnId)) {
         return result;
       }
 
       if (this.activeTrackedTurnId === turnId && this.activeTrackedTurnHasRuntimeActivity) {
+        // Finish signal hasn't arrived yet but prompt resolved and there was
+        // runtime activity.  Now that promptInFlight is false the idle timer
+        // can be armed to catch a genuinely missing finish signal.
+        this.scheduleMissingFinishFallback();
         return result;
       }
 
@@ -392,6 +414,7 @@ ${collectedResponses.join('\n')}`;
       );
       return result;
     } catch (error) {
+      this.promptInFlight = false;
       this.clearTrackedTurn(turnId);
       throw error;
     }
@@ -520,7 +543,6 @@ ${collectedResponses.join('\n')}`;
       const yoloModeValues: Record<string, string> = {
         claude: 'bypassPermissions',
         qwen: 'yolo',
-        iflow: 'yolo',
         codex: 'yolo',
       };
       this.currentMode = yoloModeValues[data.backend] || 'yolo';
@@ -1006,8 +1028,14 @@ ${collectedResponses.join('\n')}`;
             const parts: string[] = [];
             if (this.options.presetContext) parts.push(this.options.presetContext);
             if (!isInTeam && (await shouldInjectTeamGuideMcp(this.options.backend))) {
-              const { getTeamGuidePrompt } = await import('@process/team/prompts/teamGuidePrompt.ts');
-              parts.push(getTeamGuidePrompt(this.options.backend));
+              const [{ getTeamGuidePrompt }, { resolveLeaderAssistantLabel }] = await Promise.all([
+                import('@process/team/prompts/teamGuidePrompt.ts'),
+                import('@process/team/prompts/teamGuideAssistant.ts'),
+              ]);
+              const leaderLabel = await resolveLeaderAssistantLabel(
+                this.options.presetAssistantId || this.options.customAgentId
+              );
+              parts.push(getTeamGuidePrompt({ backend: this.options.backend, leaderLabel }));
             }
             if (parts.length > 0) {
               contentToSend = `[Assistant Rules - You MUST follow these instructions]\n${parts.join(
@@ -1022,6 +1050,7 @@ ${collectedResponses.join('\n')}`;
               excludeBuiltinSkills: this.options.excludeBuiltinSkills,
               enableTeamGuide: !isInTeam && (await shouldInjectTeamGuideMcp(this.options.backend)),
               backend: this.options.backend,
+              presetAssistantId: this.options.presetAssistantId || this.options.customAgentId,
             });
             contentToSend = injectedContent;
           }

@@ -233,7 +233,6 @@ export class AcpConnection {
         break;
 
       case 'qwen':
-      case 'iflow':
       case 'droid':
       case 'goose':
       case 'auggie':
@@ -745,6 +744,13 @@ export class AcpConnection {
     const response = await this.sendRequest<AcpResponse>('initialize', initializeParams);
     this.isInitialized = true;
     this.initializeResult = parseInitializeResult(response);
+    // Some agents (e.g. qwen-code) advertise top-level modes in the initialize
+    // response rather than in session/new. Seed this.modes here so consumers
+    // (caching, UI selectors) don't have to wait for a second update.
+    const initModes = (response as unknown as Record<string, unknown>).modes as AcpSessionModes | undefined;
+    if (initModes?.availableModes && initModes.availableModes.length > 0) {
+      this.modes = initModes;
+    }
     return response;
   }
 
@@ -892,7 +898,7 @@ export class AcpConnection {
       this.modes = modesField;
     }
 
-    // Check top-level models first, then fall back to _meta.models (used by iFlow)
+    // Check top-level models first, then fall back to _meta.models (some backends nest models under _meta)
     const modelsSource = result.models || (result._meta as Record<string, unknown> | undefined)?.models;
     if (modelsSource && typeof modelsSource === 'object') {
       this.models = modelsSource as AcpSessionModels;

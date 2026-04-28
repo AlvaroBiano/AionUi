@@ -19,7 +19,6 @@ export type AcpBackendAll =
   | 'claude' // Claude ACP
   // | 'gemini' // Google Gemini — not an ACP agent, handled by AgentRegistry directly
   | 'qwen' // Qwen Code ACP
-  | 'iflow' // iFlow CLI ACP
   | 'codex' // OpenAI Codex ACP (via codex-acp bridge)
   | 'codebuddy' // Tencent CodeBuddy Code CLI
   | 'droid' // Factory Droid CLI (ACP via `droid exec --output-format acp`)
@@ -333,15 +332,6 @@ export const ACP_BACKENDS_ALL: Record<AcpBackendAll, AcpBackendConfig> = {
     supportsStreaming: true,
     acpArgs: ['--acp'], // Use --acp instead of deprecated --experimental-acp
     skillsDirs: ['.qwen/skills'],
-  },
-  iflow: {
-    id: 'iflow',
-    name: 'iFlow CLI',
-    cliCommand: 'iflow',
-    authRequired: true,
-    enabled: true,
-    supportsStreaming: false,
-    skillsDirs: ['.iflow/skills'],
   },
   codex: {
     id: 'codex',
@@ -689,6 +679,11 @@ export type AcpInitializeResult = {
   capabilities: AcpAgentCapabilities;
   agentInfo: AcpAgentInfo | null;
   authMethods: AcpAuthMethod[];
+  /**
+   * Top-level modes advertised at initialize time (e.g. qwen-code returns
+   * availableModes here rather than on session/new).
+   */
+  modes: AcpSessionModes | null;
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -750,6 +745,27 @@ function parseAuthMethods(raw: unknown): AcpAuthMethod[] {
   );
 }
 
+function parseSessionModes(raw: unknown): AcpSessionModes | null {
+  if (!isRecord(raw)) return null;
+  const availableRaw = raw.availableModes;
+  if (!Array.isArray(availableRaw)) return null;
+  const availableModes: AcpAvailableMode[] = availableRaw.flatMap((item) => {
+    if (!isRecord(item) || typeof item.id !== 'string') return [];
+    return [
+      {
+        id: item.id,
+        ...(typeof item.name === 'string' && { name: item.name }),
+        ...(typeof item.description === 'string' && { description: item.description }),
+      },
+    ];
+  });
+  if (availableModes.length === 0) return null;
+  return {
+    ...(typeof raw.currentModeId === 'string' && { currentModeId: raw.currentModeId }),
+    availableModes,
+  };
+}
+
 /**
  * Parse the raw initialize result (unwrapped from JSON-RPC `result` field)
  * into a fully structured AcpInitializeResult.
@@ -764,6 +780,7 @@ export function parseInitializeResult(raw: unknown): AcpInitializeResult {
     capabilities: parseAgentCapabilitiesObject(result?.agentCapabilities),
     agentInfo: parseAgentInfo(result?.agentInfo),
     authMethods: parseAuthMethods(result?.authMethods),
+    modes: parseSessionModes(result?.modes),
   };
 }
 

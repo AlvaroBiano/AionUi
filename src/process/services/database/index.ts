@@ -52,6 +52,26 @@ type IConversationMessageSearchRow = IConversationRow & {
 
 const escapeLikePattern = (value: string): string => value.replace(/[\\%_]/g, (match) => `\\${match}`);
 
+const NATIVE_MODULE_LOAD_ERROR_PATTERNS = ['NODE_MODULE_VERSION', 'was compiled against', 'dlopen'];
+
+const DATABASE_CORRUPTION_PATTERNS = [
+  'SQLITE_CORRUPT',
+  'SQLITE_NOTADB',
+  'database disk image is malformed',
+  'file is not a database',
+  'malformed database schema',
+  'unsupported file format',
+];
+
+const isNativeModuleLoadError = (message: string): boolean => {
+  return NATIVE_MODULE_LOAD_ERROR_PATTERNS.some((pattern) => message.includes(pattern));
+};
+
+const isDatabaseCorruptionError = (message: string): boolean => {
+  const normalizedMessage = message.toLowerCase();
+  return DATABASE_CORRUPTION_PATTERNS.some((pattern) => normalizedMessage.includes(pattern.toLowerCase()));
+};
+
 const extractSearchPreviewText = (rawContent: string): string => {
   const collectStrings = (value: unknown, bucket: string[]): void => {
     if (typeof value === 'string') {
@@ -128,14 +148,18 @@ export class AionUIDatabase {
       // from actual database corruption. Driver errors must NOT trigger recovery —
       // replacing a healthy database because of a build tooling issue causes data loss.
       const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes('NODE_MODULE_VERSION') || msg.includes('was compiled against') || msg.includes('dlopen')) {
+      if (isNativeModuleLoadError(msg)) {
         console.error(
           '[Database] Native module load error — will NOT attempt recovery (database is likely intact):',
           msg
         );
         throw error;
       }
-      console.error('[Database] Failed to initialize, attempting recovery...', error);
+      if (!isDatabaseCorruptionError(msg)) {
+        console.error('[Database] Initialization failed — will NOT attempt recovery without a corruption signal:', msg);
+        throw error;
+      }
+      console.error('[Database] Failed to initialize due to corruption, attempting recovery...', error);
     }
 
     // Recovery: backup corrupted file and start fresh.
@@ -576,7 +600,7 @@ export class AionUIDatabase {
    * Find the latest channel conversation by source, chat ID, type, and optionally backend.
    * Used for per-chat conversation isolation in channel platforms.
    *
-   * For ACP conversations, `backend` distinguishes between claude, iflow, codebuddy, etc.
+   * For ACP conversations, `backend` distinguishes between claude, codebuddy, etc.
    * (stored in `extra.backend` JSON field).
    */
   findChannelConversation(
