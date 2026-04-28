@@ -8,14 +8,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ── Hoisted mocks ──────────────────────────────────────────────────
 
-const { mockSend, mockIsDestroyed, mockNotificationShow, mockNotificationOn, mockNotificationIsSupported } =
-  vi.hoisted(() => ({
+const { mockSend, mockIsDestroyed, mockNotificationShow, mockNotificationOn, mockNotificationIsSupported } = vi.hoisted(
+  () => ({
     mockSend: vi.fn(),
     mockIsDestroyed: vi.fn(() => false),
     mockNotificationShow: vi.fn(),
     mockNotificationOn: vi.fn(),
     mockNotificationIsSupported: vi.fn(() => true),
-  }));
+  })
+);
 
 vi.mock('electron', () => {
   function MockNotification() {

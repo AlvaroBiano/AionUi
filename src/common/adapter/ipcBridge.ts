@@ -739,9 +739,13 @@ export const systemSettings = {
   getPetConfirmEnabled: bridge.buildProvider<boolean, void>('system-settings:get-pet-confirm-enabled'),
   setPetConfirmEnabled: bridge.buildProvider<void, { enabled: boolean }>('system-settings:set-pet-confirm-enabled'),
   getPomodoroFocusDuration: bridge.buildProvider<number, void>('system-settings:get-pomodoro-focus-duration'),
-  setPomodoroFocusDuration: bridge.buildProvider<void, { minutes: number }>('system-settings:set-pomodoro-focus-duration'),
+  setPomodoroFocusDuration: bridge.buildProvider<void, { minutes: number }>(
+    'system-settings:set-pomodoro-focus-duration'
+  ),
   getPomodoroBreakDuration: bridge.buildProvider<number, void>('system-settings:get-pomodoro-break-duration'),
-  setPomodoroBreakDuration: bridge.buildProvider<void, { minutes: number }>('system-settings:set-pomodoro-break-duration'),
+  setPomodoroBreakDuration: bridge.buildProvider<void, { minutes: number }>(
+    'system-settings:set-pomodoro-break-duration'
+  ),
 };
 
 // 系统通知接口 / System notification API
