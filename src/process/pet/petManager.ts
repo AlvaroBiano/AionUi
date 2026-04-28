@@ -504,14 +504,6 @@ function registerIpcHandlers(): void {
             } as Electron.MenuItemConstructorOptions,
           ]
         : []),
-      ...(!app.isPackaged && !isActive
-        ? [
-            {
-              label: '🧪 10s Pomodoro (dev)',
-              click: () => pomodoroService?.startFocus(10_000),
-            } as Electron.MenuItemConstructorOptions,
-          ]
-        : []),
     ];
 
     const menu = Menu.buildFromTemplate([
