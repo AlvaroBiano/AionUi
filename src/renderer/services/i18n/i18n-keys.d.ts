@@ -816,6 +816,7 @@ export type I18nKey =
   | 'pet.pomodoroPaused'
   | 'pet.pomodoroRemaining'
   | 'pet.pomodoroResume'
+  | 'pet.pomodoroSettings'
   | 'pet.pomodoroStart'
   | 'pet.pomodoroStop'
   | 'pet.pomodoroToastAgain'

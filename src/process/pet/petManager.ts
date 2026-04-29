@@ -46,7 +46,25 @@ let stateMachine: PetStateMachine | null = null;
 let idleTicker: PetIdleTicker | null = null;
 let eventBridge: PetEventBridge | null = null;
 let pomodoroService: PomodoroService | null = null;
+let mainWindowRef: BrowserWindow | null = null;
 let currentSize: PetSize = 280;
+
+/** Register the main window so the pet right-click menu can navigate it. */
+export const setPetMainWindow = (win: BrowserWindow): void => {
+  mainWindowRef = win;
+};
+
+/** Show and focus the main window, then dispatch a navigate event to it. */
+function navigateMainWindow(channel: string): void {
+  if (!mainWindowRef || mainWindowRef.isDestroyed()) return;
+  if (process.platform === 'darwin' && app.dock) {
+    void app.dock.show();
+  }
+  if (mainWindowRef.isMinimized()) mainWindowRef.restore();
+  mainWindowRef.show();
+  mainWindowRef.focus();
+  mainWindowRef.webContents.send(channel);
+}
 let dragTimer: ReturnType<typeof setInterval> | null = null;
 let dragWatchdog: ReturnType<typeof setTimeout> | null = null;
 let dragOffsetX = 0;
@@ -504,6 +522,10 @@ function registerIpcHandlers(): void {
             } as Electron.MenuItemConstructorOptions,
           ]
         : []),
+      {
+        label: i18n.t('pet.pomodoroSettings'),
+        click: () => navigateMainWindow('pet:navigate-to-pet-settings'),
+      },
     ];
 
     const menu = Menu.buildFromTemplate([
