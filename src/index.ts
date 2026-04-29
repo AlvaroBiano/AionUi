@@ -25,7 +25,7 @@ import { AION_ASSET_PROTOCOL } from '@process/extensions';
 import { initializeProcess } from './process';
 import { ProcessConfig } from './process/utils/initStorage';
 import { loadShellEnvironmentAsync, logEnvironmentDiagnostics, mergePaths } from './process/utils/shellEnv';
-import { initializeAcpDetector, registerWindowMaximizeListeners, disposeAllTeamSessions } from '@process/bridge';
+import { initializeAcpDetector, registerWindowMaximizeListeners } from '@process/bridge';
 import { BackendLifecycleManager } from '@process/backend';
 import './process/bridge/feedbackBridge';
 import { wasLaunchedAtLogin } from '@process/bridge/applicationBridge';
@@ -794,8 +794,6 @@ app.on('before-quit', async () => {
       /* pet not initialized */
     }
 
-    // Stop all active team sessions (TCP servers + child processes)
-    await disposeAllTeamSessions().catch((err) => console.error('[App] Failed to dispose team sessions:', err));
 
     // Web Server lifecycle is managed by aionui-backend subprocess
 
