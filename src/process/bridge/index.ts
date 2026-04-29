@@ -5,7 +5,6 @@
  */
 
 import { agentRegistry } from '@process/agent/AgentRegistry';
-import type { TeamSessionService } from '@process/team/TeamSessionService';
 import { initApplicationBridge } from './applicationBridge';
 import { initAuthBridge } from './authBridge';
 import { initBedrockBridge } from './bedrockBridge';
@@ -23,12 +22,10 @@ import { initPptPreviewBridge } from './pptPreviewBridge';
 import { initOfficeWatchBridge } from './officeWatchBridge';
 import { initWorkspaceSnapshotBridge } from './workspaceSnapshotBridge';
 import { initRemoteAgentBridge } from './remoteAgentBridge';
-import { initTeamBridge } from './teamBridge';
 import type { IWorkerTaskManager } from '@process/task/IWorkerTaskManager';
 
 export interface BridgeDependencies {
   workerTaskManager: IWorkerTaskManager;
-  teamSessionService: TeamSessionService;
 }
 
 export function initAllBridges(deps: BridgeDependencies): void {
@@ -49,7 +46,6 @@ export function initAllBridges(deps: BridgeDependencies): void {
   initSpeechToTextBridge();
   initWorkspaceSnapshotBridge();
   initRemoteAgentBridge();
-  initTeamBridge(deps.teamSessionService);
 }
 
 export async function initializeAcpDetector(): Promise<void> {
@@ -76,10 +72,8 @@ export {
   initTaskBridge,
   initUpdateBridge,
   initRemoteAgentBridge,
-  initTeamBridge,
   initWindowControlsBridge,
   initWorkspaceSnapshotBridge,
 };
 export { disposeAllSnapshots } from './workspaceSnapshotBridge';
-export { disposeAllTeamSessions } from './teamBridge';
 export { registerWindowMaximizeListeners } from './windowControlsBridge';
