@@ -32,6 +32,7 @@ import {
   Block,
   Book,
   Check,
+  Edit,
   Flashlamp,
   HardDisk,
   Lightning,
@@ -116,6 +117,29 @@ interface RAGSearchResult {
   score?: number;
 }
 
+// ── Subagente Types ──────────────────────────────────────────
+
+type SubagenteStatus = 'pending' | 'idle' | 'active' | 'completed' | 'failed';
+
+type SubagenteSlot = {
+  slotId: string;
+  name: string;
+  role: 'leader' | 'teammate';
+  status: SubagenteStatus;
+  agentType: string;
+  lastMessage?: string;
+};
+
+type Subagente = {
+  id: string;
+  name: string;
+  agentType: string;
+  description: string;
+  status: SubagenteStatus;
+  slot?: string;
+  createdAt: string;
+};
+
 // ── Helpers ───────────────────────────────────────────────
 
 function formatUptime(seconds: number): string {
@@ -141,6 +165,28 @@ function priorityColor(p: string): string {
 function priorityLabel(p: string): string {
   const map: Record<string, string> = { '1': 'Crítica', '2': 'Alta', '3': 'Normal', '4': 'Baixa' };
   return map[p] || p;
+}
+
+function subagenteStatusColor(s: SubagenteStatus): string {
+  const map: Record<SubagenteStatus, string> = {
+    pending: 'gray',
+    idle: 'gray',
+    active: 'green',
+    completed: 'arcoblue',
+    failed: 'red',
+  };
+  return map[s] || 'gray';
+}
+
+function subagenteStatusLabel(s: SubagenteStatus): string {
+  const map: Record<SubagenteStatus, string> = {
+    pending: 'Pendente',
+    idle: 'Ocioso',
+    active: 'Activo',
+    completed: 'Concluído',
+    failed: 'Erro',
+  };
+  return map[s] || s;
 }
 
 // ── StatusCard ────────────────────────────────────────────
@@ -209,6 +255,24 @@ const BianinhoPage: React.FC = () => {
   // ── Cycle state ───────────────────────────────────────
   const [cycleStatus, setCycleStatus] = useState<CycleStatus | null>(null);
   const [cycleLoading, setCycleLoading] = useState(true);
+
+  // ── Subagente state ─────────────────────────────────────
+  const [subagentes, setSubagentes] = useState<Subagente[]>([
+    { id: '1', name: 'Analista', agentType: 'gemini', description: 'Análise de dados e relatórios', status: 'active', slot: 'slot-1', createdAt: new Date().toISOString() },
+    { id: '2', name: 'Escritor', agentType: 'claude', description: 'Redacção de conteúdo', status: 'idle', slot: 'slot-2', createdAt: new Date().toISOString() },
+    { id: '3', name: 'Pesquisador', agentType: 'codex', description: 'Pesquisa e investigação', status: 'pending', slot: 'slot-3', createdAt: new Date().toISOString() },
+  ]);
+  const [subagenteModalOpen, setSubagenteModalOpen] = useState(false);
+  const [editingSubagente, setEditingSubagente] = useState<Subagente | null>(null);
+  const [subagenteForm, setSubagenteForm] = useState({ name: '', agentType: 'gemini', description: '' });
+
+  // Team Mode slots
+  const [teamSlots, setTeamSlots] = useState<SubagenteSlot[]>([
+    { slotId: 'slot-1', name: 'Analista', role: 'leader', status: 'active', agentType: 'gemini', lastMessage: 'A processar dados...' },
+    { slotId: 'slot-2', name: 'Escritor', role: 'teammate', status: 'idle', agentType: 'claude' },
+    { slotId: 'slot-3', name: 'Pesquisador', role: 'teammate', status: 'pending', agentType: 'codex' },
+    { slotId: 'slot-4', name: '—', role: 'teammate', status: 'idle', agentType: '', lastMessage: undefined },
+  ]);
 
   // ── Platform info ─────────────────────────────────────
   const [platformInfo, setPlatformInfo] = useState<Record<string, string>>({});
@@ -422,6 +486,94 @@ const BianinhoPage: React.FC = () => {
     } catch { /* ignore */ }
   }, [fetchInbox]);
 
+  // ── Subagente Actions ─────────────────────────────────
+
+  const openAddSubagenteModal = useCallback(() => {
+    setEditingSubagente(null);
+    setSubagenteForm({ name: '', agentType: 'gemini', description: '' });
+    setSubagenteModalOpen(true);
+  }, []);
+
+  const openEditSubagenteModal = useCallback((subagente: Subagente) => {
+    setEditingSubagente(subagente);
+    setSubagenteForm({ name: subagente.name, agentType: subagente.agentType, description: subagente.description });
+    setSubagenteModalOpen(true);
+  }, []);
+
+  const handleSubagenteSave = useCallback(() => {
+    if (!subagenteForm.name.trim()) {
+      Notification.error({ title: 'Subagente', content: 'Nome é obrigatório' });
+      return;
+    }
+    if (editingSubagente) {
+      // Edit existing
+      setSubagentes(prev => prev.map(s =>
+        s.id === editingSubagente.id
+          ? { ...s, ...subagenteForm }
+          : s
+      ));
+      setTeamSlots(prev => prev.map(slot =>
+        slot.name === editingSubagente.name
+          ? { ...slot, name: subagenteForm.name, agentType: subagenteForm.agentType }
+          : slot
+      ));
+      Notification.success({ title: 'Subagente', content: 'Subagente actualizado' });
+    } else {
+      // Add new
+      const newSubagente: Subagente = {
+        id: Date.now().toString(),
+        name: subagenteForm.name,
+        agentType: subagenteForm.agentType,
+        description: subagenteForm.description,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      setSubagentes(prev => [...prev, newSubagente]);
+      // Add a new team slot for the new subagente
+      setTeamSlots(prev => {
+        const emptySlotIndex = prev.findIndex(s => !s.agentType);
+        if (emptySlotIndex >= 0) {
+          const updated = [...prev];
+          updated[emptySlotIndex] = {
+            ...updated[emptySlotIndex],
+            name: subagenteForm.name,
+            agentType: subagenteForm.agentType,
+            status: 'pending',
+          };
+          return updated;
+        }
+        return [...prev, {
+          slotId: `slot-${Date.now()}`,
+          name: subagenteForm.name,
+          role: 'teammate',
+          status: 'pending',
+          agentType: subagenteForm.agentType,
+        }];
+      });
+      Notification.success({ title: 'Subagente', content: 'Subagente adicionado' });
+    }
+    setSubagenteModalOpen(false);
+  }, [subagenteForm, editingSubagente]);
+
+  const handleSubagenteDelete = useCallback((id: string) => {
+    const toDelete = subagentes.find(s => s.id === id);
+    setSubagentes(prev => prev.filter(s => s.id !== id));
+    if (toDelete?.slot) {
+      setTeamSlots(prev => prev.map(slot =>
+        slot.slotId === toDelete.slot
+          ? { slotId: slot.slotId, name: '—', role: 'teammate' as const, status: 'idle' as const, agentType: '' }
+          : slot
+      ));
+    }
+    Notification.success({ title: 'Subagente', content: 'Subagente removido' });
+  }, [subagentes]);
+
+  const handleSubagenteStatusChange = useCallback((id: string, newStatus: SubagenteStatus) => {
+    setSubagentes(prev => prev.map(s =>
+      s.id === id ? { ...s, status: newStatus } : s
+    ));
+  }, []);
+
   // ── Effects ─────────────────────────────────────────────
 
   useEffect(() => {
@@ -478,6 +630,7 @@ const BianinhoPage: React.FC = () => {
           { key: 'inbox', label: `Inbox (${pendingTasks})` },
           { key: 'rag', label: 'RAG Search' },
           { key: 'cycle', label: 'Ciclo Autónomo' },
+          { key: 'subagentes', label: `Subagentes (${subagentes.length})` },
         ].map(tab => (
           <button
             key={tab.key}
@@ -915,6 +1068,167 @@ const BianinhoPage: React.FC = () => {
               </div>
             </Space>
           </Card>
+        </>
+      )}
+
+      {/* ── Tab: Subagentes ─────────────────────────────── */}
+      {activeTab === 'subagentes' && (
+        <>
+          {/* Team Mode Slots */}
+          <Card className={styles.section} bordered={false}>
+            <div className={styles.sectionHeader}>
+              <Robot theme='outline' size='20' />
+              <Title heading={5}>Team Mode — Slots</Title>
+            </div>
+            <div className={styles.teamSlotsGrid}>
+              {teamSlots.map((slot) => (
+                <div
+                  key={slot.slotId}
+                  className={`${styles.teamSlot} ${slot.role === 'leader' ? styles.teamSlotLeader : ''} ${slot.agentType ? styles.teamSlotFilled : styles.teamSlotEmpty}`}
+                >
+                  <div className={styles.teamSlotHeader}>
+                    <span className={styles.teamSlotRole}>
+                      {slot.role === 'leader' ? '👑' : '🤖'}
+                    </span>
+                    <Tag color={subagenteStatusColor(slot.status)} size='small'>
+                      {subagenteStatusLabel(slot.status)}
+                    </Tag>
+                  </div>
+                  <div className={styles.teamSlotName}>
+                    {slot.agentType ? slot.name : '—'}
+                  </div>
+                  <div className={styles.teamSlotType}>
+                    {slot.agentType || 'Vazio'}
+                  </div>
+                  {slot.lastMessage && (
+                    <div className={styles.teamSlotMessage}>
+                      <Text type='secondary' style={{ fontSize: 11 }}>{slot.lastMessage}</Text>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Subagentes List */}
+          <Card className={styles.section} bordered={false}>
+            <div className={styles.sectionHeader}>
+              <Robot theme='outline' size='20' />
+              <Title heading={5}>Subagentes ({subagentes.length})</Title>
+              <Button
+                icon={<Plus theme='outline' size='16' />}
+                type='primary'
+                size='small'
+                onClick={() => void openAddSubagenteModal()}
+              >
+                Novo Subagente
+              </Button>
+            </div>
+
+            <Divider />
+
+            {subagentes.length === 0 ? (
+              <Text type='secondary'>Nenhum subagente. Clique em "Novo Subagente" para adicionar.</Text>
+            ) : (
+              <List
+                dataSource={subagentes}
+                renderItem={(subagente: Subagente) => (
+                  <List.Item
+                    key={subagente.id}
+                    className={styles.subagenteItem}
+                  >
+                    <div className={styles.subagenteItemContent}>
+                      <div className={styles.subagenteItemLeft}>
+                        <Tag color={subagenteStatusColor(subagente.status)} size='small'>
+                          {subagenteStatusLabel(subagente.status)}
+                        </Tag>
+                        <div className={styles.subagenteInfo}>
+                          <Text strong>{subagente.name}</Text>
+                          <Text type='secondary' style={{ fontSize: 12 }}>
+                            {subagente.description}
+                          </Text>
+                        </div>
+                      </div>
+                      <div className={styles.subagenteItemRight}>
+                        <Tag size='small'>{subagente.agentType}</Tag>
+                        <Select
+                          size='small'
+                          value={subagente.status}
+                          onChange={(v) => void handleSubagenteStatusChange(subagente.id, v as SubagenteStatus)}
+                          style={{ width: 100 }}
+                        >
+                          <Select.Option value='pending'>Pendente</Select.Option>
+                          <Select.Option value='idle'>Ocioso</Select.Option>
+                          <Select.Option value='active'>Activo</Select.Option>
+                          <Select.Option value='completed'>Concluído</Select.Option>
+                          <Select.Option value='failed'>Erro</Select.Option>
+                        </Select>
+                        <Button
+                          size='mini'
+                          icon={<Edit theme='outline' size='14' />}
+                          onClick={() => void openEditSubagenteModal(subagente)}
+                        />
+                        <Popconfirm
+                          title='Eliminar subagente?'
+                          onOk={() => void handleSubagenteDelete(subagente.id)}
+                        >
+                          <Button
+                            size='mini'
+                            icon={<Block theme='outline' size='14' />}
+                            status='danger'
+                          />
+                        </Popconfirm>
+                      </div>
+                    </div>
+                  </List.Item>
+                )}
+              />
+            )}
+          </Card>
+
+          {/* Subagente CRUD Modal */}
+          <Modal
+            title={editingSubagente ? 'Editar Subagente' : 'Novo Subagente'}
+            visible={subagenteModalOpen}
+            onOk={() => void handleSubagenteSave()}
+            onCancel={() => setSubagenteModalOpen(false)}
+            okText={editingSubagente ? 'Guardar' : 'Adicionar'}
+          >
+            <Space direction='vertical' size='medium' style={{ width: '100%' }}>
+              <div>
+                <Text type='secondary'>Nome</Text>
+                <Input
+                  value={subagenteForm.name}
+                  onChange={v => setSubagenteForm(f => ({ ...f, name: v }))}
+                  placeholder='Nome do subagente'
+                  style={{ marginTop: 4 }}
+                />
+              </div>
+              <div>
+                <Text type='secondary'>Tipo de Agent</Text>
+                <Select
+                  value={subagenteForm.agentType}
+                  onChange={v => setSubagenteForm(f => ({ ...f, agentType: v }))}
+                  style={{ width: '100%', marginTop: 4 }}
+                >
+                  <Select.Option value='gemini'>Gemini</Select.Option>
+                  <Select.Option value='claude'>Claude</Select.Option>
+                  <Select.Option value='codex'>Codex</Select.Option>
+                  <Select.Option value='aionrs'>AionRS</Select.Option>
+                </Select>
+              </div>
+              <div>
+                <Text type='secondary'>Descrição</Text>
+                <TextArea
+                  value={subagenteForm.description}
+                  onChange={v => setSubagenteForm(f => ({ ...f, description: v }))}
+                  placeholder='O que este subagente faz?'
+                  rows={3}
+                  style={{ marginTop: 4 }}
+                />
+              </div>
+            </Space>
+          </Modal>
         </>
       )}
     </div>

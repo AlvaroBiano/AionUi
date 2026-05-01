@@ -22,6 +22,8 @@ const ScheduledTasksPage = React.lazy(() => import('@renderer/pages/cron/Schedul
 const TaskDetailPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage/TaskDetailPage'));
 const TeamIndex = React.lazy(() => import('@renderer/pages/team'));
 const BianinhoPage = React.lazy(() => import('@renderer/pages/bianinho'));
+const MemoryVisualizerPage = React.lazy(() => import('@renderer/pages/memory'));
+const SkillStudioPage = React.lazy(() => import('@renderer/pages/skill-studio'));
 
 const withRouteFallback = (Component: React.LazyExoticComponent<React.ComponentType>) => (
   <Suspense fallback={<AppLoader />}>
@@ -57,6 +59,8 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           <Route index element={<Navigate to='/guid' replace />} />
           <Route path='/guid' element={withRouteFallback(Guid)} />
           <Route path='/bianinho' element={withRouteFallback(BianinhoPage)} />
+          <Route path='/memory' element={withRouteFallback(MemoryVisualizerPage)} />
+          <Route path='/skill-studio' element={withRouteFallback(SkillStudioPage)} />
           <Route path='/conversation/:id' element={withRouteFallback(Conversation)} />
           <Route path='/settings/aionrs' element={withRouteFallback(AionrsSettings)} />
           <Route

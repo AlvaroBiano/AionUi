@@ -1,0 +1,144 @@
+/* MemoryVisualizerPage — CSS Module */
+
+.container {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-fill-border, #e5e6e8);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerTitle {
+  margin: 0 !important;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchInput {
+  flex: 1;
+  max-width: 400px;
+}
+
+.topicFilter {
+  width: 200px;
+}
+
+/* Topics row */
+.topicsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.topicBadge {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.topicBadge:hover {
+  opacity: 0.8;
+}
+
+/* Entries */
+.entries {
+  flex: 1;
+}
+
+.entriesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .entriesGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Entry Card */
+.entryCard {
+  background: var(--color-bg-elevated, #ffffff);
+  border-radius: 8px;
+  transition: box-shadow 0.2s;
+}
+
+.entryCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.entryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.entryDate {
+  font-size: 11px !important;
+  white-space: nowrap;
+}
+
+.entryContent {
+  margin: 0 !important;
+  font-size: 14px;
+  line-height: 1.6 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.entryTags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+/* Topic Tag */
+.topicTag {
+  cursor: default;
+  font-size: 12px;
+}
+
+/* Modal Form */
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
