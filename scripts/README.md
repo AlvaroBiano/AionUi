@@ -114,7 +114,45 @@ crontab -l | grep -v synced_updater | crontab - || true
 - **RAG isolation**: access levels (full, read_sac, read_personal)
 
 ## Acesso à Bridge
-
 - **Porta**: `18743` (TCP localhost)
 - **Interface**: Unix socket fallback → TCP localhost
 - **Token**: gerado em `~/.hermes/config/bridge_secret.key`
+
+## Benchmarks (Fase 4)
+
+### Latência Bridge (01/05/2026)
+| Comando | P95 | Target | Status |
+|---------|-----|--------|--------|
+| ping | 0.22ms | 50ms | ✅ OK |
+| status | 0.24ms | 100ms | ✅ OK |
+| check_hermes | 0.26ms | 200ms | ✅ OK |
+
+### Memória Bridge (01/05/2026)
+| Métrica | Actual | Target | Status |
+|---------|--------|--------|--------|
+| RSS | 9.5 MB | 500 MB | ✅ OK |
+| VMS | 15.3 MB | — | OK |
+
+### Unit Tests
+```
+34 tests — 100% PASSED (pytest)
+  - Auth: 6 tests
+  - Rate Limit: 5 tests
+  - RAG: 4 tests
+  - Skills: 7 tests
+  - Protocol: 10 tests
+  - Integration: 2 tests
+```
+
+### Segurança (SAST)
+| Severidade | Qtd | Estado |
+|------------|-----|--------|
+| 🔴 Crítica | 2 | em `sac-agent-local` (não afectar bridge) |
+| 🟡 Média | 2 | RAG input sanitization recomendada |
+| ✅ Protegido | 2 | SQL injection (parametrized), passwords (bcrypt) |
+
+Executar benchmarks:
+```bash
+python3 scripts/benchmark_bridge.py
+python3 scripts/benchmark_memory.py
+```
