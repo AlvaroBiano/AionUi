@@ -1,0 +1,168 @@
+/* BianinhoPage styles */
+
+.container {
+  padding: 20px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-fill-2);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerTitle {
+  margin: 0 !important;
+}
+
+.headerTag {
+  margin-left: 4px;
+}
+
+/* Status Cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statusCard {
+  background: var(--color-fill-1);
+  border-radius: 8px;
+}
+
+.statusCardInner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statusIcon {
+  flex-shrink: 0;
+}
+
+.statusInfo {
+  min-width: 0;
+}
+
+.statusTitle {
+  font-size: 12px;
+  display: block;
+}
+
+.statusValue {
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.statusSub {
+  font-size: 11px;
+  display: block;
+}
+
+/* Main Content */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.section {
+  background: var(--color-fill-1);
+  border-radius: 8px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--color-text-1);
+}
+
+.sectionHeader h5 {
+  margin: 0 !important;
+}
+
+/* Check Items */
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+/* Platform Info */
+.platformGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.platformItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.platformKey {
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.platformValue {
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.hermesPath {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Skills */
+.skillsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.skillTag {
+  font-size: 12px;
+  cursor: default;
+}

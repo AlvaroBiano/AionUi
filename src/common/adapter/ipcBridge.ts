@@ -1313,3 +1313,14 @@ export const team = {
   listChanged: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamListChangedEvent>('team.list-changed'),
   mcpStatus: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamMcpStatusEvent>('team.mcp.status'),
 };
+
+// Bianinho bridge — IPC handlers para o Electron main process
+export const bianinho = {
+  ping: bridge.buildProvider<{ ok: boolean; pong?: string }, { echo?: string }>('bianinho.ping'),
+  status: bridge.buildProvider<Record<string, unknown>, Record<string, never>>('bianinho.status'),
+  checkHermes: bridge.buildProvider<Record<string, unknown>, Record<string, never>>('bianinho.checkHermes'),
+  listSkills: bridge.buildProvider<{ count?: number; skills?: Array<{ name: string; size?: number }> }, Record<string, never>>('bianinho.listSkills'),
+  hermesPath: bridge.buildProvider<{ path?: string; exists?: boolean }, Record<string, never>>('bianinho.hermesPath'),
+  platformInfo: bridge.buildProvider<Record<string, string>, Record<string, never>>('bianinho.platformInfo'),
+  syncStatus: bridge.buildProvider<Record<string, unknown>, Record<string, never>>('bianinho.syncStatus'),
+};

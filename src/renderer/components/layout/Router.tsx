@@ -21,6 +21,7 @@ const ComponentsShowcase = React.lazy(() => import('@renderer/pages/TestShowcase
 const ScheduledTasksPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage'));
 const TaskDetailPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage/TaskDetailPage'));
 const TeamIndex = React.lazy(() => import('@renderer/pages/team'));
+const BianinhoPage = React.lazy(() => import('@renderer/pages/bianinho'));
 
 const withRouteFallback = (Component: React.LazyExoticComponent<React.ComponentType>) => (
   <Suspense fallback={<AppLoader />}>
@@ -55,6 +56,7 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
         <Route element={<ProtectedLayout layout={layout} />}>
           <Route index element={<Navigate to='/guid' replace />} />
           <Route path='/guid' element={withRouteFallback(Guid)} />
+          <Route path='/bianinho' element={withRouteFallback(BianinhoPage)} />
           <Route path='/conversation/:id' element={withRouteFallback(Conversation)} />
           <Route path='/settings/aionrs' element={withRouteFallback(AionrsSettings)} />
           <Route
