@@ -186,5 +186,87 @@ export function registerBianinhoBridge(): void {
     return { lastSync: 0, pendingChanges: 0, direction: 'idle', errors: [] };
   });
 
+  // ── RAG handlers (fallback quando bridge não está disponível) ──
+
+  ipcMain.handle('bianinho.ragStats', async () => {
+    const result = await tcpSend('rag_stats');
+    // O resultado pode ter { stats: { categories: [...] } } ou { ok: false }
+    if (result && typeof result === 'object' && 'stats' in result) {
+      return result;
+    }
+    return { stats: { total_chunks: 0, categories: [] } };
+  });
+
+  ipcMain.handle('bianinho.ragSearch', async (_event, args?: { query?: string; category?: string; topK?: number }) => {
+    const result = await tcpSend('rag_search', args || {});
+    if (result && typeof result === 'object' && 'results' in result) {
+      return result;
+    }
+    return { results: [] };
+  });
+
+  ipcMain.handle('bianinho.ragBackup', async (_event, args?: { label?: string }) => {
+    const result = await tcpSend('rag_backup', args || {});
+    if (result && typeof result === 'object') {
+      return result;
+    }
+    return { ok: false };
+  });
+
+  // ── Inbox handlers (fallback seguro) ──
+
+  ipcMain.handle('bianinho.inboxList', async () => {
+    const result = await tcpSend('inbox_list');
+    if (result && typeof result === 'object' && 'items' in result) {
+      return result;
+    }
+    return { count: 0, items: [] };
+  });
+
+  ipcMain.handle('bianinho.inboxAdd', async (_event, args?: { content?: string; priority?: string; tags?: string[]; source?: string }) => {
+    const result = await tcpSend('inbox_add', args || {});
+    return result || { ok: false };
+  });
+
+  ipcMain.handle('bianinho.inboxDone', async (_event, args?: { id?: string }) => {
+    const result = await tcpSend('inbox_done', args || {});
+    return result || { ok: false };
+  });
+
+  ipcMain.handle('bianinho.inboxDelete', async (_event, args?: { id?: string }) => {
+    const result = await tcpSend('inbox_delete', args || {});
+    return result || { ok: false };
+  });
+
+  // ── Cycle handlers (fallback seguro) ──
+
+  ipcMain.handle('bianinho.cycleStatus', async () => {
+    const result = await tcpSend('cycle_status');
+    if (result && typeof result === 'object' && 'running' in result) {
+      return result;
+    }
+    return { running: false, lastRun: null, nextRun: null };
+  });
+
+  ipcMain.handle('bianinho.cycleTrigger', async () => {
+    const result = await tcpSend('cycle_trigger');
+    return result || { ok: false };
+  });
+
+  // ── Memory handlers (fallback seguro) ──
+
+  ipcMain.handle('bianinho.memoryGet', async (_event, args?: { key?: string }) => {
+    const result = await tcpSend('memory_get', args || {});
+    if (result && typeof result === 'object' && 'value' in result) {
+      return result;
+    }
+    return { value: '' };
+  });
+
+  ipcMain.handle('bianinho.memorySet', async (_event, args?: { key?: string; value?: string }) => {
+    const result = await tcpSend('memory_set', args || {});
+    return result || { ok: false };
+  });
+
   console.log('[BianinhoBridge] IPC handlers registered');
 }

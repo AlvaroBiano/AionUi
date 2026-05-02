@@ -417,7 +417,7 @@ const GuidPage: React.FC = () => {
 
   const currentPresetAgentType = selectedAssistantRecord?.presetAgentType || 'gemini';
   const agentSwitcherItems = useMemo(() => {
-    if (!agentSelection.availableAgents) return [];
+    if (!agentSelection.availableAgents?.length) return [];
     // Build from detected execution engines, excluding preset assistants and remote agents
     return agentSelection.availableAgents
       .filter((a) => !a.isPreset && a.backend !== 'remote')

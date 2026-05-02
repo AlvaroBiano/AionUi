@@ -328,7 +328,12 @@ const BianinhoPage: React.FC = () => {
     setSkillsLoading(true);
     try {
       const result = await ipcBridge.bianinho.listSkills.invoke();
-      setSkillsInfo(result);
+      // Proteger contra resposta inválida do bridge
+      if (result && typeof result === 'object' && Array.isArray((result as { skills?: unknown }).skills)) {
+        setSkillsInfo(result as SkillsInfo);
+      } else {
+        setSkillsInfo({ count: 0, skills: [] });
+      }
     } catch {
       setSkillsInfo({ count: 0, skills: [] });
     } finally {
@@ -754,7 +759,7 @@ const BianinhoPage: React.FC = () => {
           </div>
 
           {/* RAG Categories */}
-          {ragStats && ragStats.categories.length > 0 && (
+          {ragStats?.categories?.length > 0 && (
             <Card className={styles.section} bordered={false}>
               <div className={styles.sectionHeader}>
                 <HardDisk theme='outline' size='20' />
@@ -777,7 +782,7 @@ const BianinhoPage: React.FC = () => {
               <Title heading={5}>Skills do Hermes ({skillsInfo?.count ?? 0})</Title>
             </div>
             <Skeleton loading={skillsLoading} text={{ rows: 3 }}>
-              {skillsInfo?.skills && skillsInfo.skills.length > 0 ? (
+              {skillsInfo?.skills?.length ? (
                 <div className={styles.skillsGrid}>
                   {skillsInfo.skills.slice(0, 30).map((skill) => (
                     <Tag key={skill.name} className={styles.skillTag}>
