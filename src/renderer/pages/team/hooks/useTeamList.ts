@@ -11,7 +11,13 @@ export function useTeamList() {
 
   const { data: teams = [], mutate } = useSWR<TTeam[]>(
     `teams/${userId}`,
-    () => ipcBridge.team.list.invoke({ userId }),
+    () => ipcBridge.team.list.invoke({ userId }).then((data) => {
+      // Defensive: ensure the IPC call always returns an array
+      if (Array.isArray(data)) return data;
+      // If backend returns an error object, return empty array
+      console.warn('[useTeamList] IPC returned non-array:', data);
+      return [];
+    }),
     { revalidateOnFocus: false }
   );
 

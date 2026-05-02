@@ -13,7 +13,7 @@ const STORAGE_KEY_PREFIX = 'team-pending-permissions-';
  */
 export function useSiderTeamBadges(teams: TTeam[] | undefined): Map<string, number> {
   // Defensive: ensure teams is always an array (SWR may return undefined on first render)
-  const safeTeams: TTeam[] = teams ?? [];
+  const safeTeams: TTeam[] = Array.isArray(teams) ? teams : [];
 
   const readFromStorage = (teamId: string): number => {
     try {
