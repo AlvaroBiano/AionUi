@@ -20,6 +20,8 @@ jobs:
   build-macos:
     name: Build macOS DMG (${{ inputs.arch }})
     runs-on: macos-14
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
