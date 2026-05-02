@@ -1,0 +1,34 @@
+name: proactive_compressor
+version: "1.0.0"
+description: >
+  Proactive context compressor — Hermes context engine plugin that triggers
+  compression earlier (default 50%) than the built-in compressor (70%),
+  using rolling summarization passes to preserve more context quality.
+category: context_engine
+hermes_version: ">=0.10.0"
+
+config_hints:
+  trigger_threshold:
+    type: float
+    default: 0.50
+    description: "Token fraction at which to trigger proactive compression (0.50 = 50% of 205K)"
+  emergency_threshold:
+    type: float
+    default: 0.70
+    description: "Hard ceiling — compression must complete before reaching this threshold"
+  chunk_size:
+    type: int
+    default: 60
+    description: "Messages per rolling summarization pass"
+  overlap:
+    type: int
+    default: 10
+    description: "Overlap between consecutive rolling passes"
+  summary_target_ratio:
+    type: float
+    default: 0.20
+    description: "Fraction of compressed content to preserve in summary"
+  protect_last_n:
+    type: int
+    default: 40
+    description: "Number of most recent messages to always protect from compression"

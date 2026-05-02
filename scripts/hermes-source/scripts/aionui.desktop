@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=AionUI
-Comment=Multi-Agent Cowork Platform — Álvaro Bianoi
-Exec=/home/alvarobiano/repos/aionui/out/AionUi
-Icon=/home/alvarobiano/repos/aionui/resources/icon.png
-Terminal=false
-Type=Application
-Categories=Development;Utility;AI;
-StartupWMClass=AionUi
