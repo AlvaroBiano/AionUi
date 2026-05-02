@@ -114,6 +114,24 @@ extraResources:
     to: bundled-aionrs
   - from: resources/hub
     to: hub
+  # BianinhoBridge — Python TCP bridge + setup scripts
+  - from: scripts/bianinho_bridge.py
+    to: bianinho/bianinho_bridge.py
+  - from: scripts/setup-complete.sh
+    to: bianinho/setup-complete.sh
+  - from: scripts/setup-mac.sh
+    to: bianinho/setup-mac.sh
+  - from: scripts/SETUP-COMPLETO.md
+    to: bianinho/SETUP-COMPLETO.md
+  # Hermes Agent source (208KB — tiny)
+  - from: scripts/hermes-source
+    to: hermes-source
+  # Hermes launcher script
+  - from: scripts/hermes-launcher.sh
+    to: bianinho/hermes-launcher.sh
+  # Manual resource extraction fallback (if app fails to extract)
+  - from: scripts/copy-bianinho-resources.sh
+    to: bianinho/copy-bianinho-resources.sh
 win:
   target:
     - nsis

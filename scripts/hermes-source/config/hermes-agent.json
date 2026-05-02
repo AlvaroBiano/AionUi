@@ -1,0 +1,63 @@
+{
+  "name": "Hermes",
+  "displayName": "Bianinho",
+  "command": "/home/alvarobiano/.local/bin/hermes",
+  "args": ["--acp", "--stdio"],
+  "description": "Bianinho — Agente autônomo especializado em Método TEN e APC, criado por Álvaro Bianoi. Suporta RAG, SAC Bot e automação 24/7.",
+  "icon": "🤖",
+  "version": ">=2.0.0",
+  
+  "capabilities": {
+    "file-read": true,
+    "file-write": true,
+    "web-search": true,
+    "image-generation": true,
+    "mcp-tools": true,
+    "rag-query": true,
+    "code-execution": true
+  },
+  
+  "mcpServers": {
+    "rag": {
+      "command": "python3",
+      "args": ["~/.hermes/scripts/rag_search.py"],
+      "description": "Knowledge base RAG do Método TEN",
+      "env": {
+        "RAG_PATH": "~/KnowledgeBase/knowledge_db"
+      }
+    }
+  },
+  
+  "env": {
+    "MINIMAX_API_KEY": "${MINIMAX_API_KEY}",
+    "HERMES_MANDATE": "~/.hermes/autonomous/mandate.md",
+    "HERMES_RAG_PATH": "~/KnowledgeBase/knowledge_db",
+    "HERMES_SESSION_PATH": "~/.hermes/sessions/"
+  },
+  
+  "workspace": {
+    "path": "~/.hermes/workspace",
+    "persistent": true
+  },
+  
+  "autonomous": {
+    "enabled": true,
+    "cron": "*/15 * * * *",
+    "mandate": "~/.hermes/autonomous/mandate.md",
+    "inbox": "~/.hermes/inbox.json",
+    "outbox": "~/.hermes/outbox.json"
+  },
+  
+  "team": {
+    "role": "analyst",
+    "canBeLeader": false,
+    "defaultTeam": "TEN-Clinical-Team"
+  },
+  
+  "settings": {
+    "model": "minimax",
+    "temperature": 0.7,
+    "maxTokens": 8192,
+    "thinkingBudget": "high"
+  }
+}

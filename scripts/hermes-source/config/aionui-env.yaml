@@ -1,0 +1,61 @@
+# AionUI × Hermes Agent — Configuração de Ambiente
+# Copie para ~/.aionui/env.yaml após preencher os valores
+
+# ===== API Keys =====
+
+# MiniMax (principal — já configurado no Hermes)
+MINIMAX_API_KEY: "YOUR_MINIMAX_API_KEY_HERE"
+MINIMAX_GROUP_ID: "YOUR_GROUP_ID_HERE"
+
+# Opcional — para usar múltiplos providers
+# ANTHROPIC_API_KEY: "sk-ant-..."
+# OPENAI_API_KEY: "sk-..."
+# GEMINI_API_KEY: "AIza..."
+
+# ===== Hermes Agent (Bianinho) =====
+
+# Mandato autônomo (não alterar — é o Bianinho OS)
+HERMES_MANDATE: "~/.hermes/autonomous/mandate.md"
+
+# RAG Knowledge Base
+HERMES_RAG_PATH: "~/KnowledgeBase/knowledge_db"
+HERMES_RAG_TYPE: "lancedb"
+
+# Sessões
+HERMES_SESSION_PATH: "~/.hermes/sessions/"
+
+# ===== AionUI =====
+
+# Porta do WebUI (acesso remoto)
+AIONUI_WEBUI_PORT: 3000
+AIONUI_WEBUI_HOST: "0.0.0.0"
+
+# Autenticação WebUI
+AIONUI_AUTH_METHOD: "password"  # ou "qr-code"
+AIONUI_WEBUI_PASSWORD: "YOUR_SECURE_PASSWORD"
+
+# ===== Canais de Acesso Remoto =====
+
+# Telegram (opcional)
+# AIONUI_TELEGRAM_BOT_TOKEN: "123456:ABCdef..."
+
+# Lark/Feishu (opcional para teams)
+# AIONUI_LARK_APP_ID: "..."
+# AIONUI_LARK_APP_SECRET: "..."
+
+# ===== Team Mode =====
+
+TEN_TEAM_LEADER: "gemini"
+TEN_TEAM_WORKSPACE: "~/ten-team-workspace/"
+
+# ===== SAC Bot (WhatsApp Integration) =====
+
+# O Hermes Agent conversa com o SAC Bot via webhook
+SAC_WEBHOOK_URL: "http://localhost:5000/webhook/sac"
+SAC_WEBHOOK_SECRET: "YOUR_WEBHOOK_SECRET"
+
+# ===== Cron — Autonomia 24/7 =====
+
+# O Hermes Agent roda a cada 15 minutos via cron job
+HERMES_CRON_SCHEDULE: "*/15 * * * *"
+HERMES_AUTONOMOUS_MODE: "true"

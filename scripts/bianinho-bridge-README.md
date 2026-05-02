@@ -188,3 +188,76 @@ Logs em `{BINHO_BASE}/logs/bianinho_bridge.log`:
 [2025-05-01 12:00:01] [INFO] Bridge started on port 18743
 [2025-05-01 12:00:05] [INFO] Backup created: pre_write_manual_20250501_120005
 ```
+
+## Setup Scripts
+
+Este diretório contém scripts de setup e manutenção para o BianinhoBridge:
+
+### setup-first-run.sh
+
+Executa a configuração inicial após instalação. Deve ser corrido uma vez.
+
+```bash
+# Uso
+bash scripts/setup-first-run.sh
+
+# O que faz:
+# - Verifica requisitos do sistema (Python 3.10+, módulos)
+# - Cria estrutura de directórios (~/.hermes, ~/KnowledgeBase)
+# - Configura venv Python com dependências
+# - Gera bridge secret
+# - Inicializa RAG database (LanceDB)
+# - Configura cron jobs
+# - Cria launcher scripts em ~/bin/
+```
+
+### server-export-kb.sh
+
+Exporta a knowledge base para um servidor remoto.
+
+```bash
+# Exportar KB
+bash scripts/server-export-kb.sh export
+
+# Listar exports recentes
+bash scripts/server-export-kb.sh list
+
+# Ver configuração
+bash scripts/server-export-kb.sh config
+```
+
+**Configuração** (`~/.hermes/config/kb-export.conf`):
+```bash
+EXPORT_ENDPOINT=http://localhost:8080/api/kb/import
+EXPORT_API_KEY=your_api_key_here
+EXPORT_BATCH_SIZE=100
+```
+
+### create-kb-archive.sh
+
+Cria arquivos comprimidos da knowledge base para backup.
+
+```bash
+# Criar novo arquivo
+bash scripts/create-kb-archive.sh create
+
+# Listar arquivos existentes
+bash scripts/create-kb-archive.sh list
+
+# Limpar arquivos antigos (default: 30 dias)
+bash scripts/create-kb-archive.sh clean
+
+# Verificar integridade de arquivo
+bash scripts/create-kb-archive.sh verify [archive]
+
+# Extrair arquivo
+bash scripts/create-kb-archive.sh extract [archive] [destino]
+```
+
+**Variáveis de ambiente:**
+- `RETENTION_DAYS=30` — dias antes de limpar arquivos antigos
+
+**Output:**
+- Arquivos em `~/KnowledgeBase/archives/`
+- Nome format: `kb_archive_YYYYMMDD_HHMMSS.tar.gz`
+- Checksum SHA256 gerado automaticamente

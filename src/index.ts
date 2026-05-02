@@ -390,12 +390,57 @@ const createWindow = ({ showOnReady = true }: { showOnReady?: boolean } = {}): v
   });
 };
 
+// BianinhoBridge — extract bundled resources on first run
+async function extractBianinhoResources(): Promise<void> {
+  if (process.platform !== 'darwin') return;
+  if (!app.isPackaged) return; // dev mode: resources are in repo
+
+  const appSupport = path.join(app.getPath('home'), 'Library/ApplicationSupport/AionUI');
+  const bianinhoDest = path.join(appSupport, 'bianinho');
+  const hermesDest = path.join(appSupport, 'hermes');
+  const resourceBianinho = path.join(process.resourcesPath!, 'bianinho');
+  const resourceHermes = path.join(process.resourcesPath!, 'hermes-source');
+
+  // Check if already extracted
+  const markerFile = path.join(bianinhoDest, '.extracted');
+  if (fs.existsSync(markerFile)) return;
+
+  const copyDir = (src: string, dest: string) => {
+    if (!fs.existsSync(src)) return;
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src)) {
+      const srcPath = path.join(src, entry);
+      const destPath = path.join(dest, entry);
+      const stat = fs.statSync(srcPath);
+      if (stat.isDirectory()) {
+        copyDir(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  };
+
+  try {
+    copyDir(resourceBianinho, bianinhoDest);
+    copyDir(resourceHermes, hermesDest);
+    // Mark as extracted
+    fs.writeFileSync(markerFile, new Date().toISOString());
+    // Make hermes-launcher executable
+    const launcher = path.join(bianinhoDest, 'hermes-launcher.sh');
+    if (fs.existsSync(launcher)) fs.chmodSync(launcher, 0o755);
+    console.log('[Bianinho] Resources extracted to', appSupport);
+  } catch (e) {
+    console.error('[Bianinho] Failed to extract resources:', e);
+  }
+}
+
 const handleAppReady = async (): Promise<void> => {
   const t0 = performance.now();
   const mark = (label: string) => console.log(`[AionUi:ready] ${label} +${Math.round(performance.now() - t0)}ms`);
   mark('start');
 
-  // BianinhoBridge — TCP bridge para Hermes Agent
+  // BianinhoBridge — extract resources FIRST, then register bridge
+  await extractBianinhoResources();
   registerBianinhoBridge();
 
   if (!app.isPackaged) {

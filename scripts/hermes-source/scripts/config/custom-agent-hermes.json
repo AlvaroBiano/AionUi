@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/iOfficeAI/AionUi/main/src/common/types/acpTypes.ts",
+  "id": "hermes-bianinho",
+  "name": "Bianinho (Hermes Agent)",
+  "nameI18n": {
+    "pt-BR": "Bianinho (Hermes Agent)",
+    "en-US": "Bianinho (Hermes Agent)"
+  },
+  "description": "Bianinho — agente autônomo do Álvaro Bianoi com Método TEN, RAG e SAC Bot integrado.",
+  "descriptionI18n": {
+    "pt-BR": "Bianinho — agente autônomo especializado em Método TEN e APC, com acesso ao RAG knowledge base e SAC Bot.",
+    "en-US": "Bianinho — autonomous agent specialized in TEN Method and APC, with RAG knowledge base and SAC Bot integration."
+  },
+  "avatar": "🤖",
+  "cliCommand": "python3",
+  "defaultCliPath": "/usr/bin/python3",
+  "acpArgs": ["/home/alvarobiano/repos/aionui-hermes-ten/scripts/aionrs-bridge/aionrs_bridge.py"],
+  "authRequired": false,
+  "enabled": true,
+  "supportsStreaming": true,
+  "env": {}
+}
