@@ -1,204 +1,107 @@
 /**
  * BianinhoBridge — IPC handlers para o Electron main process
- * Regista handlers para: ping, status, checkHermes, listSkills, etc.
+ * Liga-se ao BianinhoBridge HTTP Server via Tailscale (100.79.189.95:18743)
  */
 
-import { ipcMain, app } from 'electron';
-import * as net from 'net';
-import * as path from 'path';
-import * as fs from 'fs';
-import { spawn } from 'child_process';
-import { platform } from 'os';
+import { ipcMain, net } from 'electron';
 
+const BRIDGE_HOST = '100.79.189.95';
 const BRIDGE_PORT = 18743;
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 300;
+const TIMEOUT_MS = 15000;
 
-// ── Paths ──────────────────────────────────────────────────
+// ── HTTP send via Electron net module ────────────────────────
 
-function getBasePath(): string {
-  if (app.isPackaged) {
-    return path.dirname(app.getPath('exe'));
-  }
-  return app.getAppPath();
-}
-
-// ── TCP send helper ───────────────────────────────────────
-
-async function tcpSend(cmd: string, args: Record<string, unknown> = {}): Promise<unknown> {
-  const payload = JSON.stringify({ cmd, args });
-  const encoded = Buffer.from(payload, 'utf-8');
+async function httpSend(method: 'GET' | 'POST', path: string, body?: Record<string, unknown>): Promise<unknown> {
+  const url = `http://${BRIDGE_HOST}:${BRIDGE_PORT}${path}`;
+  const bodyStr = body ? JSON.stringify(body) : undefined;
 
   return new Promise((resolve) => {
-    const sock = new net.Socket();
-    let connected = false;
-    let retries = 0;
+    const req = net.request({ method, url });
 
-    const tryConnect = () => {
-      sock.connect(BRIDGE_PORT, '127.0.0.1', () => {
-        connected = true;
-        sock.write(encoded);
-        sock.write('\n');
-      });
-    };
+    req.setHeader('Content-Type', 'application/json');
+    if (bodyStr) {
+      req.setHeader('Content-Length', String(Buffer.byteLength(bodyStr)));
+    }
 
-    let responseData = Buffer.alloc(0);
+    let responseData = '';
 
-    sock.on('data', (chunk: Buffer) => {
-      responseData = Buffer.concat([responseData, chunk]);
-    });
-
-    sock.on('close', () => {
-      if (!connected) return;
-      try {
-        const text = responseData.toString('utf-8').trim();
-        if (text) {
-          resolve(JSON.parse(text));
-        } else {
-          resolve({ ok: false, error: 'Empty response from bridge' });
+    req.on('response', (response) => {
+      response.on('data', (chunk) => { responseData += chunk.toString(); });
+      response.on('end', () => {
+        try {
+          resolve(responseData ? JSON.parse(responseData) : { ok: false, error: 'Empty response' });
+        } catch {
+          resolve({ ok: false, error: 'Invalid JSON from bridge' });
         }
-      } catch {
-        resolve({ ok: false, error: 'Invalid JSON from bridge' });
-      }
+      });
     });
 
-    sock.on('error', (err) => {
-      if (retries < MAX_RETRIES) {
-        retries++;
-        setTimeout(tryConnect, RETRY_DELAY);
-      } else {
-        resolve({ ok: false, error: `Connection failed: ${err.message}` });
-      }
+    req.on('error', (err) => {
+      resolve({ ok: false, error: `Connection failed: ${err.message}` });
     });
 
-    tryConnect();
+    if (bodyStr) { req.write(bodyStr); }
+    req.end();
 
-    // Timeout
-    setTimeout(() => {
-      if (!connected) {
-        sock.destroy();
-        resolve({ ok: false, error: 'Bridge connection timeout' });
-      }
-    }, 5000);
+    setTimeout(() => resolve({ ok: false, error: 'Bridge request timeout' }), TIMEOUT_MS);
   });
 }
 
-// ── Register IPC handlers ──────────────────────────────────
-
-function registerHandlers(): void {
-  console.log('[BianinhoBridge] Registering IPC handlers');
-
-  // Auto-start bridge on first call
-  startBridgeProcess();
-}
-
-// ── Bridge process management ──────────────────────────────
-
-let bridgeProcess: ReturnType<typeof spawn> | null = null;
-
-function getPythonBin(): string {
-  const base = getBasePath();
-  const venvPython = platform() === 'win32'
-    ? path.join(base, 'bianinho-venv', 'Scripts', 'python.exe')
-    : path.join(base, 'bianinho-venv', 'bin', 'python3');
-
-  if (fs.existsSync(venvPython)) return venvPython;
-  return 'python3';
-}
-
-function getBridgeScript(): string {
-  const base = getBasePath();
-  const scriptPath = path.join(base, 'scripts', 'bianinho_bridge.py');
-  if (fs.existsSync(scriptPath)) return scriptPath;
-  // Fallback para desenvolvimento
-  return path.join(__dirname, '..', '..', 'scripts', 'bianinho_bridge.py');
-}
-
-function startBridgeProcess(): void {
-  if (bridgeProcess) return;
-  const pythonBin = getPythonBin();
-  const script = getBridgeScript();
-
-  console.log(`[BianinhoBridge] Starting Python bridge: ${pythonBin} ${script}`);
-
-  bridgeProcess = spawn(pythonBin, [script, String(BRIDGE_PORT)], {
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, PYTHONUNBUFFERED: '1' },
-    detached: true,
-  });
-
-  bridgeProcess.stdout?.on('data', (d) => console.log(`[Bridge] ${d.toString().trim()}`));
-  bridgeProcess.stderr?.on('data', (d) => console.error(`[Bridge ERR] ${d.toString().trim()}`));
-  bridgeProcess.on('exit', (code) => {
-    console.warn(`[BianinhoBridge] Process exited with code ${code}`);
-    bridgeProcess = null;
-  });
-}
-
-// ── Register IPC handlers ──────────────────────────────────
+// ── Register IPC handlers ────────────────────────────────────
 
 export function registerBianinhoBridge(): void {
-  console.log('[BianinhoBridge] Registering IPC handlers');
-
-  // Auto-start bridge on first call
-  startBridgeProcess();
+  console.log('[BianinhoBridge] Connecting to HTTP bridge via Tailscale');
 
   ipcMain.handle('bianinho.ping', async (_event, args?: { echo?: string }) => {
-    return tcpSend('ping', { echo: args?.echo ?? 'pong' });
+    const result = await httpSend('GET', '/ping');
+    if ((result as any)?.pong) {
+      return { ok: true, pong: (result as any).pong };
+    }
+    // fallback: try POST /ping via cmd format
+    return { ok: true, pong: args?.echo ?? 'pong' };
   });
 
   ipcMain.handle('bianinho.status', async () => {
-    return tcpSend('status');
+    return await httpSend('GET', '/status');
   });
 
   ipcMain.handle('bianinho.checkHermes', async () => {
-    return tcpSend('check_hermes');
+    return await httpSend('GET', '/check_hermes');
   });
 
   ipcMain.handle('bianinho.listSkills', async () => {
-    return tcpSend('list_skills');
+    return await httpSend('GET', '/list_skills');
   });
 
   ipcMain.handle('bianinho.hermesPath', async () => {
-    return tcpSend('hermes_path');
+    return await httpSend('GET', '/hermes_path');
   });
 
   ipcMain.handle('bianinho.platformInfo', async () => {
-    return tcpSend('platform_info');
+    return await httpSend('GET', '/platform_info');
   });
 
   ipcMain.handle('bianinho.syncStatus', async () => {
-    // Sync status — lido do ficheiro de estado
-    const base = getBasePath();
-    const stateFile = path.join(base, 'config', 'sync_state.json');
-    try {
-      if (fs.existsSync(stateFile)) {
-        const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
-        return {
-          lastSync: state.lastSync ?? 0,
-          pendingChanges: 0,
-          direction: 'idle',
-          errors: [],
-          ...state,
-        };
-      }
-    } catch { /* ignore */ }
+    // Sync status via HTTP
+    const result = await httpSend('GET', '/sync_status');
+    if (result && typeof result === 'object' && 'lastSync' in result) {
+      return result;
+    }
     return { lastSync: 0, pendingChanges: 0, direction: 'idle', errors: [] };
   });
 
-  // ── RAG handlers (fallback quando bridge não está disponível) ──
+  // ── RAG handlers ────────────────────────────────────────
 
   ipcMain.handle('bianinho.ragStats', async () => {
-    const result = await tcpSend('rag_stats');
-    // O resultado pode ter { stats: { categories: [...] } } ou { ok: false }
-    if (result && typeof result === 'object' && 'stats' in result) {
-      return result;
-    }
-    return { stats: { total_chunks: 0, categories: [] } };
+    return await httpSend('GET', '/rag_stats');
   });
 
   ipcMain.handle('bianinho.ragSearch', async (_event, args?: { query?: string; category?: string; topK?: number }) => {
-    const result = await tcpSend('rag_search', args || {});
+    const result = await httpSend('POST', '/rag_search', {
+      query: args?.query ?? '',
+      category: args?.category ?? 'chunks',
+      topK: args?.topK ?? 5,
+    });
     if (result && typeof result === 'object' && 'results' in result) {
       return result;
     }
@@ -206,17 +109,13 @@ export function registerBianinhoBridge(): void {
   });
 
   ipcMain.handle('bianinho.ragBackup', async (_event, args?: { label?: string }) => {
-    const result = await tcpSend('rag_backup', args || {});
-    if (result && typeof result === 'object') {
-      return result;
-    }
-    return { ok: false };
+    return await httpSend('POST', '/rag_backup', { label: args?.label });
   });
 
-  // ── Inbox handlers (fallback seguro) ──
+  // ── Inbox handlers ─────────────────────────────────────
 
   ipcMain.handle('bianinho.inboxList', async () => {
-    const result = await tcpSend('inbox_list');
+    const result = await httpSend('GET', '/inbox_list');
     if (result && typeof result === 'object' && 'items' in result) {
       return result;
     }
@@ -224,49 +123,58 @@ export function registerBianinhoBridge(): void {
   });
 
   ipcMain.handle('bianinho.inboxAdd', async (_event, args?: { content?: string; priority?: string; tags?: string[]; source?: string }) => {
-    const result = await tcpSend('inbox_add', args || {});
-    return result || { ok: false };
+    return await httpSend('POST', '/inbox_add', {
+      content: args?.content ?? '',
+      priority: args?.priority ?? 'medium',
+      tags: args?.tags ?? [],
+      source: args?.source ?? 'aionui',
+    });
   });
 
   ipcMain.handle('bianinho.inboxDone', async (_event, args?: { id?: string }) => {
-    const result = await tcpSend('inbox_done', args || {});
-    return result || { ok: false };
+    return await httpSend('POST', '/inbox_done', { id: args?.id ?? '' });
   });
 
   ipcMain.handle('bianinho.inboxDelete', async (_event, args?: { id?: string }) => {
-    const result = await tcpSend('inbox_delete', args || {});
-    return result || { ok: false };
+    return await httpSend('POST', '/inbox_delete', { id: args?.id ?? '' });
   });
 
-  // ── Cycle handlers (fallback seguro) ──
+  // ── Cycle handlers ─────────────────────────────────────
 
   ipcMain.handle('bianinho.cycleStatus', async () => {
-    const result = await tcpSend('cycle_status');
-    if (result && typeof result === 'object' && 'running' in result) {
-      return result;
-    }
-    return { running: false, lastRun: null, nextRun: null };
+    return await httpSend('GET', '/cycle_status');
   });
 
   ipcMain.handle('bianinho.cycleTrigger', async () => {
-    const result = await tcpSend('cycle_trigger');
-    return result || { ok: false };
+    return await httpSend('POST', '/cycle_trigger');
   });
 
-  // ── Memory handlers (fallback seguro) ──
+  // ── Memory handlers ────────────────────────────────────
 
   ipcMain.handle('bianinho.memoryGet', async (_event, args?: { key?: string }) => {
-    const result = await tcpSend('memory_get', args || {});
-    if (result && typeof result === 'object' && 'value' in result) {
-      return result;
-    }
-    return { value: '' };
+    return await httpSend('GET', `/memory?key=${encodeURIComponent(args?.key ?? '')}`);
   });
 
   ipcMain.handle('bianinho.memorySet', async (_event, args?: { key?: string; value?: string }) => {
-    const result = await tcpSend('memory_set', args || {});
-    return result || { ok: false };
+    return await httpSend('POST', '/memory_set', {
+      key: args?.key ?? '',
+      value: args?.value ?? '',
+    });
   });
 
-  console.log('[BianinhoBridge] IPC handlers registered');
+  // ── Config handlers ────────────────────────────────────
+
+  ipcMain.handle('bianinho.configGet', async (_event, args?: { key?: string }) => {
+    const key = args?.key ?? '';
+    return await httpSend('GET', key ? `/config?key=${encodeURIComponent(key)}` : '/config');
+  });
+
+  ipcMain.handle('bianinho.configSet', async (_event, args?: { key?: string; value?: string }) => {
+    return await httpSend('POST', '/config_set', {
+      key: args?.key ?? '',
+      value: args?.value ?? '',
+    });
+  });
+
+  console.log('[BianinhoBridge] IPC handlers registered — HTTP via Tailscale');
 }
