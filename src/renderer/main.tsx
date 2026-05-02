@@ -57,6 +57,7 @@ import Sider from './components/layout/Sider';
 import { useAuth } from './hooks/context/AuthContext';
 import { ConversationHistoryProvider } from './hooks/context/ConversationHistoryContext';
 import HOC from './utils/ui/HOC';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Patch Korean locale with missing properties from English locale
 const koKRComplete = {
@@ -129,4 +130,10 @@ const App = HOC.Wrapper(Config)(Main);
 void registerPwa();
 
 const root = createRoot(document.getElementById('root')!);
-root.render(React.createElement(AppProviders, null, React.createElement(App)));
+root.render(
+  React.createElement(
+    ErrorBoundary,
+    null,
+    React.createElement(AppProviders, null, React.createElement(App))
+  )
+);
