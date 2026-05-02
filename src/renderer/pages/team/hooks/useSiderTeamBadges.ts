@@ -102,7 +102,7 @@ export function useSiderTeamBadges(teams: TTeam[]): Map<string, number> {
     );
     // Include agent conversationIds in deps so the effect re-runs when agents spawn
     // and receive their conversationId (initially undefined until spawn completes).
-  }, [teams.map((t) => `${t.id}:${t.agents.map((a) => a.conversationId || '').join(',')}`).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [teams?.map((t) => `${t.id}:${t.agents?.map((a) => a.conversationId || '').join(',')}`).join('|') ?? '']); // eslint-disable-line react-hooks/exhaustive-deps
 
   return counts;
 }
