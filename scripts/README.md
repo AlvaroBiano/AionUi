@@ -6,25 +6,56 @@ BianinhoBridge é o layer de comunicação entre o AionUI (Electron/Node.js) e o
 
 ## Instalação
 
+### Opção 1: DMG (Mac)
 ```bash
-# Clonar o fork
-git clone https://github.com/AlvaroBiano/AionUi.git ~/repos/aionui-custom
-cd ~/repos/aionui-custom
+# Descarrega o DMG de:
+# https://github.com/AlvaroBiano/AionUi/releases
 
-# Criar venv Python
-python3 -m venv bianinho-venv
-source bianinho-venv/bin/activate
-pip install requests paho-mqtt psutil
-
-# Instalar dependências Node
-npm install
-
-# Build Electron
-bunx electron-vite build
-
-# Iniciar bridge (ou deixa o AionUI iniciá-lo)
-./bianinho-venv/bin/python3 scripts/bianinho_bridge.py 18743 &
+# Ou usa o installer shell:
+curl -fsSL https://raw.githubusercontent.com/AlvaroBiano/AionUi/main/scripts/install.sh | bash
 ```
+
+### Opção 2: Clone directo (Linux/Mac)
+```bash
+git clone https://github.com/AlvaroBiano/AionUi.git ~/AionUI-Bianinho
+cd ~/AionUI-Bianinho
+bash scripts/install.sh
+```
+
+## Transferir Knowledge Base para o Mac
+
+A knowledge base (~600MB comprimido) contém todo o contexto do Bianinho. Para ter tudo local no Mac:
+
+**1. No servidor Linux — criar e servir o archive:**
+```bash
+cd ~/AionUI-Bianinho
+bash scripts/serve-kb.sh both
+# Isto cria o archive e inicia um servidor HTTP na porta 8877
+# Mostra o IP do servidor (ex: 192.168.1.100)
+```
+
+**2. No Mac — descarregar a KB:**
+```bash
+# Opção A: via curl (o servidor mostra este comando)
+curl -o ~/Downloads/bianinho-kb.tar.gz http://192.168.1.100:8877/download
+
+# Opção B: via browser
+# Abre http://192.168.1.100:8877/download no browser
+
+# Opção C: via USB
+# Copia o ficheiro /tmp/bianinho-kb-mac.tar.gz do servidor para USB
+# No Mac: tar -xzf bianinho-kb-mac.tar.gz -C ~/Library/ApplicationSupport/AionUI/
+```
+
+**3. Setup interactivo no Mac:**
+```bash
+bash ~/AionUI-Bianinho/scripts/setup-mac.sh
+```
+
+Este script pede:
+- API key da MiniMax
+- IP do servidor (opcional — para conectar ao Hermes remoto)
+- KB (descarregar ou importar de ficheiro)
 
 ## Comandos da Bridge
 
@@ -59,9 +90,6 @@ bunx electron-vite build
 ### Memória
 - `memory_get` / `memory_set` — acesso à memória factual
 
-### Snapshots
-- `snapshot_export` / `snapshot_import` — backup encriptado do estado
-
 ## Protocolo
 
 Cliente envia:
@@ -69,7 +97,7 @@ Cliente envia:
 {
   "cmd": "ping",
   "args": {"echo": "test"},
-  "token": "17456xxxx.sig"  // opcional
+  "token": "***"  // opcional
 }
 ```
 
@@ -82,77 +110,40 @@ Servidor responde com 4 bytes length prefix + JSON:
 
 ```bash
 # Ping
-timeout 5 bash -c 'echo "{\"cmd\":\"ping\",\"args\":{\"echo\":\"ok\"}}" | nc -N 127.0.0.1 18743'
-
-# Ver resposta com parsing
-timeout 5 bash -c 'echo "{\"cmd\":\"status\",\"args\":{}}" | nc -N 127.0.0.1 18743' | python3 -c "
-import sys; d=sys.stdin.buffer.read()
-import json
-print(json.loads(d[4:].decode()))
-"
+echo '{"cmd":"ping","args":{"echo":"ok"}}' | nc -N 127.0.0.1 18743
 ```
 
-## Uninstall
+## Scripts
 
-```bash
-# Para remover completamente:
-rm -rf ~/repos/aionui-custom
-rm -rf ~/.local/share/aionui-bianinho
-rm -f ~/bin/aionui-bianinho
-pkill -f bianinho_bridge
-# Remove crontab entries do SyncedUpdater
-crontab -l | grep -v synced_updater | crontab - || true
-```
+| Script | Descrição |
+|--------|-----------|
+| `install.sh` | Instalador principal (clone + deps + build) |
+| `setup-mac.sh` | Setup interactivo no Mac (KB, API key, servidor) |
+| `serve-kb.sh` | Servir KB via HTTP para download no Mac |
+| `benchmark_bridge.py` | Benchmark de latência da bridge |
+| `benchmark_memory.py` | Benchmark de memória |
+| `bianinho_bridge.py` | Bridge TCP Python (22 comandos) |
 
 ## Segurança
 
 - **HMAC auth**: Token com TTL de 24h
 - **Rate limiting**: 100 req/min por cliente
-- **Skills sandbox**: subprocess isolado com resource limits (CPU 60s, RAM 500MB)
-- **Payload validation**: schemas para todos os comandos
+- **Skills sandbox**: subprocess isolado com resource limits
 - **Backup/rollback**: 3 níveis (pre-write, diário, semanal)
 - **RAG isolation**: access levels (full, read_sac, read_personal)
 
 ## Acesso à Bridge
+
 - **Porta**: `18743` (TCP localhost)
-- **Interface**: Unix socket fallback → TCP localhost
 - **Token**: gerado em `~/.hermes/config/bridge_secret.key`
 
-## Benchmarks (Fase 4)
+## Uninstall
 
-### Latência Bridge (01/05/2026)
-| Comando | P95 | Target | Status |
-|---------|-----|--------|--------|
-| ping | 0.22ms | 50ms | ✅ OK |
-| status | 0.24ms | 100ms | ✅ OK |
-| check_hermes | 0.26ms | 200ms | ✅ OK |
-
-### Memória Bridge (01/05/2026)
-| Métrica | Actual | Target | Status |
-|---------|--------|--------|--------|
-| RSS | 9.5 MB | 500 MB | ✅ OK |
-| VMS | 15.3 MB | — | OK |
-
-### Unit Tests
-```
-34 tests — 100% PASSED (pytest)
-  - Auth: 6 tests
-  - Rate Limit: 5 tests
-  - RAG: 4 tests
-  - Skills: 7 tests
-  - Protocol: 10 tests
-  - Integration: 2 tests
-```
-
-### Segurança (SAST)
-| Severidade | Qtd | Estado |
-|------------|-----|--------|
-| 🔴 Crítica | 2 | em `sac-agent-local` (não afectar bridge) |
-| 🟡 Média | 2 | RAG input sanitization recomendada |
-| ✅ Protegido | 2 | SQL injection (parametrized), passwords (bcrypt) |
-
-Executar benchmarks:
 ```bash
-python3 scripts/benchmark_bridge.py
-python3 scripts/benchmark_memory.py
+# Remover completamente:
+rm -rf ~/AionUI-Bianinho
+rm -rf ~/Library/ApplicationSupport/AionUI
+rm -f ~/bin/aionui-bianinho
+rm -f ~/bin/bianinho
+pkill -f bianinho_bridge
 ```
